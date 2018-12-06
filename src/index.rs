@@ -4,12 +4,15 @@ use std::env;
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::slice::Windows;
+use std::io::Read;
+use std::io::Error;
 
 const MAX_BYTES_INDEX: u64 = 10 * 1024 * 1024;
 
 
 pub struct Index {
     offset: u64,
+    base_offset: u64,
     mmap: Box<MmapMut>,
 }
 
@@ -28,7 +31,8 @@ impl Index {
 
         Index {
             offset: 0,
-            mmap: Box::new(unsafe { MmapMut::map_mut(&file).unwrap() }),
+            base_offset,
+            mmap: Box::new(unsafe { MmapMut::map_mut(&file).unwrap() })
         }
     }
 
@@ -37,13 +41,17 @@ impl Index {
     }
 
     pub fn write_entry(&mut self, entry: Entry) {
-        let bytes: Vec<u8> = entry.into();
+        let mut e = entry.clone();
+        e.offset = e.offset - self.base_offset;
+        let bytes: Vec<u8> = e.into();
         self.write_at(bytes.as_ref(), self.offset);
     }
 
     pub fn read_entry(&self, offset: usize) -> Entry {
         let bytes = &self.mmap[offset..offset + 16];
-        Entry::from(bytes)
+        let mut entry = Entry::from(bytes);
+        entry.offset = entry.offset + self.base_offset;
+        return entry;
     }
 
     pub fn find_entry (&self, offset: u64) -> Option<Entry> {
@@ -60,11 +68,12 @@ impl Index {
 #[cfg(test)]
 mod tests {
     use crate::entry::Entry;
+    use core::borrow::BorrowMut;
 
     #[test]
     fn write_index() {
         let mut index = super::Index::new(0);
-        let entry = Entry::new(0, 10);
+        let mut entry = Entry::new(0, 10);
         index.write_entry(entry);
     }
 

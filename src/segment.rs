@@ -7,6 +7,7 @@ use std::io::Read;
 use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
+use core::borrow::BorrowMut;
 
 const MAX_SEGMENT_BYES: u64 =  1024 * 1024 * 1024;
 

@@ -1,3 +1,5 @@
+extern crate core;
+
 mod entry;
 mod log;
 mod index;

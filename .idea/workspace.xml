@@ -2,13 +2,9 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="37c3191e-0700-4949-bba5-1891196f4165" name="Default" comment="">
-      <change afterPath="$PROJECT_DIR$/src/reader.rs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/segment.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/entry.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/entry.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/index.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/index.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/log.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/log.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/main.rs" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="TRACKING_ENABLED" value="true" />
@@ -19,16 +15,16 @@
   </component>
   <component name="FileEditorManager">
     <leaf SIDE_TABS_SIZE_LIMIT_KEY="300">
-      <file leaf-file-name="log.rs" pinned="false" current-in-tab="true">
+      <file leaf-file-name="log.rs" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/src/log.rs">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="84">
-              <caret line="10" column="11" selection-start-line="10" selection-start-column="11" selection-end-line="10" selection-end-column="11" />
+            <state relative-caret-position="-603">
+              <caret line="26" column="35" selection-start-line="26" selection-start-column="35" selection-end-line="26" selection-end-column="35" />
               <folding>
                 <element signature="e#821#822#0" expanded="true" />
                 <element signature="e#881#882#0" expanded="true" />
-                <element signature="e#1262#1263#0" expanded="true" />
-                <element signature="e#1319#1320#0" expanded="true" />
+                <element signature="e#1303#1304#0" expanded="true" />
+                <element signature="e#1360#1361#0" expanded="true" />
               </folding>
             </state>
           </provider>
@@ -37,12 +33,30 @@
       <file leaf-file-name="segment.rs" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/src/segment.rs">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="105">
-              <caret line="21" column="12" selection-start-line="21" selection-start-column="12" selection-end-line="21" selection-end-column="12" />
+            <state relative-caret-position="141">
+              <caret line="19" lean-forward="true" selection-start-line="19" selection-end-line="19" />
               <folding>
                 <element signature="e#891#892#0" expanded="true" />
                 <element signature="e#935#936#0" expanded="true" />
               </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file leaf-file-name="entry.rs" pinned="false" current-in-tab="true">
+        <entry file="file://$PROJECT_DIR$/src/entry.rs">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="128">
+              <caret line="14" column="17" selection-start-line="14" selection-start-column="17" selection-end-line="14" selection-end-column="17" />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file leaf-file-name="index.rs" pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/src/index.rs">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="111">
+              <caret line="42" column="49" selection-start-line="42" selection-start-column="43" selection-end-line="42" selection-end-column="49" />
             </state>
           </provider>
         </entry>
@@ -80,6 +94,8 @@
       <find>self.active_segment.ne</find>
       <find>segments,</find>
       <find>sefl</find>
+      <find>(path</find>
+      <find>offset</find>
     </findStrings>
   </component>
   <component name="Git.Settings">
@@ -93,11 +109,11 @@
         <option value="$PROJECT_DIR$/.circleci/config.yaml" />
         <option value="$PROJECT_DIR$/.circleci/config.yml" />
         <option value="$PROJECT_DIR$/src/main.rs" />
-        <option value="$PROJECT_DIR$/src/entry.rs" />
-        <option value="$PROJECT_DIR$/src/index.rs" />
         <option value="$PROJECT_DIR$/src/reader.rs" />
         <option value="$PROJECT_DIR$/src/segment.rs" />
         <option value="$PROJECT_DIR$/src/log.rs" />
+        <option value="$PROJECT_DIR$/src/index.rs" />
+        <option value="$PROJECT_DIR$/src/entry.rs" />
       </list>
     </option>
   </component>
@@ -233,12 +249,12 @@
       <option name="presentableId" value="Default" />
       <updated>1544061385219</updated>
       <workItem from="1544061386490" duration="57000" />
-      <workItem from="1544061458648" duration="14255000" />
+      <workItem from="1544061458648" duration="15202000" />
     </task>
     <servers />
   </component>
   <component name="TimeTrackingManager">
-    <option name="totallyTimeSpent" value="14312000" />
+    <option name="totallyTimeSpent" value="15259000" />
   </component>
   <component name="ToolWindowManager">
     <frame x="0" y="23" width="1440" height="794" extended-state="0" />
@@ -377,13 +393,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/src/entry.rs">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="105">
-          <caret line="7" column="7" selection-start-line="7" selection-start-column="7" selection-end-line="7" selection-end-column="7" />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$USER_HOME$/.rustup/toolchains/nightly-x86_64-apple-darwin/lib/rustlib/src/rust/src/libstd/sync/rwlock.rs">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="146">
@@ -412,17 +421,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/src/index.rs">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-219">
-          <caret line="40" column="50" selection-start-line="40" selection-start-column="50" selection-end-line="40" selection-end-column="50" />
-          <folding>
-            <element signature="e#1158#1159#0" expanded="true" />
-            <element signature="e#1200#1201#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/src/reader.rs">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="60">
@@ -444,10 +442,23 @@
         </state>
       </provider>
     </entry>
+    <entry file="file://$PROJECT_DIR$/src/log.rs">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="-603">
+          <caret line="26" column="35" selection-start-line="26" selection-start-column="35" selection-end-line="26" selection-end-column="35" />
+          <folding>
+            <element signature="e#821#822#0" expanded="true" />
+            <element signature="e#881#882#0" expanded="true" />
+            <element signature="e#1303#1304#0" expanded="true" />
+            <element signature="e#1360#1361#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
     <entry file="file://$PROJECT_DIR$/src/segment.rs">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="105">
-          <caret line="21" column="12" selection-start-line="21" selection-start-column="12" selection-end-line="21" selection-end-column="12" />
+        <state relative-caret-position="141">
+          <caret line="19" lean-forward="true" selection-start-line="19" selection-end-line="19" />
           <folding>
             <element signature="e#891#892#0" expanded="true" />
             <element signature="e#935#936#0" expanded="true" />
@@ -455,16 +466,17 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/src/log.rs">
+    <entry file="file://$PROJECT_DIR$/src/index.rs">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="84">
-          <caret line="10" column="11" selection-start-line="10" selection-start-column="11" selection-end-line="10" selection-end-column="11" />
-          <folding>
-            <element signature="e#821#822#0" expanded="true" />
-            <element signature="e#881#882#0" expanded="true" />
-            <element signature="e#1262#1263#0" expanded="true" />
-            <element signature="e#1319#1320#0" expanded="true" />
-          </folding>
+        <state relative-caret-position="111">
+          <caret line="42" column="49" selection-start-line="42" selection-start-column="43" selection-end-line="42" selection-end-column="49" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/entry.rs">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="128">
+          <caret line="14" column="17" selection-start-line="14" selection-start-column="17" selection-end-line="14" selection-end-column="17" />
         </state>
       </provider>
     </entry>
