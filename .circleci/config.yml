@@ -16,7 +16,7 @@ jobs:
             rustup run nightly cargo build
       - run:
           name: Test
-          command: rustup run stable cargo test
+          command: rustup run nightly cargo test
       - save_cache:
           key: cargo-{{ checksum "Cargo.toml" }}
           paths:
