@@ -1,3 +1,4 @@
+use crate::entry::Entry;
 use memmap::MmapMut;
 use std::env;
 use std::fs::OpenOptions;
@@ -11,9 +12,9 @@ struct Index {
 }
 
 impl Index {
-    pub fn new(index_path: String) -> Index {
+    pub fn new(base_offset: usize) -> Index {
         let mut path = env::temp_dir();
-        path.push(index_path);
+        path.push(format!("{}.index", base_offset));
         let file = OpenOptions::new()
             .read(true)
             .write(true)
@@ -33,14 +34,14 @@ impl Index {
         (&mut self.mmap[offset..]).write_all(bytes).unwrap();
     }
 
-    pub fn write_entry(&mut self, entry: entry::Entry) {
+    pub fn write_entry(&mut self, entry: Entry) {
         let bytes: Vec<u8> = entry.into();
         self.write_at(bytes.as_ref(), self.offset);
     }
 
-    pub fn read_entry(&self, offset: usize) -> entry::Entry {
+    pub fn read_entry(&self, offset: usize) -> Entry {
         let bytes = &self.mmap[offset..offset + 8];
-        entry::Entry::from(bytes)
+        Entry::from(bytes)
     }
 
     pub fn sync(&self) {
@@ -50,17 +51,19 @@ impl Index {
 
 #[cfg(test)]
 mod tests {
+    use crate::entry::Entry;
+
     #[test]
     fn write_index() {
-        let mut index = super::Index::new(String::from("index_test"));
-        let entry = super::entry::Entry::new(0, 10);
+        let mut index = super::Index::new(0);
+        let entry = Entry::new(0, 10);
         index.write_entry(entry);
     }
 
     #[test]
     fn read_index() {
-        let mut index = super::Index::new(String::from("index_test"));
-        let entry = super::entry::Entry::new(0, 10);
+        let mut index = super::Index::new(0);
+        let entry = Entry::new(0, 10);
         index.write_entry(entry);
         assert_eq!(entry, index.read_entry(0));
     }
