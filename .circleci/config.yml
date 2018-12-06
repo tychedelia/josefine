@@ -8,11 +8,6 @@ jobs:
       - restore_cache:
           key: cargo-{{ checksum "cargo.toml" }}
       - run:
-          name: Check formatting
-          command: |
-            rustfmt --version
-            cargo fmt -- --write-mode=diff
-      - run:
           name: Nightly Build
           command: |
             rustup run nightly rustc --version --verbose
