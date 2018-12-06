@@ -3,16 +3,18 @@ use memmap::MmapMut;
 use std::env;
 use std::fs::OpenOptions;
 use std::io::Write;
+use std::slice::Windows;
 
 const MAX_BYTES_INDEX: u64 = 10 * 1024 * 1024;
 
-struct Index {
-    offset: usize,
+
+pub struct Index {
+    offset: u64,
     mmap: Box<MmapMut>,
 }
 
 impl Index {
-    pub fn new(base_offset: usize) -> Index {
+    pub fn new(base_offset: u64) -> Index {
         let mut path = env::temp_dir();
         path.push(format!("{}.index", base_offset));
         let file = OpenOptions::new()
@@ -30,8 +32,8 @@ impl Index {
         }
     }
 
-    pub fn write_at(&mut self, bytes: &[u8], offset: usize) {
-        (&mut self.mmap[offset..]).write_all(bytes).unwrap();
+    pub fn write_at(&mut self, bytes: &[u8], offset: u64) {
+        (&mut self.mmap[offset as usize..]).write_all(bytes).unwrap();
     }
 
     pub fn write_entry(&mut self, entry: Entry) {
@@ -40,8 +42,14 @@ impl Index {
     }
 
     pub fn read_entry(&self, offset: usize) -> Entry {
-        let bytes = &self.mmap[offset..offset + 8];
+        let bytes = &self.mmap[offset..offset + 16];
         Entry::from(bytes)
+    }
+
+    pub fn find_entry (&self, offset: u64) -> Option<Entry> {
+        let idx = self.mmap.windows(16).position(|x| Entry::from(x).offset == offset )?;
+        let entry = Entry::from(&self.mmap[idx..idx + 16]);
+        Some(entry)
     }
 
     pub fn sync(&self) {
