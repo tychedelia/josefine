@@ -4,6 +4,7 @@ use std::fs::OpenOptions;
 use std::io::Write;
 use std::io::Cursor;
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use std::convert::From;
 
 const MAX_BYTES_INDEX: u64 = 10 * 1024 * 1024;
 
@@ -24,15 +25,19 @@ impl Entry {
             position,
         }
     }
+}
 
-    pub fn to_bytes(&self) -> Vec<u8> {
+impl From<Entry> for Vec<u8> {
+    fn from(entry: Entry) -> Self {
         let mut bytes = vec![];
-        bytes.write_u32::<BigEndian>(self.offset).unwrap();
-        bytes.write_u32::<BigEndian>(self.position).unwrap();
+        bytes.write_u32::<BigEndian>(entry.offset).unwrap();
+        bytes.write_u32::<BigEndian>(entry.position).unwrap();
         bytes
     }
+}
 
-    pub fn from_bytes(bytes: &[u8]) -> Entry {
+impl From<&[u8]> for Entry {
+    fn from(bytes: &[u8]) -> Self {
         assert_eq!(bytes.len(), 8);
         let offset_vec: Vec<u8> = bytes.iter().take(4).cloned().collect();
         let offset = Cursor::new(offset_vec).read_u32::<BigEndian>().unwrap();
@@ -74,12 +79,13 @@ impl Index {
     }
 
     pub fn write_entry(&mut self, entry: Entry) {
-        self.write_at(entry.to_bytes().as_ref(), self.offset);
+        let bytes: Vec<u8> = entry.into();
+        self.write_at(bytes.as_ref(), self.offset);
     }
 
     pub fn read_entry(&self, offset: usize) -> Entry {
         let bytes = &self.mmap[offset..offset + 8];
-        Entry::from_bytes(bytes)
+        Entry::from(bytes)
     }
 
     pub fn sync(&self) {
@@ -94,19 +100,21 @@ mod tests {
     fn entry_to_bytes() {
         let bytes = vec![0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0A];
         let entry = super::Entry::new(0, 10);
-        assert_eq!(bytes, entry.to_bytes());
+        let res_bytes: Vec<u8> = entry.into();
+        assert_eq!(bytes, res_bytes);
         let bytes = vec![0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x6F];
         let entry = super::Entry::new(0, 111);
-        assert_eq!(bytes, entry.to_bytes());
+        let res_bytes: Vec<u8> = entry.into();
+        assert_eq!(bytes, res_bytes);
     }
 
     #[test]
     fn byes_to_entry() {
         let bytes = vec![0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0A];
         let entry = super::Entry::new(0, 10);
-        assert_eq!(entry, super::Entry::from_bytes(bytes.as_ref()));
+        assert_eq!(entry, super::Entry::from(bytes.as_ref()));
         let bytes = vec![0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x6F];
         let entry = super::Entry::new(0, 111);
-        assert_eq!(entry, super::Entry::from_bytes(bytes.as_ref()));
+        assert_eq!(entry, super::Entry::from(bytes.as_ref()));
     }
 }
