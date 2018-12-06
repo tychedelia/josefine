@@ -22,20 +22,21 @@ pub struct Segment {
 impl Segment {
     pub fn new(path: PathBuf, base_offset: u64) -> Segment {
         let mut path = path.clone();
+        let index = Index::new(path.clone(), base_offset);
         path.push(Segment::log_name(base_offset));
         let log = OpenOptions::new()
             .read(true)
             .write(true)
             .create(true)
-            .open(path)
-            .unwrap();
+            .open(path.clone())
+            .expect("Couldn't create segment file.");
 
         Segment {
             base_offset,
             next_offset: 0,
             bytes: 0,
             log,
-            index: Index::new(base_offset)
+            index,
         }
     }
 

@@ -17,14 +17,14 @@ pub struct Log {
 
 impl Log {
     pub fn new(path: &Path) -> Log {
-        fs::create_dir_all(&path).unwrap();
+        fs::create_dir_all(&path).expect("Couldn't create log dir");
         let segment = Segment::new(path.to_owned(), 0);
         let segments = vec![segment];
         Log {
             path: path.to_owned(),
             segments,
             active_segment: 0,
-            rwlock: RwLock::new(255)
+            rwlock: RwLock::new(255),
         }
     }
 
@@ -35,13 +35,13 @@ impl Log {
     }
 
     fn newest_offset(&self) -> u64 {
-       self.segments[self.active_segment].next_offset
+        self.segments[self.active_segment].next_offset
     }
 }
 
 impl Write for Log {
     fn write(&mut self, buf: &[u8]) -> Result<usize, Error> {
-        self.rwlock.write().unwrap();
+        self.rwlock.write().expect("Couldn't obtain lock");
 
         if self.segments[self.active_segment].full() {
             self.split();
@@ -81,9 +81,9 @@ mod test {
         log.write(b"three");
 
         path.push("0.log");
-        let mut f = File::open(&path).unwrap();
+        let mut f = File::open(&path).expect("Log file exists.");
         let mut contents = String::new();
-        f.read_to_string(&mut contents).unwrap();
+        f.read_to_string(&mut contents).expect("Read contents into string.");
         assert_eq!(contents, "onetwothree");
     }
 }
