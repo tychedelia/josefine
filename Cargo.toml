@@ -1,0 +1,11 @@
+[package]
+name = "josefine"
+version = "0.1.0"
+authors = ["jcm <jmcelwain@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+memmap = "0.7.0"
+byteorder = "1.2.7"
+
+
