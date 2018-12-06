@@ -73,9 +73,18 @@ mod tests {
     use std::io::Read;
     use std::io::Seek;
     use std::io::SeekFrom;
+    use std::fs;
+
+    fn before() {
+        let mut path = env::temp_dir();
+        path.push("test");
+        fs::create_dir_all(&path).expect("Couldn't create log dir");
+    }
 
     #[test]
     fn write_index() {
+        before();
+
         let mut path = env::temp_dir();
         path.push("test");
         let mut index = super::Index::new(path, 0);
@@ -85,6 +94,8 @@ mod tests {
 
     #[test]
     fn read_index() {
+        before();
+
         let mut path = env::temp_dir();
         path.push("test");
         let mut index = super::Index::new(path, 0);
@@ -95,6 +106,8 @@ mod tests {
 
     #[test]
     fn relative_offset() {
+        before();
+
         let mut path = env::temp_dir();
         path.push("test");
 

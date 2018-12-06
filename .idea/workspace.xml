@@ -2,10 +2,7 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="37c3191e-0700-4949-bba5-1891196f4165" name="Default" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/index.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/index.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/log.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/log.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/segment.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/segment.rs" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="TRACKING_ENABLED" value="true" />
@@ -19,32 +16,11 @@
       <file leaf-file-name="log.rs" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/src/log.rs">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="-168">
-              <caret line="43" column="55" selection-start-line="43" selection-start-column="55" selection-end-line="43" selection-end-column="55" />
+            <state relative-caret-position="90">
+              <caret line="19" column="8" selection-start-line="19" selection-start-column="8" selection-end-line="19" selection-end-column="8" />
               <folding>
                 <element signature="e#0#28#0" />
                 <element signature="n#!!block;n#Log#0" />
-                <element signature="e#886#887#0" expanded="true" />
-                <element signature="e#946#947#0" expanded="true" />
-                <element signature="e#984#1007#0" />
-                <element signature="e#1126#1163#0" />
-                <element signature="e#1383#1547#0" />
-                <element signature="e#1396#1423#0" />
-                <element signature="e#1448#1545#0" />
-                <element signature="e#1577#1590#0" />
-              </folding>
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file leaf-file-name="index.rs" pinned="false" current-in-tab="true">
-        <entry file="file://$PROJECT_DIR$/src/index.rs">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="322">
-              <caret line="118" column="32" selection-start-line="118" selection-start-column="32" selection-end-line="118" selection-end-column="32" />
-              <folding>
-                <element signature="e#1767#1768#0" expanded="true" />
-                <element signature="e#1809#1810#0" expanded="true" />
               </folding>
             </state>
           </provider>
@@ -71,6 +47,15 @@
           </provider>
         </entry>
       </file>
+      <file leaf-file-name="index.rs" pinned="false" current-in-tab="true">
+        <entry file="file://$PROJECT_DIR$/src/index.rs">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="269">
+              <caret line="109" lean-forward="true" selection-start-line="109" selection-end-line="109" />
+            </state>
+          </provider>
+        </entry>
+      </file>
     </leaf>
   </component>
   <component name="FileTemplateManagerImpl">
@@ -82,10 +67,6 @@
   </component>
   <component name="FindInProjectRecents">
     <findStrings>
-      <find>Open</find>
-      <find>read_</find>
-      <find>segment</find>
-      <find>read_64</find>
       <find>s.</find>
       <find>next</find>
       <find>.write</find>
@@ -112,7 +93,14 @@
       <find>unwrap</find>
       <find>ReadBytes</find>
       <find>byteorder</find>
+      <find>index file</find>
+      <find>dir_all</find>
+      <find>create_</find>
+      <find>createdir</find>
     </findStrings>
+    <replaceStrings>
+      <replace />
+    </replaceStrings>
   </component>
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
@@ -126,9 +114,9 @@
         <option value="$PROJECT_DIR$/.circleci/config.yml" />
         <option value="$PROJECT_DIR$/src/main.rs" />
         <option value="$PROJECT_DIR$/src/reader.rs" />
-        <option value="$PROJECT_DIR$/src/log.rs" />
         <option value="$PROJECT_DIR$/src/segment.rs" />
         <option value="$PROJECT_DIR$/src/entry.rs" />
+        <option value="$PROJECT_DIR$/src/log.rs" />
         <option value="$PROJECT_DIR$/src/index.rs" />
       </list>
     </option>
@@ -267,12 +255,12 @@
       <workItem from="1544061386490" duration="57000" />
       <workItem from="1544061458648" duration="15202000" />
       <workItem from="1544081507703" duration="2037000" />
-      <workItem from="1544083614749" duration="3494000" />
+      <workItem from="1544083614749" duration="3776000" />
     </task>
     <servers />
   </component>
   <component name="TimeTrackingManager">
-    <option name="totallyTimeSpent" value="20790000" />
+    <option name="totallyTimeSpent" value="21072000" />
   </component>
   <component name="ToolWindowManager">
     <frame x="0" y="23" width="1440" height="794" extended-state="0" />
@@ -351,14 +339,6 @@
           <folding>
             <element signature="e#0#28#0" />
             <element signature="n#!!block;n#Log#0" />
-            <element signature="e#886#887#0" expanded="true" />
-            <element signature="e#946#947#0" expanded="true" />
-            <element signature="e#984#1007#0" />
-            <element signature="e#1126#1163#0" />
-            <element signature="e#1383#1547#0" />
-            <element signature="e#1396#1423#0" />
-            <element signature="e#1448#1545#0" />
-            <element signature="e#1577#1590#0" />
           </folding>
         </state>
       </provider>
@@ -367,10 +347,6 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="450">
           <caret line="30" selection-start-line="30" selection-end-line="30" />
-          <folding>
-            <element signature="e#1767#1768#0" expanded="true" />
-            <element signature="e#1809#1810#0" expanded="true" />
-          </folding>
         </state>
       </provider>
     </entry>
@@ -400,14 +376,6 @@
           <folding>
             <element signature="e#0#28#0" />
             <element signature="n#!!block;n#Log#0" />
-            <element signature="e#886#887#0" expanded="true" />
-            <element signature="e#946#947#0" expanded="true" />
-            <element signature="e#984#1007#0" />
-            <element signature="e#1126#1163#0" />
-            <element signature="e#1383#1547#0" />
-            <element signature="e#1396#1423#0" />
-            <element signature="e#1448#1545#0" />
-            <element signature="e#1577#1590#0" />
           </folding>
         </state>
       </provider>
@@ -423,10 +391,6 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="630">
           <caret line="42" column="49" selection-start-line="42" selection-start-column="43" selection-end-line="42" selection-end-column="49" />
-          <folding>
-            <element signature="e#1767#1768#0" expanded="true" />
-            <element signature="e#1809#1810#0" expanded="true" />
-          </folding>
         </state>
       </provider>
     </entry>
@@ -544,44 +508,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/src/log.rs">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-168">
-          <caret line="43" column="55" selection-start-line="43" selection-start-column="55" selection-end-line="43" selection-end-column="55" />
-          <folding>
-            <element signature="e#0#28#0" />
-            <element signature="n#!!block;n#Log#0" />
-            <element signature="e#886#887#0" expanded="true" />
-            <element signature="e#946#947#0" expanded="true" />
-            <element signature="e#984#1007#0" />
-            <element signature="e#1126#1163#0" />
-            <element signature="e#1383#1547#0" />
-            <element signature="e#1396#1423#0" />
-            <element signature="e#1448#1545#0" />
-            <element signature="e#1577#1590#0" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/src/segment.rs">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-183">
-          <caret line="40" column="4" selection-start-line="40" selection-start-column="4" selection-end-line="40" selection-end-column="4" />
-          <folding>
-            <element signature="e#972#973#0" expanded="true" />
-            <element signature="e#1025#1026#0" expanded="true" />
-            <element signature="e#1087#1088#0" expanded="true" />
-            <element signature="e#1131#1132#0" expanded="true" />
-            <element signature="e#1173#1174#0" expanded="true" />
-            <element signature="e#1213#1214#0" expanded="true" />
-            <element signature="e#1592#1593#0" expanded="true" />
-            <element signature="e#1613#1614#0" expanded="true" />
-            <element signature="e#1705#1706#0" expanded="true" />
-            <element signature="e#1738#1739#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$USER_HOME$/.cargo/registry/src/github.com-1ecc6299db9ec823/byteorder-1.2.7/src/io.rs">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="427">
@@ -616,14 +542,40 @@
         </state>
       </provider>
     </entry>
+    <entry file="file://$PROJECT_DIR$/src/log.rs">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="90">
+          <caret line="19" column="8" selection-start-line="19" selection-start-column="8" selection-end-line="19" selection-end-column="8" />
+          <folding>
+            <element signature="e#0#28#0" />
+            <element signature="n#!!block;n#Log#0" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/segment.rs">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="-183">
+          <caret line="40" column="4" selection-start-line="40" selection-start-column="4" selection-end-line="40" selection-end-column="4" />
+          <folding>
+            <element signature="e#972#973#0" expanded="true" />
+            <element signature="e#1025#1026#0" expanded="true" />
+            <element signature="e#1087#1088#0" expanded="true" />
+            <element signature="e#1131#1132#0" expanded="true" />
+            <element signature="e#1173#1174#0" expanded="true" />
+            <element signature="e#1213#1214#0" expanded="true" />
+            <element signature="e#1592#1593#0" expanded="true" />
+            <element signature="e#1613#1614#0" expanded="true" />
+            <element signature="e#1705#1706#0" expanded="true" />
+            <element signature="e#1738#1739#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
     <entry file="file://$PROJECT_DIR$/src/index.rs">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="322">
-          <caret line="118" column="32" selection-start-line="118" selection-start-column="32" selection-end-line="118" selection-end-column="32" />
-          <folding>
-            <element signature="e#1767#1768#0" expanded="true" />
-            <element signature="e#1809#1810#0" expanded="true" />
-          </folding>
+        <state relative-caret-position="269">
+          <caret line="109" lean-forward="true" selection-start-line="109" selection-end-line="109" />
         </state>
       </provider>
     </entry>
