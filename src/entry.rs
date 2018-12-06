@@ -2,7 +2,7 @@ use std::io::Cursor;
 use std::convert::From;
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub struct Entry {
     offset: u32,
     position: u32,
@@ -63,5 +63,12 @@ mod tests {
         let bytes = vec![0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x6F];
         let entry = super::Entry::new(0, 111);
         assert_eq!(entry, super::Entry::from(bytes.as_ref()));
+    }
+
+    #[test]
+    #[should_panic]
+    fn panics_length() {
+        let bytes = vec![0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
+        super::Entry::from(bytes.as_ref());
     }
 }
