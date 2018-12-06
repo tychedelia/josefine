@@ -15,13 +15,6 @@ jobs:
             rustup run nightly cargo --version --verbose
             rustup run nightly cargo build
       - run:
-          name: Stable Build
-          command: |
-            rustup install stable
-            rustup run stable rustc --version --verbose
-            rustup run stable cargo --version --verbose
-            rustup run stable cargo build
-      - run:
           name: Test
           command: rustup run stable cargo test
       - save_cache:
