@@ -1,12 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="37c3191e-0700-4949-bba5-1891196f4165" name="Default" comment="">
-      <change afterPath="$PROJECT_DIR$/src/log.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/index.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/index.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/main.rs" afterDir="false" />
-    </list>
+    <list default="true" id="37c3191e-0700-4949-bba5-1891196f4165" name="Default" comment="" />
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="TRACKING_ENABLED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
@@ -28,15 +23,24 @@
           </provider>
         </entry>
       </file>
-      <file leaf-file-name="index.rs" pinned="false" current-in-tab="true">
+      <file leaf-file-name="index.rs" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/src/index.rs">
           <provider selected="true" editor-type-id="text-editor">
-            <state>
-              <caret column="10" lean-forward="true" selection-start-column="10" selection-end-column="10" />
+            <state relative-caret-position="357">
+              <caret line="65" column="20" selection-start-line="65" selection-start-column="20" selection-end-line="65" selection-end-column="20" />
               <folding>
-                <element signature="e#1186#1187#0" expanded="true" />
-                <element signature="e#1228#1229#0" expanded="true" />
+                <element signature="e#1155#1156#0" expanded="true" />
+                <element signature="e#1197#1198#0" expanded="true" />
               </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file leaf-file-name="config.yaml" pinned="false" current-in-tab="true">
+        <entry file="file://$PROJECT_DIR$/.circleci/config.yaml">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="72">
+              <caret line="9" selection-start-line="9" selection-end-line="9" />
             </state>
           </provider>
         </entry>
@@ -94,8 +98,9 @@
         <option value="$PROJECT_DIR$/Cargo.toml" />
         <option value="$PROJECT_DIR$/src/entry.rs" />
         <option value="$PROJECT_DIR$/src/log.rs" />
-        <option value="$PROJECT_DIR$/src/index.rs" />
         <option value="$PROJECT_DIR$/src/main.rs" />
+        <option value="$PROJECT_DIR$/src/index.rs" />
+        <option value="$PROJECT_DIR$/.circleci/config.yaml" />
       </list>
     </option>
   </component>
@@ -125,6 +130,11 @@
             <path>
               <item name="josefine" type="b2602c69:ProjectViewProjectNode" />
               <item name="josefine" type="462c0819:PsiDirectoryNode" />
+            </path>
+            <path>
+              <item name="josefine" type="b2602c69:ProjectViewProjectNode" />
+              <item name="josefine" type="462c0819:PsiDirectoryNode" />
+              <item name=".circleci" type="462c0819:PsiDirectoryNode" />
             </path>
             <path>
               <item name="josefine" type="b2602c69:ProjectViewProjectNode" />
@@ -226,12 +236,12 @@
       <option name="presentableId" value="Default" />
       <updated>1544061385219</updated>
       <workItem from="1544061386490" duration="57000" />
-      <workItem from="1544061458648" duration="8601000" />
+      <workItem from="1544061458648" duration="8906000" />
     </task>
     <servers />
   </component>
   <component name="TimeTrackingManager">
-    <option name="totallyTimeSpent" value="8658000" />
+    <option name="totallyTimeSpent" value="8963000" />
   </component>
   <component name="ToolWindowManager">
     <frame x="0" y="23" width="1440" height="794" extended-state="0" />
@@ -382,12 +392,19 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/src/index.rs">
       <provider selected="true" editor-type-id="text-editor">
-        <state>
-          <caret column="10" lean-forward="true" selection-start-column="10" selection-end-column="10" />
+        <state relative-caret-position="357">
+          <caret line="65" column="20" selection-start-line="65" selection-start-column="20" selection-end-line="65" selection-end-column="20" />
           <folding>
-            <element signature="e#1186#1187#0" expanded="true" />
-            <element signature="e#1228#1229#0" expanded="true" />
+            <element signature="e#1155#1156#0" expanded="true" />
+            <element signature="e#1197#1198#0" expanded="true" />
           </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/.circleci/config.yaml">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="72">
+          <caret line="9" selection-start-line="9" selection-end-line="9" />
         </state>
       </provider>
     </entry>
