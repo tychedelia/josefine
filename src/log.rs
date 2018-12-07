@@ -28,12 +28,6 @@ impl Log {
         }
     }
 
-    fn split(&mut self) {
-        let segment = Segment::new(self.path.to_owned(), self.newest_offset());
-        self.active_segment = self.segments.len();
-        self.segments.push(segment);
-    }
-
     fn newest_offset(&self) -> u64 {
         self.segments[self.active_segment].next_offset
     }
@@ -41,10 +35,12 @@ impl Log {
 
 impl Write for Log {
     fn write(&mut self, buf: &[u8]) -> Result<usize, Error> {
-        self.rwlock.write().expect("Couldn't obtain lock");
+        let lock = self.rwlock.write().expect("Couldn't obtain write lock.");
 
         if self.segments[self.active_segment].full() {
-            self.split();
+            let segment = Segment::new(self.path.to_owned(), self.newest_offset());
+            self.active_segment = self.segments.len();
+            self.segments.push(segment);
         }
 
         self.segments[self.active_segment].write(buf)?;
@@ -58,7 +54,7 @@ impl Write for Log {
 
 impl Read for Log {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, Error> {
-        self.rwlock.read().unwrap();
+        let lock = self.rwlock.read().expect("Couldn't obtain read lock.");
         self.segments[self.active_segment].read(buf)
     }
 }
@@ -76,9 +72,9 @@ mod test {
         path.push("test");
         let mut log = super::Log::new(&path);
 
-        log.write(b"one");
-        log.write(b"two");
-        log.write(b"three");
+        log.write(b"one").unwrap();
+        log.write(b"two").unwrap();
+        log.write(b"three").unwrap();
 
         path.push("0.log");
         let mut f = File::open(&path).expect("Log file exists.");

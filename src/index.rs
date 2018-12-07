@@ -124,9 +124,9 @@ mod tests {
             .open(path)
             .unwrap();
 
-        file.seek(SeekFrom::Start(15));
+        file.seek(SeekFrom::Start(15)).unwrap();
         let mut bytes = [0u8; 16];
-        file.read(&mut bytes);
+        file.read(&mut bytes).unwrap();
 
         let entry = Entry::from(bytes.as_ref());
         assert_eq!(entry.offset, 15);

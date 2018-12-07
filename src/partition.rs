@@ -1,13 +1,18 @@
-pub struct Partition {
-    id: u64,
-    topic: String,
-}
+use crate::log::Log;
 
-impl Partition {
-    pub fn new() -> Partition {
-        Partition {
-            id: 0,
-            topic: String::new(),
-        }
-    }
-}
+//pub struct Partition {
+//    topic: String,
+//    partition: u64,
+//    log: Log,
+//}
+//
+//impl Partition {
+//    pub fn new() -> Partition {
+////        let log = Log::new();
+//        Partition {
+//            topic: String::new(),
+//            partition: 0,
+//            log: Log::new(),
+//        }
+//    }
+//}
