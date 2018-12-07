@@ -1,15 +1,20 @@
 extern crate core;
 
-mod entry;
-mod log;
-mod index;
-mod segment;
-mod server;
-mod partition;
+pub mod entry;
+pub mod log;
+pub mod index;
+pub mod segment;
+pub mod server;
+pub mod partition;
+pub mod raft {
+    pub mod raft;
+    pub mod follower;
+    pub mod candidate;
+    pub mod leader;
+    pub mod config;
+}
 
 fn main() {
     println!("Hello, world!");
-    let broker = server::Broker::new(0, String::from(""), String::from(""));
-    let server = server::Server::new(String::from("localhost:3000"), broker);
-    server.start();
 }
+
