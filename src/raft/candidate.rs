@@ -94,4 +94,3 @@ impl <T: IO> From<Raft<Candidate, T>> for Raft<Leader, T> {
         }
     }
 }
-

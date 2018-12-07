@@ -12,7 +12,7 @@ pub struct Follower {
     pub leader_id: Option<u64>,
 }
 
-impl <T: IO> Apply<T> for Raft<Follower, T> {
+impl<T: IO> Apply<T> for Raft<Follower, T> {
     fn apply(mut self, command: Command) -> Result<ApplyResult<T>, Error> {
         match command {
             Command::Append { entries, from, .. } => {
@@ -20,19 +20,19 @@ impl <T: IO> Apply<T> for Raft<Follower, T> {
                 self.inner.leader_id = Some(from);
                 self.io.append(entries);
                 Ok(ApplyResult::Follower(self))
-            },
+            }
             Command::Heartbeat { from, .. } => {
                 self.election_time = 0;
                 self.inner.leader_id = Some(from);
                 self.io.heartbeat(from);
                 Ok(ApplyResult::Follower(self))
-            },
+            }
             _ => Ok(ApplyResult::Follower(self))
         }
     }
 }
 
-impl <T: IO> Raft<Follower, T> {
+impl<T: IO> Raft<Follower, T> {
     fn new(config: &Config, io: T) -> Result<Raft<Follower, T>, Error> {
         &config.init()?;
 
@@ -55,7 +55,7 @@ impl <T: IO> Raft<Follower, T> {
     }
 }
 
-impl <T: IO> From<Raft<Follower, T>> for Raft<Candidate, T> {
+impl<T: IO> From<Raft<Follower, T>> for Raft<Candidate, T> {
     fn from(val: Raft<Follower, T>) -> Raft<Candidate, T> {
         Raft {
             id: val.id,
@@ -72,6 +72,34 @@ impl <T: IO> From<Raft<Follower, T>> for Raft<Candidate, T> {
             io: val.io,
             role: Role::Candidate,
             inner: Candidate { votes: HashMap::new() },
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Raft;
+    use super::Config;
+    use super::IO;
+    use super::Apply;
+    use super::Command;
+    use super::ApplyResult;
+    use crate::raft::raft::MemoryIO;
+
+    #[test]
+    fn follower_to_candidate() {
+        let follower = Raft::new(&Config { id: 0 }, MemoryIO::new()).unwrap();
+
+        let current_term = follower.current_term;
+
+        match follower.apply(Command::Vote {
+            term: 0,
+            from: 0,
+            voted: false,
+        }).unwrap() {
+            ApplyResult::Follower(f) => { assert_eq!(current_term, f.current_term) }
+            ApplyResult::Candidate(_) => { panic!() }
+            ApplyResult::Leader(_) => { panic!() }
         }
     }
 }

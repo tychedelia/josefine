@@ -26,8 +26,27 @@ pub enum Role {
 
 // IO
 pub trait IO {
+    fn new() -> Self;
     fn append(&mut self, entries: Vec<u8>);
     fn heartbeat(&mut self, id: u64);
+}
+
+pub struct MemoryIO {
+
+}
+
+impl IO for MemoryIO {
+    fn new() -> Self {
+        MemoryIO {}
+    }
+
+    fn append(&mut self, entries: Vec<u8>) {
+        unimplemented!()
+    }
+
+    fn heartbeat(&mut self, id: u64) {
+        unimplemented!()
+    }
 }
 
 pub struct Raft<S, T: IO> {
