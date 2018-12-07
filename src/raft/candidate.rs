@@ -36,7 +36,7 @@ impl <T: IO> Apply<T> for Raft<Candidate, T> {
                     return Ok(ApplyResult::Leader(raft));
                 }
 
-                Ok(ApplyResult::None)
+                Ok(ApplyResult::Candidate(self))
             },
             Command::Append { entries, .. } => {
                 let mut raft: Raft<Follower, T> = Raft::from(self);
@@ -48,7 +48,7 @@ impl <T: IO> Apply<T> for Raft<Candidate, T> {
                 raft.io.heartbeat(from);
                 Ok(ApplyResult::Follower(raft))
             },
-            _ => Ok(ApplyResult::None)
+            _ => Ok(ApplyResult::Candidate(self))
         }
     }
 }

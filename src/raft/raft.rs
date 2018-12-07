@@ -63,7 +63,6 @@ pub enum ApplyResult<T: IO> {
     Follower(Raft<Follower, T>),
     Candidate(Raft<Candidate, T>),
     Leader(Raft<Leader, T>),
-    None,
 }
 
 pub trait Apply<T: IO> {
