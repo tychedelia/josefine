@@ -4,11 +4,14 @@ use crate::raft::leader::Leader;
 use crate::raft::follower::Follower;
 use crate::raft::candidate::Candidate;
 
+#[derive(Debug)]
 pub enum Command {
     RequestVote { term: u64, from: u64 },
     Vote { term: u64, from: u64, voted: bool },
     Append { term: u64, from: u64, entries: Vec<u8> },
-    Heartbeat { term: u64, from: u64 }
+    Heartbeat { term: u64, from: u64 },
+    Timeout,
+    Noop,
 }
 
 pub enum Response {
@@ -49,6 +52,10 @@ impl IO for MemoryIO {
     }
 }
 
+pub struct Node {
+    pub id: u64,
+}
+
 pub struct Raft<S, T: IO> {
     pub id: u64,
 
@@ -68,10 +75,17 @@ pub struct Raft<S, T: IO> {
     pub min_election_timeout: usize,
     pub max_election_timeout: usize,
 
+    pub cluster: Vec<Node>,
 
     pub io: T,
     pub role: Role,
     pub inner: S,
+}
+
+impl <S, T: IO> Raft<S, T> {
+    pub fn add_node_to_cluster(&mut self, node: Node) {
+        self.cluster.push(node);
+    }
 }
 
 struct Log {

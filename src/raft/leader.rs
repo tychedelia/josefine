@@ -4,6 +4,7 @@ use crate::raft::raft::Role;
 use crate::raft::raft::Raft;
 use crate::raft::follower::Follower;
 use std::io::Error;
+use log::{info, trace, warn};
 
 pub struct Leader {
 
@@ -17,6 +18,8 @@ impl <T: IO> Apply<T> for Raft<Leader, T> {
 
 impl <T: IO> From<Raft<Leader, T>> for Raft<Follower, T> {
     fn from(val: Raft<Leader, T>) -> Raft<Follower, T> {
+        info!("{} transitioning from leader to follower", val.id);
+
         Raft {
             id: val.id,
             current_term: val.current_term,
@@ -29,6 +32,7 @@ impl <T: IO> From<Raft<Leader, T>> for Raft<Follower, T> {
             heartbeat_timeout: val.heartbeat_timeout,
             min_election_timeout: val.min_election_timeout,
             max_election_timeout: val.heartbeat_timeout,
+            cluster: val.cluster,
             io: val.io,
             role: Role::Follower,
             inner: Follower { leader_id: None },

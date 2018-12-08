@@ -7,17 +7,35 @@ use crate::raft::raft::Role;
 use crate::raft::leader::Leader;
 use crate::raft::follower::Follower;
 use std::io::Error;
+use log::{info, trace, warn};
 
 pub struct Candidate {
     pub votes: HashMap<u64, bool>,
 }
 
+impl <T: IO> Raft<Candidate, T> {
+    pub fn seek_election(mut self) -> Result<ApplyResult<T>, Error> {
+        info!("{} seeking election", self.id);
+        self.voted_for = self.id;
+        let from = self.id;
+        let term = self.current_term;
+        self.apply(Command::Vote { from, term, voted: true })
+    }
+}
+
+#[inline]
 fn majority(total: usize) -> usize {
+    if total == 1 {
+        return 0;
+    }
+
     (total / 2) + 1
 }
 
 impl <T: IO> Apply<T> for Raft<Candidate, T> {
     fn apply(mut self, command: Command) -> Result<ApplyResult<T>, Error> {
+        trace!("Applying command {:?} to {}", command, self.id);
+
         match command {
             Command::Vote { voted, from, .. } => {
                 self.inner.votes.insert(from, voted);
@@ -31,7 +49,7 @@ impl <T: IO> Apply<T> for Raft<Candidate, T> {
                         (votes, total)
                     });
 
-                if votes > majority(self.inner.votes.len()) {
+                if votes > majority(self.cluster.len()) {
                     let raft: Raft<Leader, T> = Raft::from(self);
                     return Ok(ApplyResult::Leader(raft));
                 }
@@ -67,6 +85,7 @@ impl <T: IO> From<Raft<Candidate, T>> for Raft<Follower, T> {
             heartbeat_timeout: val.heartbeat_timeout,
             min_election_timeout: val.min_election_timeout,
             max_election_timeout: val.heartbeat_timeout,
+            cluster: val.cluster,
             io: val.io,
             role: Role::Follower,
             inner: Follower { leader_id: None },
@@ -88,6 +107,7 @@ impl <T: IO> From<Raft<Candidate, T>> for Raft<Leader, T> {
             heartbeat_timeout: val.heartbeat_timeout,
             min_election_timeout: val.min_election_timeout,
             max_election_timeout: val.heartbeat_timeout,
+            cluster: val.cluster,
             io: val.io,
             role: Role::Leader,
             inner: Leader {},

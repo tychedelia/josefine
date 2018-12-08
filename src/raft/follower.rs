@@ -3,6 +3,7 @@ use crate::raft::raft::IO;
 use crate::raft::raft::Command;
 use crate::raft::raft::Role;
 use crate::raft::raft::Raft;
+use crate::raft::raft::Node;
 use crate::raft::candidate::Candidate;
 use crate::raft::config::Config;
 use std::io::Error;
@@ -27,6 +28,10 @@ impl<T: IO> Apply<T> for Raft<Follower, T> {
                 self.io.heartbeat(from);
                 Ok(ApplyResult::Follower(self))
             }
+            Command::Timeout => {
+                let mut raft: Raft<Candidate, T> = Raft::from(self);
+                raft.seek_election()
+            }
             _ => Ok(ApplyResult::Follower(self))
         }
     }
@@ -48,6 +53,7 @@ impl<T: IO> Raft<Follower, T> {
             heartbeat_timeout: 0,
             min_election_timeout: 0,
             max_election_timeout: 0,
+            cluster: vec![Node { id: config.id }],
             io,
             inner: Follower { leader_id: None },
             role: Role::Follower,
@@ -57,7 +63,7 @@ impl<T: IO> Raft<Follower, T> {
 
 impl<T: IO> From<Raft<Follower, T>> for Raft<Candidate, T> {
     fn from(val: Raft<Follower, T>) -> Raft<Candidate, T> {
-        Raft {
+         Raft {
             id: val.id,
             current_term: val.current_term + 1,
             voted_for: val.id, // vote for self
@@ -69,7 +75,8 @@ impl<T: IO> From<Raft<Follower, T>> for Raft<Candidate, T> {
             heartbeat_timeout: val.heartbeat_timeout,
             min_election_timeout: val.min_election_timeout,
             max_election_timeout: val.heartbeat_timeout,
-            io: val.io,
+             cluster: val.cluster,
+             io: val.io,
             role: Role::Candidate,
             inner: Candidate { votes: HashMap::new() },
         }
@@ -84,22 +91,43 @@ mod tests {
     use super::Apply;
     use super::Command;
     use super::ApplyResult;
+    use super::Node;
     use crate::raft::raft::MemoryIO;
 
     #[test]
     fn follower_to_candidate() {
+        let mut follower = Raft::new(&Config { id: 0 }, MemoryIO::new()).unwrap();
+        follower.add_node_to_cluster(Node { id: 100 });
+
+        let id = follower.id;
+        match follower.apply(Command::Timeout).unwrap() {
+            ApplyResult::Follower(_) => panic!(),
+            ApplyResult::Candidate(candidate) => {
+                assert_eq!(id, candidate.id)
+            }
+            ApplyResult::Leader(_) => panic!(),
+        }
+    }
+
+    #[test]
+    fn follower_to_leader_single_node_cluster() {
         let follower = Raft::new(&Config { id: 0 }, MemoryIO::new()).unwrap();
+        let id = follower.id;
+        match follower.apply(Command::Timeout).unwrap() {
+            ApplyResult::Follower(_) => panic!(),
+            ApplyResult::Candidate(_) => panic!(),
+            ApplyResult::Leader(leader) => assert_eq!(id, leader.id),
+        }
+    }
 
-        let current_term = follower.current_term;
-
-        match follower.apply(Command::Vote {
-            term: 0,
-            from: 0,
-            voted: false,
-        }).unwrap() {
-            ApplyResult::Follower(f) => { assert_eq!(current_term, f.current_term) }
-            ApplyResult::Candidate(_) => { panic!() }
-            ApplyResult::Leader(_) => { panic!() }
+    #[test]
+    fn follower_noop() {
+        let follower = Raft::new(&Config { id: 0 }, MemoryIO::new()).unwrap();
+        let id = follower.id;
+        match follower.apply(Command::Noop).unwrap() {
+            ApplyResult::Follower(follower) => assert_eq!(id, follower.id),
+            ApplyResult::Candidate(candidate) => panic!(),
+            ApplyResult::Leader(_) => panic!(),
         }
     }
 }
