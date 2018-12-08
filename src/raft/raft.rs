@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use crate::raft::leader::Leader;
 use crate::raft::follower::Follower;
 use crate::raft::candidate::Candidate;
+use std::sync::mpsc::{Sender, Receiver};
 
 #[derive(Debug)]
 pub enum Command {
@@ -61,19 +62,20 @@ impl IO for MemoryIO {
 
 pub struct Node {
     pub id: u64,
+    pub address: String,
 }
 
 impl Node {
     pub fn new(id: u64) -> Node {
         Node {
-            id
+            id,
+            address: String::new(),
         }
     }
 }
 
-pub struct Raft<S, T: IO> {
-    pub id: u64,
-
+#[derive(PartialEq, Clone, Copy)]
+pub struct State {
     // update on storage
     pub current_term: u64,
     pub voted_for: u64,
@@ -89,8 +91,35 @@ pub struct Raft<S, T: IO> {
     pub heartbeat_timeout: usize,
     pub min_election_timeout: usize,
     pub max_election_timeout: usize,
+}
+
+impl State {
+    pub fn new() -> State {
+        State {
+            current_term: 0,
+            voted_for: 0,
+            commit_index: 0,
+            last_applied: 0,
+            election_time: 0,
+            heartbeat_time: 0,
+            election_timeout: 0,
+            heartbeat_timeout: 0,
+            min_election_timeout: 0,
+            max_election_timeout: 0,
+        }
+    }
+}
+
+pub struct Raft<S, T: IO> {
+    pub id: u64,
+
+    // messaging
+    pub outbox: Receiver<Command>,
+    pub sender: Sender<Command>,
 
     pub cluster: Vec<Node>,
+
+    pub state: State,
 
     pub io: T,
     pub role: Role,
@@ -101,10 +130,6 @@ impl <S, T: IO> Raft<S, T> {
     pub fn add_node_to_cluster(&mut self, node: Node) {
         self.cluster.push(node);
     }
-}
-
-struct Log {
-
 }
 
 pub enum ApplyResult<T: IO> {

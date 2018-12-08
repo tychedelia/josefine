@@ -16,9 +16,9 @@ pub struct Candidate {
 impl <T: IO> Raft<Candidate, T> {
     pub fn seek_election(mut self) -> Result<ApplyResult<T>, Error> {
         info!("{} seeking election", self.id);
-        self.voted_for = self.id;
+        self.state.voted_for = self.id;
         let from = self.id;
-        let term = self.current_term;
+        let term = self.state.current_term;
         self.apply(Command::Vote { from, term, voted: true })
     }
 }
@@ -75,16 +75,9 @@ impl <T: IO> From<Raft<Candidate, T>> for Raft<Follower, T> {
     fn from(val: Raft<Candidate, T>) -> Raft<Follower, T> {
         Raft {
             id: val.id,
-            current_term: val.current_term,
-            voted_for: val.voted_for,
-            commit_index: val.commit_index,
-            last_applied: val.last_applied,
-            election_time: val.election_time,
-            heartbeat_time: val.heartbeat_time,
-            election_timeout: val.election_timeout,
-            heartbeat_timeout: val.heartbeat_timeout,
-            min_election_timeout: val.min_election_timeout,
-            max_election_timeout: val.heartbeat_timeout,
+            state: val.state,
+            outbox: val.outbox,
+            sender: val.sender,
             cluster: val.cluster,
             io: val.io,
             role: Role::Follower,
@@ -97,16 +90,9 @@ impl <T: IO> From<Raft<Candidate, T>> for Raft<Leader, T> {
     fn from(val: Raft<Candidate, T>) -> Raft<Leader, T> {
         Raft {
             id: val.id,
-            current_term: val.current_term,
-            voted_for: val.voted_for,
-            commit_index: val.commit_index,
-            last_applied: val.last_applied,
-            election_time: val.election_time,
-            heartbeat_time: val.heartbeat_time,
-            election_timeout: val.election_timeout,
-            heartbeat_timeout: val.heartbeat_timeout,
-            min_election_timeout: val.min_election_timeout,
-            max_election_timeout: val.heartbeat_timeout,
+            state: val.state,
+            outbox: val.outbox,
+            sender: val.sender,
             cluster: val.cluster,
             io: val.io,
             role: Role::Leader,
