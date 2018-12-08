@@ -8,7 +8,7 @@ use crate::raft::candidate::Candidate;
 pub enum Command {
     RequestVote { term: u64, from: u64 },
     Vote { term: u64, from: u64, voted: bool },
-    Append { term: u64, from: u64, entries: Vec<u8> },
+    Append { term: u64, from: u64, entries: Vec<Entry> },
     Heartbeat { term: u64, from: u64 },
     Timeout,
     Noop,
@@ -30,21 +30,28 @@ pub enum Role {
 // IO
 pub trait IO {
     fn new() -> Self;
-    fn append(&mut self, entries: Vec<u8>);
+    fn append(&mut self, mut entries: Vec<Entry>);
     fn heartbeat(&mut self, id: u64);
 }
 
-pub struct MemoryIO {
+#[derive(Debug)]
+pub struct Entry {
+    pub term: u64,
+    pub index: u64,
+    pub data: Vec<u8>,
+}
 
+pub struct MemoryIO {
+    entries: Vec<Entry>
 }
 
 impl IO for MemoryIO {
     fn new() -> Self {
-        MemoryIO {}
+        MemoryIO { entries: Vec::new() }
     }
 
-    fn append(&mut self, entries: Vec<u8>) {
-        unimplemented!()
+    fn append(&mut self, mut entries: Vec<Entry>) {
+        self.entries.append(&mut entries);
     }
 
     fn heartbeat(&mut self, id: u64) {
@@ -54,6 +61,14 @@ impl IO for MemoryIO {
 
 pub struct Node {
     pub id: u64,
+}
+
+impl Node {
+    pub fn new(id: u64) -> Node {
+        Node {
+            id
+        }
+    }
 }
 
 pub struct Raft<S, T: IO> {

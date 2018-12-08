@@ -53,7 +53,7 @@ impl<T: IO> Raft<Follower, T> {
             heartbeat_timeout: 0,
             min_election_timeout: 0,
             max_election_timeout: 0,
-            cluster: vec![Node { id: config.id }],
+            cluster: vec![Node::new(config.id)],
             io,
             inner: Follower { leader_id: None },
             role: Role::Follower,
