@@ -16,7 +16,7 @@ jobs:
             rustup run nightly cargo build
       - run:
           name: Clippy
-            command: |
+          command: |
             rustup component add clippy
             rustup run nightly cargo clippy
       - run:
