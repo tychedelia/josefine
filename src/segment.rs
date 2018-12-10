@@ -58,7 +58,7 @@ impl Write for Segment {
         self.log.write(buf)?;
         self.index.write_entry(Entry::new(self.next_offset, self.bytes));
         self.next_offset = self.next_offset + 1;
-        self.bytes = self.bytes + buf.len() as u64;
+        self.bytes += buf.len() as u64;
         Result::Ok(buf.len())
     }
 
