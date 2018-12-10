@@ -11,7 +11,7 @@ jobs:
           name: Fix rustup
           command: |
             rustup self uninstall -y
-            curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain nightly
+            curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain nightly -y
       - run:
           name: Nightly Build
           command: |
