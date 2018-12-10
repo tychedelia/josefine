@@ -8,6 +8,11 @@ jobs:
       - restore_cache:
           key: cargo-{{ checksum "Cargo.toml" }}
       - run:
+          name: Fix rustup
+          command: |
+            rustup self uninstall -y
+            curl https://sh.rustup.rs -sSf | sh
+      - run:
           name: Nightly Build
           command: |
             rustup install nightly
