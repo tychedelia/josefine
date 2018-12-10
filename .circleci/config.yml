@@ -11,12 +11,10 @@ jobs:
           name: Fix rustup
           command: |
             rustup self uninstall -y
-            curl https://sh.rustup.rs -sSf | sh
+            curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain nightly
       - run:
           name: Nightly Build
           command: |
-            rustup install nightly
-            rustup default nightly
             rustc --version --verbose
             cargo --version --verbose
             cargo build
