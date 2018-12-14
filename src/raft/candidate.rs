@@ -4,13 +4,14 @@ use crate::raft::raft::IO;
 use crate::raft::raft::Command;
 use crate::raft::raft::Raft;
 use crate::raft::raft::Role;
+use crate::raft::election::{ElectionStatus, Election};
 use crate::raft::leader::Leader;
 use crate::raft::follower::Follower;
 use std::io::Error;
 use log::{info, trace, warn};
 
 pub struct Candidate {
-    pub votes: HashMap<u64, bool>,
+    pub election: Election,
 }
 
 impl <T: IO> Raft<Candidate, T> {
@@ -23,38 +24,24 @@ impl <T: IO> Raft<Candidate, T> {
     }
 }
 
-#[inline]
-fn majority(total: usize) -> usize {
-    if total == 1 {
-        return 0;
-    }
-
-    (total / 2) + 1
-}
-
 impl <T: IO> Apply<T> for Raft<Candidate, T> {
     fn apply(mut self, command: Command) -> Result<ApplyResult<T>, Error> {
         trace!("Applying command {:?} to {}", command, self.id);
 
         match command {
             Command::Vote { voted, from, .. } => {
-                self.inner.votes.insert(from, voted);
-                let (votes, total) = self.inner.votes.clone().into_iter()
-                    .fold((0, 0), |(mut votes, mut total), (id, vote) | {
-                        if vote {
-                            votes += 1;
-                        }
-
-                        total += 1;
-                        (votes, total)
-                    });
-
-                if votes > majority(self.cluster.len()) {
-                    let raft: Raft<Leader, T> = Raft::from(self);
-                    return Ok(ApplyResult::Leader(raft));
+                self.inner.election.vote(from, voted);
+                match self.inner.election.election_status() {
+                    ElectionStatus::Elected => {
+                        let raft: Raft<Leader, T> = Raft::from(self);
+                        Ok(ApplyResult::Leader(raft))
+                    },
+                    ElectionStatus::Voting => Ok(ApplyResult::Candidate(self)),
+                    ElectionStatus::Defeated => {
+                        let raft: Raft<Follower, T> = Raft::from(self);
+                        Ok(ApplyResult::Follower(raft))
+                    },
                 }
-
-                Ok(ApplyResult::Candidate(self))
             },
             Command::Append { entries, .. } => {
                 let mut raft: Raft<Follower, T> = Raft::from(self);

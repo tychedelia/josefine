@@ -88,7 +88,7 @@ mod tests {
         let mut path = env::temp_dir();
         path.push("test");
         let mut index = super::Index::new(path, 0);
-        let mut entry = Entry::new(0, 10);
+        let entry = Entry::new(0, 10);
         index.write_entry(entry);
     }
 

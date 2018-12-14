@@ -130,6 +130,17 @@ impl <S, T: IO> Raft<S, T> {
     pub fn add_node_to_cluster(&mut self, node: Node) {
         self.cluster.push(node);
     }
+
+    pub fn get_term(command: &Command) -> Option<u64> {
+        match command {
+            Command::RequestVote { term, .. } => Some(term.clone()),
+            Command::Vote { term, .. } => Some(term.clone()),
+            Command::Append { term, .. } => Some(term.clone()),
+            Command::Heartbeat { term, .. } => Some(term.clone()),
+            Command::Timeout => None,
+            Command::Noop => None,
+        }
+    }
 }
 
 pub enum ApplyResult<T: IO> {

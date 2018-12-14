@@ -8,6 +8,7 @@ pub mod server;
 pub mod partition;
 pub mod raft {
     pub mod raft;
+    pub mod election;
     pub mod follower;
     pub mod candidate;
     pub mod leader;

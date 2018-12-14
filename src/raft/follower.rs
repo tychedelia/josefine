@@ -5,6 +5,7 @@ use crate::raft::raft::Role;
 use crate::raft::raft::Raft;
 use crate::raft::raft::Node;
 use crate::raft::config::Config;
+use crate::raft::election::Election;
 use crate::raft::candidate::Candidate;
 use crate::raft::raft::State;
 use std::io::Error;
@@ -60,7 +61,8 @@ impl<T: IO> Raft<Follower, T> {
 
 impl<T: IO> From<Raft<Follower, T>> for Raft<Candidate, T> {
     fn from(val: Raft<Follower, T>) -> Raft<Candidate, T> {
-         Raft {
+        let election = Election::new(&val.cluster);
+        Raft {
              id: val.id,
              state: val.state,
              outbox: val.outbox,
@@ -68,7 +70,7 @@ impl<T: IO> From<Raft<Follower, T>> for Raft<Candidate, T> {
              cluster: val.cluster,
              io: val.io,
              role: Role::Candidate,
-             inner: Candidate { votes: HashMap::new() },
+             inner: Candidate { election, },
         }
     }
 }
