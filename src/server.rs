@@ -24,8 +24,6 @@ impl Broker {
     }
 }
 
-
-
 impl Server {
     pub fn new(address: String, broker: Broker) -> Server {
         let mut router = Router::new();

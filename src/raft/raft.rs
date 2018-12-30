@@ -5,36 +5,43 @@ use crate::raft::follower::Follower;
 use crate::raft::candidate::Candidate;
 use std::sync::mpsc::{Sender, Receiver};
 
+// Commands that can be applied to the state machine.
 #[derive(Debug)]
 pub enum Command {
+    // Our vote has been requested by another node.
     RequestVote { term: u64, from: u64 },
+    // Vote (or not) for another node.
     Vote { term: u64, from: u64, voted: bool },
+    // Request from another node to append entries to our log.
     Append { term: u64, from: u64, entries: Vec<Entry> },
+    // Heartbeat from another node.
     Heartbeat { term: u64, from: u64 },
+    // Timeout on an event (i.e. election).
     Timeout,
+    // Don't do anything. TODO: Change to more useful health check or info command, or remove.
     Noop,
 }
 
-pub enum Response {
-    RequestVote,
-    Vote,
-    Append,
-    Heartbeat
-}
-
+// Possible states in the raft state machine.
 pub enum Role {
     Follower,
     Candidate,
     Leader,
 }
 
-// IO
+// Defines all IO (i.e. persistence) related behavior. Making our implementation generic over
+// IO is slightly annoying, but allows us, e.g., to implement different backend strategies for
+// persistence, which makes it easier for testing and helps isolate the "pure logic" of the state
+// machine from persistence concerns.
+//
+// Right now, this doesn't handle communication with other nodes. TODO: TBD.
 pub trait IO {
     fn new() -> Self;
     fn append(&mut self, mut entries: Vec<Entry>);
     fn heartbeat(&mut self, id: u64);
 }
 
+// An entry in the commit log.
 #[derive(Debug)]
 pub struct Entry {
     pub term: u64,
@@ -42,6 +49,7 @@ pub struct Entry {
     pub data: Vec<u8>,
 }
 
+// Simple IO impl used for mocking + testing.
 pub struct MemoryIO {
     entries: Vec<Entry>
 }
@@ -60,6 +68,7 @@ impl IO for MemoryIO {
     }
 }
 
+// Contains information about nodes in raft cluster.
 pub struct Node {
     pub id: u64,
     pub address: String,
@@ -74,6 +83,8 @@ impl Node {
     }
 }
 
+// Volatile and persistent state for all roles.
+// NB: These could just be fields on the common Raft struct, but copying them is annoying.
 #[derive(PartialEq, Clone, Copy)]
 pub struct State {
     // update on storage
@@ -110,22 +121,37 @@ impl State {
     }
 }
 
+// Contains state and logic common to all raft variants.
 pub struct Raft<S, T: IO> {
+    // The identifier for this node.
     pub id: u64,
 
-    // messaging
+    // Messaging:
+    // Outbox stores messages from this node to send to other nodes.
+    // TODO: API? Is this necessary, or can be embedded in IO trait?
     pub outbox: Receiver<Command>,
+    // Channel for registering messages that should be sent to other nodes.
     pub sender: Sender<Command>,
 
+    // Known nodes in the cluster.
     pub cluster: Vec<Node>,
 
+    // Volatile and persistent state.
     pub state: State,
 
+    // IO implementation.
     pub io: T,
+
+    // Flag for testing state
+    // TODO: Necessary?
     pub role: Role,
+
+    // Struct for role specific state + methods.
+    // TODO: Better name for this field
     pub inner: S,
 }
 
+// Base methods for general operations (+ debugging and testing).
 impl <S, T: IO> Raft<S, T> {
     pub fn add_node_to_cluster(&mut self, node: Node) {
         self.cluster.push(node);
@@ -143,13 +169,20 @@ impl <S, T: IO> Raft<S, T> {
     }
 }
 
+// Since applying command to the state machine can potentially result in any state transition,
+// the result that we get back needs to be general to the possible return types -- easiest
+// way here is just to store the differently sized structs per state in an enum, which will be
+// sized to the largest variant.
 pub enum ApplyResult<T: IO> {
     Follower(Raft<Follower, T>),
     Candidate(Raft<Candidate, T>),
     Leader(Raft<Leader, T>),
 }
 
+// Applying a command is the basic way the state machine is moved forward.
+// TODO: I'd like to be able to limit the applicable commands per variant using the type system.
 pub trait Apply<T: IO> {
+    // Apply a command to the raft state machine, which may result in a new raft state.
     fn apply(mut self, command: Command) -> Result<ApplyResult<T>, Error>;
 }
 
