@@ -1,8 +1,8 @@
 use std::io::Error;
 use std::collections::HashMap;
-use crate::raft::leader::Leader;
-use crate::raft::follower::Follower;
-use crate::raft::candidate::Candidate;
+use crate::leader::Leader;
+use crate::follower::Follower;
+use crate::candidate::Candidate;
 use std::sync::mpsc::{Sender, Receiver};
 
 // Commands that can be applied to the state machine.

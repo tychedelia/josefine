@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use crate::raft::raft::{Raft, IO, Node};
+use crate::raft::{Raft, IO, Node};
 
 pub struct Election {
     voter_ids: Vec<u64>,

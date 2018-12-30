@@ -1,12 +1,12 @@
 use std::collections::HashMap;
-use crate::raft::raft::{Apply, ApplyResult};
-use crate::raft::raft::IO;
-use crate::raft::raft::Command;
-use crate::raft::raft::Raft;
-use crate::raft::raft::Role;
-use crate::raft::election::{ElectionStatus, Election};
-use crate::raft::leader::Leader;
-use crate::raft::follower::Follower;
+use crate::raft::{Apply, ApplyResult};
+use crate::raft::IO;
+use crate::raft::Command;
+use crate::raft::Raft;
+use crate::raft::Role;
+use crate::election::{ElectionStatus, Election};
+use crate::leader::Leader;
+use crate::follower::Follower;
 use std::io::Error;
 use log::{info, trace, warn};
 

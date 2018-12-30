@@ -1,8 +1,8 @@
-use crate::raft::raft::{Apply, IO, ApplyResult};
-use crate::raft::raft::Command;
-use crate::raft::raft::Role;
-use crate::raft::raft::Raft;
-use crate::raft::follower::Follower;
+use crate::raft::{Apply, IO, ApplyResult};
+use crate::raft::Command;
+use crate::raft::Role;
+use crate::raft::Raft;
+use crate::follower::Follower;
 use std::io::Error;
 use log::{info, trace, warn};
 

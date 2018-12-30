@@ -1,13 +1,13 @@
-use crate::raft::raft::{Apply, ApplyResult};
-use crate::raft::raft::IO;
-use crate::raft::raft::Command;
-use crate::raft::raft::Role;
-use crate::raft::raft::Raft;
-use crate::raft::raft::Node;
-use crate::raft::config::Config;
-use crate::raft::election::Election;
-use crate::raft::candidate::Candidate;
-use crate::raft::raft::State;
+use crate::raft::{Apply, ApplyResult};
+use crate::raft::IO;
+use crate::raft::Command;
+use crate::raft::Role;
+use crate::raft::Raft;
+use crate::raft::Node;
+use crate::config::Config;
+use crate::election::Election;
+use crate::candidate::Candidate;
+use crate::raft::State;
 use std::io::Error;
 use std::collections::HashMap;
 use std::sync::mpsc::{Sender, Receiver, channel};
@@ -84,7 +84,7 @@ mod tests {
     use super::Command;
     use super::ApplyResult;
     use super::Node;
-    use crate::raft::raft::MemoryIO;
+    use crate::raft::MemoryIO;
 
     #[test]
     fn follower_to_candidate() {
