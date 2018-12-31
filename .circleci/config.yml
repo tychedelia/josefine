@@ -8,20 +8,16 @@ jobs:
       - restore_cache:
           key: cargo-{{ checksum "Cargo.toml" }}
       - run:
-          name: Fix rustup
-          command: |
-            rustup self uninstall -y
-            curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain nightly -y
-      - run:
           name: Nightly Build
           command: |
+            rustup default nightly
             rustc --version --verbose
             cargo --version --verbose
             cargo build
       - run:
           name: Clippy
           command: |
-            rustup component add clippy --toolchain=nightly
+            rustup component add clippy
             cargo clippy
       - run:
           name: Test
