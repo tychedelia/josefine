@@ -43,7 +43,7 @@ impl Write for Log {
             self.segments.push(segment);
         }
 
-        self.segments[self.active_segment].write(buf)?;
+        self.segments[self.active_segment].write_all(buf)?;
         Result::Ok(buf.len())
     }
 

@@ -55,7 +55,7 @@ impl Segment {
 
 impl Write for Segment {
     fn write(&mut self, buf: &[u8]) -> Result<usize, Error> {
-        self.log.write(buf)?;
+        self.log.write_all(buf)?;
         self.index.write_entry(Entry::new(self.next_offset, self.bytes));
         self.next_offset = self.next_offset + 1;
         self.bytes += buf.len() as u64;
