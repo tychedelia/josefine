@@ -1,9 +1,10 @@
-use std::io::Error;
 use std::collections::HashMap;
-use crate::leader::Leader;
-use crate::follower::Follower;
+use std::io::Error;
+use std::sync::mpsc::{Receiver, Sender};
+
 use crate::candidate::Candidate;
-use std::sync::mpsc::{Sender, Receiver};
+use crate::follower::Follower;
+use crate::leader::Leader;
 
 // Commands that can be applied to the state machine.
 #[derive(Debug)]
@@ -37,7 +38,7 @@ pub enum Role {
 // Right now, this doesn't handle communication with other nodes. TODO: TBD.
 pub trait IO {
     fn new() -> Self;
-    fn append(&mut self, mut entries: Vec<Entry>);
+    fn append(&mut self, entries: &mut Vec<Entry>);
     fn heartbeat(&mut self, id: u64);
 }
 
@@ -59,8 +60,8 @@ impl IO for MemoryIO {
         MemoryIO { entries: Vec::new() }
     }
 
-    fn append(&mut self, mut entries: Vec<Entry>) {
-        self.entries.append(&mut entries);
+    fn append(&mut self, entries: &mut Vec<Entry>) {
+        self.entries.append(entries);
     }
 
     fn heartbeat(&mut self, id: u64) {
@@ -183,6 +184,6 @@ pub enum ApplyResult<T: IO> {
 // TODO: I'd like to be able to limit the applicable commands per variant using the type system.
 pub trait Apply<T: IO> {
     // Apply a command to the raft state machine, which may result in a new raft state.
-    fn apply(mut self, command: Command) -> Result<ApplyResult<T>, Error>;
+    fn apply(self, command: Command) -> Result<ApplyResult<T>, Error>;
 }
 

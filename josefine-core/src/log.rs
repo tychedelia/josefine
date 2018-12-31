@@ -1,12 +1,13 @@
-use crate::segment::Segment;
 use std::fs;
 use std::io::Error;
 use std::io::Read;
 use std::io::Write;
 use std::path::Path;
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::RwLock;
-use std::path::PathBuf;
+
+use crate::segment::Segment;
 
 pub struct Log {
     path: PathBuf,
@@ -62,9 +63,9 @@ impl Read for Log {
 #[cfg(test)]
 mod test {
     use std::env;
-    use std::io::Write;
     use std::fs::File;
     use std::io::Read;
+    use std::io::Write;
 
     #[test]
     fn test_write() {

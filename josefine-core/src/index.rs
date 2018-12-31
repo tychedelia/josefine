@@ -1,12 +1,13 @@
-use crate::entry::Entry;
-use memmap::MmapMut;
 use std::env;
 use std::fs::OpenOptions;
-use std::io::Write;
-use std::slice::Windows;
-use std::io::Read;
 use std::io::Error;
+use std::io::Write;
 use std::path::PathBuf;
+use std::slice::Windows;
+
+use memmap::MmapMut;
+
+use crate::entry::Entry;
 
 const MAX_BYTES_INDEX: u64 = 10 * 1024 * 1024;
 
@@ -40,8 +41,8 @@ impl Index {
     }
 
     pub fn write_entry(&mut self, entry: Entry) {
-        let mut e = entry.clone();
-        e.offset = e.offset - self.base_offset;
+        let mut e = entry;
+        e.offset -= self.base_offset;
         let bytes: Vec<u8> = e.into();
         self.write_at(bytes.as_ref(), e.offset);
     }
@@ -49,8 +50,8 @@ impl Index {
     pub fn read_entry(&self, offset: usize) -> Entry {
         let bytes = &self.mmap[offset..offset + 16];
         let mut entry = Entry::from(bytes);
-        entry.offset = entry.offset + self.base_offset;
-        return entry;
+        entry.offset += self.base_offset;
+        entry
     }
 
     pub fn find_entry(&self, offset: u64) -> Option<Entry> {
@@ -66,14 +67,15 @@ impl Index {
 
 #[cfg(test)]
 mod tests {
-    use crate::entry::Entry;
     use core::borrow::BorrowMut;
     use std::env;
+    use std::fs;
     use std::fs::OpenOptions;
     use std::io::Read;
     use std::io::Seek;
     use std::io::SeekFrom;
-    use std::fs;
+
+    use crate::entry::Entry;
 
     fn before() {
         let mut path = env::temp_dir();

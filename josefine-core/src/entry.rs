@@ -1,5 +1,6 @@
-use std::io::Cursor;
 use std::convert::From;
+use std::io::Cursor;
+
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 
 #[derive(Debug, PartialEq, Clone, Copy)]

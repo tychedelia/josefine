@@ -1,16 +1,17 @@
-use crate::raft::{Apply, ApplyResult};
-use crate::raft::IO;
-use crate::raft::Command;
-use crate::raft::Role;
-use crate::raft::Raft;
-use crate::raft::Node;
+use std::collections::HashMap;
+use std::io::Error;
+use std::sync::mpsc::{channel, Receiver, Sender};
+
+use crate::candidate::Candidate;
 use crate::config::Config;
 use crate::election::Election;
-use crate::candidate::Candidate;
+use crate::raft::{Apply, ApplyResult};
+use crate::raft::Command;
+use crate::raft::IO;
+use crate::raft::Node;
+use crate::raft::Raft;
+use crate::raft::Role;
 use crate::raft::State;
-use std::io::Error;
-use std::collections::HashMap;
-use std::sync::mpsc::{Sender, Receiver, channel};
 
 pub struct Follower {
     pub leader_id: Option<u64>,
@@ -19,10 +20,11 @@ pub struct Follower {
 impl<T: IO> Apply<T> for Raft<Follower, T> {
     fn apply(mut self, command: Command) -> Result<ApplyResult<T>, Error> {
         match command {
-            Command::Append { entries, from, .. } => {
+            Command::Append { mut entries, from, .. } => {
                 self.state.election_time = 0;
                 self.inner.leader_id = Some(from);
-                self.io.append(entries);
+                self.io.
+                    append(&mut entries);
                 Ok(ApplyResult::Follower(self))
             }
             Command::Heartbeat { from, .. } => {
@@ -32,7 +34,7 @@ impl<T: IO> Apply<T> for Raft<Follower, T> {
                 Ok(ApplyResult::Follower(self))
             }
             Command::Timeout => {
-                let mut raft: Raft<Candidate, T> = Raft::from(self);
+                let raft: Raft<Candidate, T> = Raft::from(self);
                 raft.seek_election()
             }
             _ => Ok(ApplyResult::Follower(self))
@@ -77,14 +79,15 @@ impl<T: IO> From<Raft<Follower, T>> for Raft<Candidate, T> {
 
 #[cfg(test)]
 mod tests {
-    use super::Raft;
+    use crate::raft::MemoryIO;
+
+    use super::Apply;
+    use super::ApplyResult;
+    use super::Command;
     use super::Config;
     use super::IO;
-    use super::Apply;
-    use super::Command;
-    use super::ApplyResult;
     use super::Node;
-    use crate::raft::MemoryIO;
+    use super::Raft;
 
     #[test]
     fn follower_to_candidate() {

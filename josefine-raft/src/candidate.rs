@@ -1,14 +1,16 @@
 use std::collections::HashMap;
+use std::io::Error;
+
+use log::{info, trace, warn};
+
+use crate::election::{Election, ElectionStatus};
+use crate::follower::Follower;
+use crate::leader::Leader;
 use crate::raft::{Apply, ApplyResult};
-use crate::raft::IO;
 use crate::raft::Command;
+use crate::raft::IO;
 use crate::raft::Raft;
 use crate::raft::Role;
-use crate::election::{ElectionStatus, Election};
-use crate::leader::Leader;
-use crate::follower::Follower;
-use std::io::Error;
-use log::{info, trace, warn};
 
 pub struct Candidate {
     pub election: Election,
@@ -43,9 +45,9 @@ impl <T: IO> Apply<T> for Raft<Candidate, T> {
                     },
                 }
             },
-            Command::Append { entries, .. } => {
+            Command::Append { mut entries, .. } => {
                 let mut raft: Raft<Follower, T> = Raft::from(self);
-                raft.io.append(entries);
+                raft.io.append(&mut entries);
                 Ok(ApplyResult::Follower(raft))
             },
             Command::Heartbeat { from, .. } => {

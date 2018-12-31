@@ -1,10 +1,12 @@
-use crate::raft::{Apply, IO, ApplyResult};
-use crate::raft::Command;
-use crate::raft::Role;
-use crate::raft::Raft;
-use crate::follower::Follower;
 use std::io::Error;
+
 use log::{info, trace, warn};
+
+use crate::follower::Follower;
+use crate::raft::{Apply, ApplyResult, IO};
+use crate::raft::Command;
+use crate::raft::Raft;
+use crate::raft::Role;
 
 //
 pub struct Leader {
@@ -12,7 +14,7 @@ pub struct Leader {
 }
 
 impl <T: IO> Apply<T> for Raft<Leader, T> {
-    fn apply(mut self, command: Command) -> Result<ApplyResult<T>, Error> {
+    fn apply(self, command: Command) -> Result<ApplyResult<T>, Error> {
         unimplemented!()
     }
 }
