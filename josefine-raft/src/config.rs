@@ -34,9 +34,6 @@ impl Config {
         if self.commit_timeout < Duration::from_millis(1) {
             return Err(ConfigError::new("Commit timeout is too low."));
         }
-        if self.max_append_entries <= 0 {
-            return Err(ConfigError::new("Max append entries must be positive"));
-        }
         if self.snapshot_interval < Duration::from_millis(5) {
             return Err(ConfigError::new("Snapshot interval is too low."));
         }
