@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 
-use crate::raft::{IO, Node, Raft};
+use crate::raft::{IO, Node, Raft, NodeId};
 
 pub struct Election {
-    voter_ids: Vec<u64>,
-    votes: HashMap<u64, bool>,
+    voter_ids: Vec<NodeId>,
+    votes: HashMap<NodeId, bool>,
 }
 
 pub enum ElectionStatus {
@@ -23,13 +23,13 @@ impl Election {
         }
     }
 
-    pub fn vote(&mut self, id: u64, vote: bool) {
+    pub fn vote(&mut self, id: NodeId, vote: bool) {
         self.votes.insert(id, vote);
     }
 
     pub fn election_status(&self) -> ElectionStatus {
         let (votes, total) = self.votes.iter()
-            .fold((0, 0), |(mut votes, mut total), (id, vote) | {
+            .fold((0, 0), |(mut votes, mut total), (id, vote)| {
                 if *vote {
                     votes += 1;
                 }

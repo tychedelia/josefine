@@ -3,18 +3,13 @@ use std::io::Error;
 use std::sync::mpsc::{channel, Receiver, Sender};
 
 use crate::candidate::Candidate;
-use crate::config::Config;
+use crate::config::{Config, ConfigError};
 use crate::election::Election;
 use crate::raft::{Apply, ApplyResult};
-use crate::raft::Command;
-use crate::raft::IO;
-use crate::raft::Node;
-use crate::raft::Raft;
-use crate::raft::Role;
-use crate::raft::State;
+use crate::raft::{Command, NodeId, IO, Node, Raft, Role, State};
 
 pub struct Follower {
-    pub leader_id: Option<u64>,
+    pub leader_id: Option<NodeId>,
 }
 
 impl<T: IO> Apply<T> for Raft<Follower, T> {
@@ -43,8 +38,8 @@ impl<T: IO> Apply<T> for Raft<Follower, T> {
 }
 
 impl<T: IO> Raft<Follower, T> {
-    fn new(config: &Config, io: T) -> Result<Raft<Follower, T>, Error> {
-        &config.init()?;
+    fn new(config: &Config, io: T) -> Result<Raft<Follower, T>, ConfigError> {
+        &config.validate()?;
 
         let (tx, rx): (Sender<Command>, Receiver<Command>) = channel();
 
@@ -65,14 +60,14 @@ impl<T: IO> From<Raft<Follower, T>> for Raft<Candidate, T> {
     fn from(val: Raft<Follower, T>) -> Raft<Candidate, T> {
         let election = Election::new(&val.cluster);
         Raft {
-             id: val.id,
-             state: val.state,
-             outbox: val.outbox,
-             sender: val.sender,
-             cluster: val.cluster,
-             io: val.io,
-             role: Role::Candidate,
-             inner: Candidate { election, },
+            id: val.id,
+            state: val.state,
+            outbox: val.outbox,
+            sender: val.sender,
+            cluster: val.cluster,
+            io: val.io,
+            role: Role::Candidate,
+            inner: Candidate { election },
         }
     }
 }
@@ -91,7 +86,7 @@ mod tests {
 
     #[test]
     fn follower_to_candidate() {
-        let mut follower = Raft::new(&Config { id: 0 }, MemoryIO::new()).unwrap();
+        let mut follower = Raft::new(&Config::default(), MemoryIO::new()).unwrap();
         follower.add_node_to_cluster(Node::new(10));
 
         let id = follower.id;
@@ -106,7 +101,7 @@ mod tests {
 
     #[test]
     fn follower_to_leader_single_node_cluster() {
-        let follower = Raft::new(&Config { id: 0 }, MemoryIO::new()).unwrap();
+        let follower = Raft::new(&Config::default(), MemoryIO::new()).unwrap();
         let id = follower.id;
         match follower.apply(Command::Timeout).unwrap() {
             ApplyResult::Follower(_) => panic!(),
@@ -117,7 +112,7 @@ mod tests {
 
     #[test]
     fn follower_noop() {
-        let follower = Raft::new(&Config { id: 0 }, MemoryIO::new()).unwrap();
+        let follower = Raft::new(&Config::default(), MemoryIO::new()).unwrap();
         let id = follower.id;
         match follower.apply(Command::Noop).unwrap() {
             ApplyResult::Follower(follower) => assert_eq!(id, follower.id),

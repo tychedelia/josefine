@@ -6,17 +6,19 @@ use crate::candidate::Candidate;
 use crate::follower::Follower;
 use crate::leader::Leader;
 
+pub type NodeId = u32;
+
 // Commands that can be applied to the state machine.
 #[derive(Debug)]
 pub enum Command {
     // Our vote has been requested by another node.
-    RequestVote { term: u64, from: u64 },
+    RequestVote { term: u64, from: NodeId },
     // Vote (or not) for another node.
-    Vote { term: u64, from: u64, voted: bool },
+    Vote { term: u64, from: NodeId, voted: bool },
     // Request from another node to append entries to our log.
-    Append { term: u64, from: u64, entries: Vec<Entry> },
+    Append { term: u64, from: NodeId, entries: Vec<Entry> },
     // Heartbeat from another node.
-    Heartbeat { term: u64, from: u64 },
+    Heartbeat { term: u64, from: NodeId },
     // Timeout on an event (i.e. election).
     Timeout,
     // Don't do anything. TODO: Change to more useful health check or info command, or remove.
@@ -39,7 +41,7 @@ pub enum Role {
 pub trait IO {
     fn new() -> Self;
     fn append(&mut self, entries: &mut Vec<Entry>);
-    fn heartbeat(&mut self, id: u64);
+    fn heartbeat(&mut self, id: NodeId);
 }
 
 // An entry in the commit log.
@@ -64,19 +66,19 @@ impl IO for MemoryIO {
         self.entries.append(entries);
     }
 
-    fn heartbeat(&mut self, id: u64) {
+    fn heartbeat(&mut self, id: NodeId) {
         unimplemented!()
     }
 }
 
 // Contains information about nodes in raft cluster.
 pub struct Node {
-    pub id: u64,
+    pub id: NodeId,
     pub address: String,
 }
 
 impl Node {
-    pub fn new(id: u64) -> Node {
+    pub fn new(id: NodeId) -> Node {
         Node {
             id,
             address: String::new(),
@@ -90,7 +92,7 @@ impl Node {
 pub struct State {
     // update on storage
     pub current_term: u64,
-    pub voted_for: u64,
+    pub voted_for: NodeId,
 
     // volatile state
     pub commit_index: u64,
@@ -125,7 +127,7 @@ impl State {
 // Contains state and logic common to all raft variants.
 pub struct Raft<S, T: IO> {
     // The identifier for this node.
-    pub id: u64,
+    pub id: NodeId,
 
     // Messaging:
     // Outbox stores messages from this node to send to other nodes.
@@ -153,7 +155,7 @@ pub struct Raft<S, T: IO> {
 }
 
 // Base methods for general operations (+ debugging and testing).
-impl <S, T: IO> Raft<S, T> {
+impl<S, T: IO> Raft<S, T> {
     pub fn add_node_to_cluster(&mut self, node: Node) {
         self.cluster.push(node);
     }
