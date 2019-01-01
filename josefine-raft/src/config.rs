@@ -100,3 +100,13 @@ fn resolve(host: &str) -> Option<IpAddr> {
             .map(|socket_address| socket_address.ip())
             .nth(0)).unwrap()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::Config;
+
+    #[test]
+    fn it_works() {
+        let config = Config::default();
+    }
+}
