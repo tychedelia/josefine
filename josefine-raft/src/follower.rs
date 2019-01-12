@@ -41,12 +41,8 @@ impl<I: IO> Raft<Follower, I> {
     fn new(config: &Config, io: I) -> Result<Raft<Follower, I>, ConfigError> {
         &config.validate()?;
 
-        let (tx, rx): (Sender<Command>, Receiver<Command>) = channel();
-
         Ok(Raft {
             id: config.id,
-            outbox: rx,
-            sender: tx,
             state: State::new(),
             cluster: vec![Node::new(config.id)],
             io,
@@ -62,8 +58,6 @@ impl<I: IO> From<Raft<Follower, I>> for Raft<Candidate, I> {
         Raft {
             id: val.id,
             state: val.state,
-            outbox: val.outbox,
-            sender: val.sender,
             cluster: val.cluster,
             io: val.io,
             role: Role::Candidate,

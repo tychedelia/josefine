@@ -65,8 +65,6 @@ impl<I: IO> From<Raft<Candidate, I>> for Raft<Follower, I> {
         Raft {
             id: val.id,
             state: val.state,
-            outbox: val.outbox,
-            sender: val.sender,
             cluster: val.cluster,
             io: val.io,
             role: Role::Follower,
@@ -80,8 +78,6 @@ impl<I: IO> From<Raft<Candidate, I>> for Raft<Leader, I> {
         Raft {
             id: val.id,
             state: val.state,
-            outbox: val.outbox,
-            sender: val.sender,
             cluster: val.cluster,
             io: val.io,
             role: Role::Leader,

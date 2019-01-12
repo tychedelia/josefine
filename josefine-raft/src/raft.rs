@@ -133,13 +133,6 @@ pub struct Raft<S, I: IO> {
     // The identifier for this node.
     pub id: NodeId,
 
-    // Messaging:
-    // Outbox stores messages from this node to send to other nodes.
-    // TODO: API? Is this necessary, or can be embedded in IO trait?
-    pub outbox: Receiver<Command>,
-    // Channel for registering messages that should be sent to other nodes.
-    pub sender: Sender<Command>,
-
     // Known nodes in the cluster.
     pub cluster: Vec<Node>,
 

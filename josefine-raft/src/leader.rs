@@ -26,8 +26,6 @@ impl <I: IO> From<Raft<Leader, I>> for Raft<Follower, I> {
         Raft {
             id: val.id,
             state: val.state,
-            outbox: val.outbox,
-            sender: val.sender,
             cluster: val.cluster,
             io: val.io,
             role: Role::Follower,
