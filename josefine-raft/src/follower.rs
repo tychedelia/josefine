@@ -5,7 +5,7 @@ use std::sync::mpsc::{channel, Receiver, Sender};
 use crate::candidate::Candidate;
 use crate::config::{Config, ConfigError};
 use crate::election::Election;
-use crate::raft::{Apply, ApplyResult};
+use crate::raft::{Apply, RaftHandle};
 use crate::raft::{Command, NodeId, IO, Node, Raft, Role, State};
 
 pub struct Follower {
@@ -13,26 +13,26 @@ pub struct Follower {
 }
 
 impl<I: IO> Apply<T> for Raft<Follower, T> {
-    fn apply(mut self, command: Command) -> Result<ApplyResult<T>, Error> {
+    fn apply(mut self, command: Command) -> Result<RaftHandle<T>, Error> {
         match command {
             Command::Append { mut entries, from, .. } => {
                 self.state.election_time = 0;
                 self.inner.leader_id = Some(from);
                 self.io.
                     append(&mut entries);
-                Ok(ApplyResult::Follower(self))
+                Ok(RaftHandle::Follower(self))
             }
             Command::Heartbeat { from, .. } => {
                 self.state.election_time = 0;
                 self.inner.leader_id = Some(from);
                 self.io.heartbeat(from);
-                Ok(ApplyResult::Follower(self))
+                Ok(RaftHandle::Follower(self))
             }
             Command::Timeout => {
                 let raft: Raft<Candidate, T> = Raft::from(self);
                 raft.seek_election()
             }
-            _ => Ok(ApplyResult::Follower(self))
+            _ => Ok(RaftHandle::Follower(self))
         }
     }
 }
@@ -77,7 +77,7 @@ mod tests {
     use crate::raft::MemoryIO;
 
     use super::Apply;
-    use super::ApplyResult;
+    use super::RaftHandle;
     use super::Command;
     use super::Config;
     use super::IO;
@@ -91,11 +91,11 @@ mod tests {
 
         let id = follower.id;
         match follower.apply(Command::Timeout).unwrap() {
-            ApplyResult::Follower(_) => panic!(),
-            ApplyResult::Candidate(candidate) => {
+            RaftHandle::Follower(_) => panic!(),
+            RaftHandle::Candidate(candidate) => {
                 assert_eq!(id, candidate.id)
             }
-            ApplyResult::Leader(_) => panic!(),
+            RaftHandle::Leader(_) => panic!(),
         }
     }
 
@@ -104,9 +104,9 @@ mod tests {
         let follower = Raft::new(&Config::default(), MemoryIO::new()).unwrap();
         let id = follower.id;
         match follower.apply(Command::Timeout).unwrap() {
-            ApplyResult::Follower(_) => panic!(),
-            ApplyResult::Candidate(_) => panic!(),
-            ApplyResult::Leader(leader) => assert_eq!(id, leader.id),
+            RaftHandle::Follower(_) => panic!(),
+            RaftHandle::Candidate(_) => panic!(),
+            RaftHandle::Leader(leader) => assert_eq!(id, leader.id),
         }
     }
 
@@ -115,9 +115,9 @@ mod tests {
         let follower = Raft::new(&Config::default(), MemoryIO::new()).unwrap();
         let id = follower.id;
         match follower.apply(Command::Noop).unwrap() {
-            ApplyResult::Follower(follower) => assert_eq!(id, follower.id),
-            ApplyResult::Candidate(candidate) => panic!(),
-            ApplyResult::Leader(_) => panic!(),
+            RaftHandle::Follower(follower) => assert_eq!(id, follower.id),
+            RaftHandle::Candidate(candidate) => panic!(),
+            RaftHandle::Leader(_) => panic!(),
         }
     }
 }

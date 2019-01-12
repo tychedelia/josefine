@@ -6,7 +6,7 @@ use log::{info, trace, warn};
 use crate::election::{Election, ElectionStatus};
 use crate::follower::Follower;
 use crate::leader::Leader;
-use crate::raft::{Apply, ApplyResult};
+use crate::raft::{Apply, RaftHandle};
 use crate::raft::Command;
 use crate::raft::IO;
 use crate::raft::Raft;
@@ -17,7 +17,7 @@ pub struct Candidate {
 }
 
 impl<I: IO> Raft<Candidate, T> {
-    pub fn seek_election(mut self) -> Result<ApplyResult<T>, Error> {
+    pub fn seek_election(mut self) -> Result<RaftHandle<T>, Error> {
         info!("{} seeking election", self.id);
         self.state.voted_for = self.id;
         let from = self.id;
@@ -27,7 +27,7 @@ impl<I: IO> Raft<Candidate, T> {
 }
 
 impl<I: IO> Apply<T> for Raft<Candidate, T> {
-    fn apply(mut self, command: Command) -> Result<ApplyResult<T>, Error> {
+    fn apply(mut self, command: Command) -> Result<RaftHandle<T>, Error> {
         trace!("Applying command {:?} to {}", command, self.id);
 
         match command {
@@ -36,26 +36,26 @@ impl<I: IO> Apply<T> for Raft<Candidate, T> {
                 match self.inner.election.election_status() {
                     ElectionStatus::Elected => {
                         let raft: Raft<Leader, T> = Raft::from(self);
-                        Ok(ApplyResult::Leader(raft))
+                        Ok(RaftHandle::Leader(raft))
                     }
-                    ElectionStatus::Voting => Ok(ApplyResult::Candidate(self)),
+                    ElectionStatus::Voting => Ok(RaftHandle::Candidate(self)),
                     ElectionStatus::Defeated => {
                         let raft: Raft<Follower, T> = Raft::from(self);
-                        Ok(ApplyResult::Follower(raft))
+                        Ok(RaftHandle::Follower(raft))
                     }
                 }
             }
             Command::Append { mut entries, .. } => {
                 let mut raft: Raft<Follower, T> = Raft::from(self);
                 raft.io.append(&mut entries);
-                Ok(ApplyResult::Follower(raft))
+                Ok(RaftHandle::Follower(raft))
             }
             Command::Heartbeat { from, .. } => {
                 let mut raft: Raft<Follower, T> = Raft::from(self);
                 raft.io.heartbeat(from);
-                Ok(ApplyResult::Follower(raft))
+                Ok(RaftHandle::Follower(raft))
             }
-            _ => Ok(ApplyResult::Candidate(self))
+            _ => Ok(RaftHandle::Candidate(self))
         }
     }
 }

@@ -44,6 +44,10 @@ pub trait IO {
     fn heartbeat(&mut self, id: NodeId);
 }
 
+pub trait Rpc {
+    fn vote();
+}
+
 // An entry in the commit log.
 #[derive(Debug)]
 pub struct Entry {
@@ -176,7 +180,7 @@ impl<S, I: IO> Raft<S, T> {
 // the result that we get back needs to be general to the possible return types -- easiest
 // way here is just to store the differently sized structs per state in an enum, which will be
 // sized to the largest variant.
-pub enum ApplyResult<I: IO> {
+pub enum RaftHandle<I: IO> {
     Follower(Raft<Follower, T>),
     Candidate(Raft<Candidate, T>),
     Leader(Raft<Leader, T>),
@@ -186,6 +190,6 @@ pub enum ApplyResult<I: IO> {
 // TODO: I'd like to be able to limit the applicable commands per variant using the type system.
 pub trait Apply<I: IO> {
     // Apply a command to the raft state machine, which may result in a new raft state.
-    fn apply(self, command: Command) -> Result<ApplyResult<T>, Error>;
+    fn apply(self, command: Command) -> Result<RaftHandle<T>, Error>;
 }
 
