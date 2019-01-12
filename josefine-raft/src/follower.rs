@@ -12,8 +12,8 @@ pub struct Follower {
     pub leader_id: Option<NodeId>,
 }
 
-impl<I: IO> Apply<T> for Raft<Follower, T> {
-    fn apply(mut self, command: Command) -> Result<RaftHandle<T>, Error> {
+impl<I: IO> Apply<I> for Raft<Follower, I> {
+    fn apply(mut self, command: Command) -> Result<RaftHandle<I>, Error> {
         match command {
             Command::Append { mut entries, from, .. } => {
                 self.state.election_time = 0;
@@ -29,7 +29,7 @@ impl<I: IO> Apply<T> for Raft<Follower, T> {
                 Ok(RaftHandle::Follower(self))
             }
             Command::Timeout => {
-                let raft: Raft<Candidate, T> = Raft::from(self);
+                let raft: Raft<Candidate, I> = Raft::from(self);
                 raft.seek_election()
             }
             _ => Ok(RaftHandle::Follower(self))
@@ -37,8 +37,8 @@ impl<I: IO> Apply<T> for Raft<Follower, T> {
     }
 }
 
-impl<I: IO> Raft<Follower, T> {
-    fn new(config: &Config, io: T) -> Result<Raft<Follower, T>, ConfigError> {
+impl<I: IO> Raft<Follower, I> {
+    fn new(config: &Config, io: I) -> Result<Raft<Follower, I>, ConfigError> {
         &config.validate()?;
 
         let (tx, rx): (Sender<Command>, Receiver<Command>) = channel();
@@ -56,8 +56,8 @@ impl<I: IO> Raft<Follower, T> {
     }
 }
 
-impl<I: IO> From<Raft<Follower, T>> for Raft<Candidate, T> {
-    fn from(val: Raft<Follower, T>) -> Raft<Candidate, T> {
+impl<I: IO> From<Raft<Follower, I>> for Raft<Candidate, I> {
+    fn from(val: Raft<Follower, I>) -> Raft<Candidate, I> {
         let election = Election::new(&val.cluster);
         Raft {
             id: val.id,
