@@ -13,13 +13,13 @@ pub struct Leader {
 
 }
 
-impl <T: IO> Apply<T> for Raft<Leader, T> {
+impl <I: IO> Apply<T> for Raft<Leader, T> {
     fn apply(self, command: Command) -> Result<ApplyResult<T>, Error> {
         unimplemented!()
     }
 }
 
-impl <T: IO> From<Raft<Leader, T>> for Raft<Follower, T> {
+impl <I: IO> From<Raft<Leader, T>> for Raft<Follower, T> {
     fn from(val: Raft<Leader, T>) -> Raft<Follower, T> {
         info!("{} transitioning from leader to follower", val.id);
 

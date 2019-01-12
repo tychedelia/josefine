@@ -12,7 +12,7 @@ pub struct Follower {
     pub leader_id: Option<NodeId>,
 }
 
-impl<T: IO> Apply<T> for Raft<Follower, T> {
+impl<I: IO> Apply<T> for Raft<Follower, T> {
     fn apply(mut self, command: Command) -> Result<ApplyResult<T>, Error> {
         match command {
             Command::Append { mut entries, from, .. } => {
@@ -37,7 +37,7 @@ impl<T: IO> Apply<T> for Raft<Follower, T> {
     }
 }
 
-impl<T: IO> Raft<Follower, T> {
+impl<I: IO> Raft<Follower, T> {
     fn new(config: &Config, io: T) -> Result<Raft<Follower, T>, ConfigError> {
         &config.validate()?;
 
@@ -56,7 +56,7 @@ impl<T: IO> Raft<Follower, T> {
     }
 }
 
-impl<T: IO> From<Raft<Follower, T>> for Raft<Candidate, T> {
+impl<I: IO> From<Raft<Follower, T>> for Raft<Candidate, T> {
     fn from(val: Raft<Follower, T>) -> Raft<Candidate, T> {
         let election = Election::new(&val.cluster);
         Raft {

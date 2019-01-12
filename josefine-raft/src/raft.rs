@@ -125,7 +125,7 @@ impl State {
 }
 
 // Contains state and logic common to all raft variants.
-pub struct Raft<S, T: IO> {
+pub struct Raft<S, I: IO> {
     // The identifier for this node.
     pub id: NodeId,
 
@@ -155,7 +155,7 @@ pub struct Raft<S, T: IO> {
 }
 
 // Base methods for general operations (+ debugging and testing).
-impl<S, T: IO> Raft<S, T> {
+impl<S, I: IO> Raft<S, T> {
     pub fn add_node_to_cluster(&mut self, node: Node) {
         self.cluster.push(node);
     }
@@ -176,7 +176,7 @@ impl<S, T: IO> Raft<S, T> {
 // the result that we get back needs to be general to the possible return types -- easiest
 // way here is just to store the differently sized structs per state in an enum, which will be
 // sized to the largest variant.
-pub enum ApplyResult<T: IO> {
+pub enum ApplyResult<I: IO> {
     Follower(Raft<Follower, T>),
     Candidate(Raft<Candidate, T>),
     Leader(Raft<Leader, T>),
@@ -184,7 +184,7 @@ pub enum ApplyResult<T: IO> {
 
 // Applying a command is the basic way the state machine is moved forward.
 // TODO: I'd like to be able to limit the applicable commands per variant using the type system.
-pub trait Apply<T: IO> {
+pub trait Apply<I: IO> {
     // Apply a command to the raft state machine, which may result in a new raft state.
     fn apply(self, command: Command) -> Result<ApplyResult<T>, Error>;
 }
