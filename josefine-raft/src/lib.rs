@@ -5,6 +5,7 @@ mod candidate;
 mod leader;
 mod config;
 mod progress;
+mod rpc;
 
 #[cfg(test)]
 mod tests {

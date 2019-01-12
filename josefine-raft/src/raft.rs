@@ -5,6 +5,7 @@ use std::sync::mpsc::{Receiver, Sender};
 use crate::candidate::Candidate;
 use crate::follower::Follower;
 use crate::leader::Leader;
+use crate::rpc::Rpc;
 
 pub type NodeId = u32;
 
@@ -38,14 +39,10 @@ pub enum Role {
 // machine from persistence concerns.
 //
 // Right now, this doesn't handle communication with other nodes. TODO: TBD.
-pub trait IO {
+pub trait Io {
     fn new() -> Self;
     fn append(&mut self, entries: &mut Vec<Entry>);
     fn heartbeat(&mut self, id: NodeId);
-}
-
-pub trait Rpc {
-    fn vote();
 }
 
 // An entry in the commit log.
@@ -57,13 +54,13 @@ pub struct Entry {
 }
 
 // Simple IO impl used for mocking + testing.
-pub struct MemoryIO {
+pub struct MemoryIo {
     entries: Vec<Entry>
 }
 
-impl IO for MemoryIO {
+impl Io for MemoryIo {
     fn new() -> Self {
-        MemoryIO { entries: Vec::new() }
+        MemoryIo { entries: Vec::new() }
     }
 
     fn append(&mut self, entries: &mut Vec<Entry>) {
@@ -129,7 +126,7 @@ impl State {
 }
 
 // Contains state and logic common to all raft variants.
-pub struct Raft<S, I: IO> {
+pub struct Raft<S, I: Io, R: Rpc> {
     // The identifier for this node.
     pub id: NodeId,
 
@@ -142,6 +139,9 @@ pub struct Raft<S, I: IO> {
     // IO implementation.
     pub io: I,
 
+    // Rpc implementation
+    pub rpc: R,
+
     // Flag for testing state
     // TODO: Necessary?
     pub role: Role,
@@ -152,7 +152,7 @@ pub struct Raft<S, I: IO> {
 }
 
 // Base methods for general operations (+ debugging and testing).
-impl<S, I: IO> Raft<S, I> {
+impl<S, I: Io, R: Rpc> Raft<S, I, R> {
     pub fn add_node_to_cluster(&mut self, node: Node) {
         self.cluster.push(node);
     }
@@ -173,16 +173,16 @@ impl<S, I: IO> Raft<S, I> {
 // the result that we get back needs to be general to the possible return types -- easiest
 // way here is just to store the differently sized structs per state in an enum, which will be
 // sized to the largest variant.
-pub enum RaftHandle<I: IO> {
-    Follower(Raft<Follower, I>),
-    Candidate(Raft<Candidate, I>),
-    Leader(Raft<Leader, I>),
+pub enum RaftHandle<I: Io, R: Rpc> {
+    Follower(Raft<Follower, I, R>),
+    Candidate(Raft<Candidate, I, R>),
+    Leader(Raft<Leader, I, R>),
 }
 
 // Applying a command is the basic way the state machine is moved forward.
 // TODO: I'd like to be able to limit the applicable commands per variant using the type system.
-pub trait Apply<I: IO> {
+pub trait Apply<I: Io, R: Rpc> {
     // Apply a command to the raft state machine, which may result in a new raft state.
-    fn apply(self, command: Command) -> Result<RaftHandle<I>, Error>;
+    fn apply(self, command: Command) -> Result<RaftHandle<I, R>, Error>;
 }
 
