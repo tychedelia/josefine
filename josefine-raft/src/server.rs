@@ -69,7 +69,7 @@ impl RaftServer {
 
         let mut raft = self.raft;
 
-        info!(raft.log(), "Starting");
+        info!(raft.log(), "Starting"; "address" => format!("{}:{}", self.config.ip, self.config.port));
 
         loop {
             match rx.recv_timeout(timeout) {

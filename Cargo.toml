@@ -16,3 +16,4 @@ josefine-raft = { version = "0.0.1", path = "josefine-raft" }
 slog = "2.4.1"
 slog-async = "2.3.0"
 slog-term = "2.4.0"
+clap = "2.32.0"
