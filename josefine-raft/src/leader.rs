@@ -1,9 +1,10 @@
 use std::io::Error;
 
-use log::{info, trace, warn};
+use slog::Fuse;
+use slog::Logger;
 
 use crate::follower::Follower;
-use crate::raft::{Apply, RaftHandle, Io};
+use crate::raft::{Apply, Io, RaftHandle};
 use crate::raft::Command;
 use crate::raft::Raft;
 use crate::raft::Role;
@@ -22,7 +23,7 @@ impl <I: Io, R: Rpc> Apply<I, R> for Raft<Leader, I, R> {
 
 impl <I: Io, R: Rpc> From<Raft<Leader, I, R>> for Raft<Follower, I, R> {
     fn from(val: Raft<Leader, I, R>) -> Raft<Follower, I, R> {
-        info!("{} transitioning from leader to follower", val.id);
+//        info!("{} transitioning from leader to follower", val.id);
 
         Raft {
             id: val.id,
@@ -32,6 +33,8 @@ impl <I: Io, R: Rpc> From<Raft<Leader, I, R>> for Raft<Follower, I, R> {
             rpc: val.rpc,
             role: Role::Follower,
             inner: Follower { leader_id: None },
+            log: val.log,
+
         }
     }
 }

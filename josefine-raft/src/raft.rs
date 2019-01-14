@@ -2,6 +2,8 @@ use std::collections::HashMap;
 use std::io::Error;
 use std::sync::mpsc::{Receiver, Sender};
 
+use slog::Logger;
+
 use crate::candidate::Candidate;
 use crate::follower::Follower;
 use crate::leader::Leader;
@@ -130,6 +132,7 @@ impl State {
 pub struct Raft<S, I: Io, R: Rpc> {
     // The identifier for this node.
     pub id: NodeId,
+    pub log: Logger,
 
     // Known nodes in the cluster.
     pub cluster: Vec<Node>,
@@ -179,6 +182,17 @@ pub enum RaftHandle<I: Io, R: Rpc> {
     Follower(Raft<Follower, I, R>),
     Candidate(Raft<Candidate, I, R>),
     Leader(Raft<Leader, I, R>),
+}
+
+impl <I: Io, R: Rpc> RaftHandle<I, R> {
+    pub fn log(&self) -> &slog::Logger {
+        match self {
+            RaftHandle::Follower(raft) => &raft.log,
+            RaftHandle::Candidate(raft) => &raft.log,
+            RaftHandle::Leader(raft) => &raft.log,
+
+        }
+    }
 }
 
 impl <I: Io, R: Rpc> Apply<I, R> for RaftHandle<I, R> {

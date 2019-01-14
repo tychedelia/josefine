@@ -1,6 +1,18 @@
 use std::collections::HashMap;
-use std::io::Error;
+use std::fmt;
+use std::io;
+use std::result;
 use std::sync::mpsc::{channel, Receiver, Sender};
+
+use slog;
+use slog::Drain;
+use slog::Fuse;
+use slog::Key;
+use slog::KV;
+use slog::Logger;
+use slog::OwnedKVList;
+use slog::Record;
+use slog::Serializer;
 
 use crate::candidate::Candidate;
 use crate::config::{Config, ConfigError};
@@ -14,7 +26,7 @@ pub struct Follower {
 }
 
 impl<I: Io, R: Rpc> Apply<I, R> for Raft<Follower, I, R> {
-    fn apply(mut self, command: Command) -> Result<RaftHandle<I, R>, Error> {
+    fn apply(mut self, command: Command) -> Result<RaftHandle<I, R>, io::Error> {
         match command {
             Command::Append { mut entries, from, .. } => {
                 self.state.election_time = 0;
@@ -50,6 +62,11 @@ impl<I: Io, R: Rpc> Raft<Follower, I, R> {
     pub fn new(config: Config, io: I, rpc: R) -> Result<Raft<Follower, I, R>, ConfigError> {
         config.validate()?;
 
+        let decorator = slog_term::TermDecorator::new().build();
+        let drain = slog_term::FullFormat::new(decorator).build().fuse();
+        let drain = slog_async::Async::new(drain).build().fuse();
+
+
         Ok(Raft {
             id: config.id,
             state: State::new(),
@@ -58,7 +75,42 @@ impl<I: Io, R: Rpc> Raft<Follower, I, R> {
             rpc,
             inner: Follower { leader_id: None },
             role: Role::Follower,
+            log : Logger::root(drain, o!("version" => "1")),
         })
+    }
+}
+
+pub struct PrintlnSerializer;
+
+impl Serializer for PrintlnSerializer {
+    fn emit_arguments(&mut self, key: Key, val: &fmt::Arguments) -> Result<(), slog::Error> {
+        print!(", {}={}", key, val);
+        Ok(())
+    }
+}
+
+pub struct PrintlnDrain;
+
+impl Drain for PrintlnDrain {
+    type Ok = ();
+    type Err = ();
+
+    fn log(
+        &self,
+        record: &Record,
+        values: &OwnedKVList,
+    ) -> result::Result<Self::Ok, Self::Err> {
+
+        print!("{}", record.msg());
+
+        record
+            .kv()
+            .serialize(record, &mut PrintlnSerializer)
+            .unwrap();
+        values.serialize(record, &mut PrintlnSerializer).unwrap();
+
+        println!();
+        Ok(())
     }
 }
 
@@ -73,16 +125,21 @@ impl<I: Io, R: Rpc> From<Raft<Follower, I, R>> for Raft<Candidate, I, R> {
             rpc: val.rpc,
             role: Role::Candidate,
             inner: Candidate { election },
+            log: val.log,
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+    use std::sync::Arc;
     use std::sync::mpsc::channel;
+    use std::sync::Mutex;
 
     use crate::follower::Follower;
     use crate::raft::MemoryIo;
+    use crate::rpc::Message;
     use crate::rpc::NoopRpc;
 
     use super::Apply;
@@ -92,10 +149,6 @@ mod tests {
     use super::Node;
     use super::Raft;
     use super::RaftHandle;
-    use std::sync::Mutex;
-    use std::sync::Arc;
-    use std::collections::HashMap;
-    use crate::rpc::Message;
 
     #[test]
     fn follower_to_candidate() {

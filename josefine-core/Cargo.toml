@@ -1,6 +1,6 @@
 [package]
 name = "josefine-core"
-version = "0.1.0"
+version = "0.0.1"
 authors = ["jcm <jmcelwain@gmail.com>"]
 edition = "2018"
 
@@ -9,4 +9,6 @@ memmap = "0.7.0"
 byteorder = "1.2.7"
 iron = "0.6.*"
 router = "*"
-log = "0.4"
+slog = "2.4.1"
+slog-async = "2.3.0"
+slog-term = "2.4.0"

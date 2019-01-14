@@ -12,7 +12,7 @@ use std::thread;
 use std::time::Duration;
 use std::time::Instant;
 
-use log::{info, trace, warn};
+use slog::*;
 
 use crate::config::Config;
 use crate::raft::Apply;
@@ -24,18 +24,16 @@ use crate::raft::Raft;
 use crate::raft::RaftHandle;
 use crate::rpc::ChannelMap;
 use crate::rpc::Message;
-use crate::rpc::PORT;
 use crate::rpc::Rpc;
 use crate::rpc::TpcRpc;
 
-struct RaftServer {
-    raft: RaftHandle<MemoryIo, TpcRpc>,
+pub struct RaftServer {
+    pub raft: RaftHandle<MemoryIo, TpcRpc>,
     config: Config,
 }
 
 impl RaftServer {
-    fn new() -> RaftServer {
-        let config = Config::default();
+    pub fn new(config: Config) -> RaftServer {
         let raft = RaftHandle::Follower(Raft::new(config, MemoryIo::new(), TpcRpc::new(config)).unwrap());
 
         RaftServer {
@@ -45,9 +43,9 @@ impl RaftServer {
     }
 
     pub fn start(self) {
-        info!("Starting {}", self.config.id);
+//        info!("Starting {}:{}", self.config.ip, self.config.port);
         let ip = Ipv4Addr::from(self.config.id);
-        let address = format!("{}:{}", ip, PORT);
+        let address = format!("{}:{}", ip, self.config.port);
         let listener = TcpListener::bind(address).unwrap();
 
         let mut t = Instant::now();
@@ -60,7 +58,7 @@ impl RaftServer {
             for stream in listener.incoming() {
                 match stream {
                     Ok(stream) => {
-                        info!("Stream!");
+//                        info!("Stream!");
                         tx.send(Command::Noop).unwrap();
                     }
                     Err(e) => { panic!(e) }
@@ -70,6 +68,8 @@ impl RaftServer {
 
 
         let mut raft = self.raft;
+
+        info!(raft.log(), "Starting");
 
         loop {
             match rx.recv_timeout(timeout) {
@@ -88,17 +88,21 @@ impl RaftServer {
 mod tests {
     use std::thread;
 
+    use crate::config::Config;
     use crate::server::RaftServer;
 
     #[test]
     fn test() {
         thread::spawn(|| {
-            let server = RaftServer::new();
+            let server = RaftServer::new(Config::default());
             server.start();
         });
 
         thread::spawn(|| {
-            let server = RaftServer::new();
+            let server = RaftServer::new(Config {
+                port: 6668,
+                ..Default::default()
+            });
             server.start();
         });
 

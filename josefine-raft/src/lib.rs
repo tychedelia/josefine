@@ -1,12 +1,17 @@
-mod raft;
-mod election;
+#[macro_use]
+extern crate slog;
+extern crate slog_async;
+extern crate slog_term;
+
 mod follower;
 mod candidate;
 mod leader;
-mod config;
+mod election;
+mod raft;
+pub mod config;
 mod progress;
 mod rpc;
-mod server;
+pub mod server;
 
 #[cfg(test)]
 mod tests {

@@ -1,17 +1,18 @@
-use crate::raft::Raft;
-use crate::raft::NodeId;
-use crate::raft::State;
-use std::sync::mpsc::Sender;
-use std::sync::mpsc::Receiver;
-use crate::config::Config;
-use std::sync::Mutex;
-use std::sync::Arc;
 use std::collections::HashMap;
-use std::net::TcpStream;
+use std::io::Write;
 use std::net::IpAddr;
 use std::net::Ipv4Addr;
 use std::net::TcpListener;
-use std::io::Write;
+use std::net::TcpStream;
+use std::sync::Arc;
+use std::sync::mpsc::Receiver;
+use std::sync::mpsc::Sender;
+use std::sync::Mutex;
+
+use crate::config::Config;
+use crate::raft::NodeId;
+use crate::raft::Raft;
+use crate::raft::State;
 
 pub enum Message {
     //    AppendRequest(AppendRequest),
@@ -47,8 +48,6 @@ impl Rpc for NoopRpc {
 
 pub type ChannelMap = Arc<Mutex<HashMap<NodeId, Sender<Message>>>>;
 
-pub const PORT: u64 = 8080;
-
 pub struct TpcRpc {
     config: Config,
 }
@@ -56,7 +55,7 @@ pub struct TpcRpc {
 impl TpcRpc {
     fn get_stream(&self, node_id: NodeId) -> TcpStream {
         let ip = Ipv4Addr::from(node_id);
-        let address = format!("{}:{}", ip, PORT);
+        let address = format!("{}:{}", ip, self.config.port);
         TcpStream::connect(address).unwrap()
     }
 

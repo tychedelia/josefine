@@ -1,8 +1,6 @@
 use std::collections::HashMap;
 use std::io::Error;
 
-use log::{info, trace, warn};
-
 use crate::election::{Election, ElectionStatus};
 use crate::follower::Follower;
 use crate::leader::Leader;
@@ -19,7 +17,7 @@ pub struct Candidate {
 
 impl<I: Io, R: Rpc> Raft<Candidate, I, R> {
     pub fn seek_election(mut self) -> Result<RaftHandle<I, R>, Error> {
-        info!("{} seeking election", self.id);
+//        info!("{} seeking election", "{}", self.id);
         self.state.voted_for = self.id;
         let from = self.id;
         let term = self.state.current_term;
@@ -29,7 +27,7 @@ impl<I: Io, R: Rpc> Raft<Candidate, I, R> {
 
 impl<I: Io, R: Rpc> Apply<I, R> for Raft<Candidate, I, R> {
     fn apply(mut self, command: Command) -> Result<RaftHandle<I, R>, Error> {
-        trace!("Applying command {:?} to {}", command, self.id);
+//        trace!("Applying command {:?} to {}", "", command, self.id);
 
         match command {
             Command::VoteResponse { granted, from, .. } => {
@@ -71,6 +69,7 @@ impl<I: Io, R: Rpc> From<Raft<Candidate, I, R>> for Raft<Follower, I, R> {
             rpc: val.rpc,
             role: Role::Follower,
             inner: Follower { leader_id: None },
+            log: val.log,
         }
     }
 }
@@ -85,6 +84,7 @@ impl<I: Io, R: Rpc> From<Raft<Candidate, I, R>> for Raft<Leader, I, R> {
             rpc: val.rpc,
             role: Role::Leader,
             inner: Leader {},
+            log: val.log,
         }
     }
 }

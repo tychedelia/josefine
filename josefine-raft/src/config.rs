@@ -5,13 +5,14 @@ use std::net::{IpAddr, Ipv4Addr};
 use std::net::ToSocketAddrs;
 use std::str::FromStr;
 use std::time::Duration;
-use crate::raft::NodeId;
 
-use log::{info, trace, warn};
+use crate::raft::NodeId;
 
 #[derive(Copy, Clone)]
 pub struct Config {
     pub id: NodeId,
+    pub ip: IpAddr,
+    pub port: u32,
     pub protocol_version: u32,
     pub heartbeat_timeout: Duration,
     pub election_timeout: Duration,
@@ -26,10 +27,13 @@ const MAX_PROTOCOL_VERSION: u32 = 0;
 impl Config {
     pub fn validate(&self) -> Result<(), ConfigError> {
         if self.protocol_version > MAX_PROTOCOL_VERSION {
-            return Err(ConfigError::new("Invalid protocol version."))
+            return Err(ConfigError::new("Invalid protocol version."));
         }
         if self.id == 0 {
             return Err(ConfigError::new("Id cannot be zero."));
+        }
+        if self.port < 1023 || self.port > 65535 {
+            return Err(ConfigError::new("Invalid range for port."));
         }
         if self.heartbeat_timeout < Duration::from_millis(5) {
             return Err(ConfigError::new("Heartbeat timeout is too low."));
@@ -44,7 +48,7 @@ impl Config {
             return Err(ConfigError::new("Snapshot interval is too low."));
         }
 
-        trace!("Configuration validated successfully.");
+//        trace!("Configuration validated successfully.");
         Ok(())
     }
 }
@@ -52,18 +56,20 @@ impl Config {
 impl Default for Config {
     fn default() -> Self {
         let ip = resolve("localhost")
-            .unwrap_or(IpAddr::V4(Ipv4Addr::new(0,0,0,0)));
-        let id= match ip {
+            .unwrap_or(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)));
+        let id = match ip {
             IpAddr::V4(ipv4) => {
                 ipv4.into()
-            },
+            }
             IpAddr::V6(ipv6) => {
                 ipv6.to_ipv4().unwrap().into()
-            },
+            }
         };
 
         Config {
             id,
+            ip,
+            port: 6669,
             protocol_version: 0,
             heartbeat_timeout: Duration::from_millis(1000),
             election_timeout: Duration::from_millis(1000),
@@ -107,9 +113,10 @@ fn resolve(host: &str) -> Option<IpAddr> {
 
 #[cfg(test)]
 mod tests {
-    use super::Config;
+    use std::net::{IpAddr, Ipv4Addr};
     use std::time::Duration;
-    use std::net::{IpAddr,Ipv4Addr};
+
+    use super::Config;
 
     #[test]
     fn default() {
@@ -120,17 +127,18 @@ mod tests {
     fn validation() {
         let config = Config {
             id: 0,
-            protocol_version: 0,
+            ip: IpAddr::from([0, 0, 0, 0]),
+            port: 0,
+            protocol_version: 6666,
             heartbeat_timeout: Duration::from_millis(1), // shouldn't validate
             election_timeout: Duration::from_secs(100),
             commit_timeout: Duration::from_secs(100),
             max_append_entries: 0,
             snapshot_interval: Duration::from_secs(100),
-            snapshot_threshold: 0
+            snapshot_threshold: 0,
         };
 
         let res = config.validate();
         assert_eq!(true, res.is_err());
     }
-
 }

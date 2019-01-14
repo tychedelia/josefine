@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::raft::{Io, Node, Raft, NodeId};
+use crate::raft::{Io, Node, NodeId, Raft};
 
 pub struct Election {
     voter_ids: Vec<NodeId>,

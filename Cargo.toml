@@ -1,2 +1,18 @@
+[package]
+name = "josefine"
+version = "0.0.1"
+
+[[bin]]
+bench = false
+path = "src/main.rs"
+name = "josefine"
+
 [workspace]
 members = ["josefine-core", "josefine-raft"]
+
+[dependencies]
+josefine-core = { version = "0.0.1", path = "josefine-core" }
+josefine-raft = { version = "0.0.1", path = "josefine-raft" }
+slog = "2.4.1"
+slog-async = "2.3.0"
+slog-term = "2.4.0"
