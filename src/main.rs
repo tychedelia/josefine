@@ -1,18 +1,19 @@
+extern crate clap;
 extern crate josefine_raft;
 #[macro_use]
 extern crate slog;
 extern crate slog_async;
 extern crate slog_term;
-extern crate clap;
 
+use std::net::IpAddr;
 use std::thread;
 
+use clap::{App, Arg, SubCommand};
 use slog::Drain;
 
 use josefine_raft::config::Config;
+use josefine_raft::raft::Node;
 use josefine_raft::server::RaftServer;
-use clap::{Arg, App, SubCommand};
-
 
 fn main() {
     let matches = App::new("Josefine")
@@ -23,6 +24,10 @@ fn main() {
             .short("p")
             .long("port")
             .value_name("PORT"))
+        .arg(Arg::with_name("node")
+            .long("node")
+            .multiple(true)
+            .value_name("ADDRESS"))
         .get_matches();
 
 
@@ -34,7 +39,27 @@ fn main() {
         None => Config::default(),
     };
 
-    let raft = RaftServer::new(config);
+    let mut raft = RaftServer::new(config);
+
+    match matches.values_of("node") {
+        Some(nodes) => {
+            for node in nodes {
+                let parts: Vec<&str> = node.split(":").collect();
+                let ip: IpAddr = parts[0].parse().expect("Could not parse ip address.");
+                let port: u32 = parts[1].parse().expect("Could not parse port to integer.");
+
+                let node = Node {
+                    id: 0,
+                    ip,
+                    port,
+                };
+
+                raft.raft.add_node_to_cluster(node);
+            }
+        }
+        None => {}
+    };
+
     raft.start();
 }
 

@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 use std::io::Error;
 
+use slog::Logger;
+
 use crate::election::{Election, ElectionStatus};
 use crate::follower::Follower;
 use crate::leader::Leader;
@@ -13,6 +15,7 @@ use crate::rpc::Rpc;
 
 pub struct Candidate {
     pub election: Election,
+    pub log: Logger,
 }
 
 impl<I: Io, R: Rpc> Raft<Candidate, I, R> {
@@ -68,7 +71,7 @@ impl<I: Io, R: Rpc> From<Raft<Candidate, I, R>> for Raft<Follower, I, R> {
             io: val.io,
             rpc: val.rpc,
             role: Role::Follower,
-            inner: Follower { leader_id: None },
+            inner: Follower { leader_id: None, log: val.log.new(o!("role" => "follower")) },
             log: val.log,
         }
     }
@@ -83,7 +86,7 @@ impl<I: Io, R: Rpc> From<Raft<Candidate, I, R>> for Raft<Leader, I, R> {
             io: val.io,
             rpc: val.rpc,
             role: Role::Leader,
-            inner: Leader {},
+            inner: Leader { log: val.log.new(o!("role" => "leader")) },
             log: val.log,
         }
     }

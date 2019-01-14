@@ -75,7 +75,7 @@ impl RaftServer {
             match rx.recv_timeout(timeout) {
                 Ok(cmd) => {
                     raft = raft.apply(cmd).unwrap();
-                },
+                }
                 Err(RecvTimeoutError::Timeout) => (),
                 Err(RecvTimeoutError::Disconnected) => return,
             }
@@ -106,8 +106,6 @@ mod tests {
             server.start();
         });
 
-        loop {
-
-        }
+        loop {}
     }
 }

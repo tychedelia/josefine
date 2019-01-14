@@ -7,7 +7,7 @@ mod follower;
 mod candidate;
 mod leader;
 mod election;
-mod raft;
+pub mod raft;
 pub mod config;
 mod progress;
 mod rpc;

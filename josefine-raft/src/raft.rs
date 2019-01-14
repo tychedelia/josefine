@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::io::Error;
+use std::net::IpAddr;
 use std::sync::mpsc::{Receiver, Sender};
 
 use slog::Logger;
@@ -78,14 +79,16 @@ impl Io for MemoryIo {
 // Contains information about nodes in raft cluster.
 pub struct Node {
     pub id: NodeId,
-    pub address: String,
+    pub ip: IpAddr,
+    pub port: u32,
 }
 
 impl Node {
-    pub fn new(id: NodeId) -> Node {
+    pub fn new(id: NodeId, ip: IpAddr, port: u32) -> Node {
         Node {
             id,
-            address: String::new(),
+            ip,
+            port,
         }
     }
 }
@@ -184,23 +187,30 @@ pub enum RaftHandle<I: Io, R: Rpc> {
     Leader(Raft<Leader, I, R>),
 }
 
-impl <I: Io, R: Rpc> RaftHandle<I, R> {
+impl<I: Io, R: Rpc> RaftHandle<I, R> {
     pub fn log(&self) -> &slog::Logger {
         match self {
-            RaftHandle::Follower(raft) => &raft.log,
-            RaftHandle::Candidate(raft) => &raft.log,
-            RaftHandle::Leader(raft) => &raft.log,
+            RaftHandle::Follower(raft) => &raft.inner.log,
+            RaftHandle::Candidate(raft) => &raft.inner.log,
+            RaftHandle::Leader(raft) => &raft.inner.log,
+        }
+    }
 
+    pub fn add_node_to_cluster(&mut self, node: Node) {
+        match self {
+            RaftHandle::Follower(raft) => raft.add_node_to_cluster(node),
+            RaftHandle::Candidate(raft) => raft.add_node_to_cluster(node),
+            RaftHandle::Leader(raft) => raft.add_node_to_cluster(node),
         }
     }
 }
 
-impl <I: Io, R: Rpc> Apply<I, R> for RaftHandle<I, R> {
+impl<I: Io, R: Rpc> Apply<I, R> for RaftHandle<I, R> {
     fn apply(self, command: Command) -> Result<RaftHandle<I, R>, Error> {
         match self {
-            RaftHandle::Follower(raft) => { raft.apply(command) },
-            RaftHandle::Candidate(raft) => { raft.apply(command) },
-            RaftHandle::Leader(raft) => { raft.apply(command) },
+            RaftHandle::Follower(raft) => { raft.apply(command) }
+            RaftHandle::Candidate(raft) => { raft.apply(command) }
+            RaftHandle::Leader(raft) => { raft.apply(command) }
         }
     }
 }

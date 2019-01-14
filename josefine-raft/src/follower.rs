@@ -23,6 +23,7 @@ use crate::rpc::Rpc;
 
 pub struct Follower {
     pub leader_id: Option<NodeId>,
+    pub log: Logger,
 }
 
 impl<I: Io, R: Rpc> Apply<I, R> for Raft<Follower, I, R> {
@@ -44,7 +45,7 @@ impl<I: Io, R: Rpc> Apply<I, R> for Raft<Follower, I, R> {
             Command::VoteRequest { term, from } => {
                 self.rpc.respond_vote(&self.state, from, true);
                 Ok(RaftHandle::Follower(self))
-            },
+            }
             Command::Timeout => {
                 let raft: Raft<Candidate, I, R> = Raft::from(self);
                 raft.seek_election()
@@ -65,17 +66,17 @@ impl<I: Io, R: Rpc> Raft<Follower, I, R> {
         let decorator = slog_term::TermDecorator::new().build();
         let drain = slog_term::FullFormat::new(decorator).build().fuse();
         let drain = slog_async::Async::new(drain).build().fuse();
-
+        let log = Logger::root(drain, o!("id" => config.id));
 
         Ok(Raft {
             id: config.id,
             state: State::new(),
-            cluster: vec![Node::new(config.id)],
+            cluster: vec![Node::new(config.id, config.ip, config.port)],
             io,
             rpc,
-            inner: Follower { leader_id: None },
+            inner: Follower { leader_id: None, log: log.new(o!("role" => "follower")) },
             role: Role::Follower,
-            log : Logger::root(drain, o!("version" => "1")),
+            log,
         })
     }
 }
@@ -100,7 +101,6 @@ impl Drain for PrintlnDrain {
         record: &Record,
         values: &OwnedKVList,
     ) -> result::Result<Self::Ok, Self::Err> {
-
         print!("{}", record.msg());
 
         record
@@ -124,7 +124,7 @@ impl<I: Io, R: Rpc> From<Raft<Follower, I, R>> for Raft<Candidate, I, R> {
             io: val.io,
             rpc: val.rpc,
             role: Role::Candidate,
-            inner: Candidate { election },
+            inner: Candidate { election, log: val.log.new(o!("role" => "candidate")) },
             log: val.log,
         }
     }
@@ -133,6 +133,7 @@ impl<I: Io, R: Rpc> From<Raft<Follower, I, R>> for Raft<Candidate, I, R> {
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
+    use std::net::IpAddr;
     use std::sync::Arc;
     use std::sync::mpsc::channel;
     use std::sync::Mutex;
@@ -153,7 +154,7 @@ mod tests {
     #[test]
     fn follower_to_candidate() {
         let mut follower = new_follower();
-        follower.add_node_to_cluster(Node::new(10));
+        follower.add_node_to_cluster(Node::new(10, IpAddr::from([0, 0, 0, 0]), 0));
 
         let id = follower.id;
         match follower.apply(Command::Timeout).unwrap() {

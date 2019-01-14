@@ -1,3 +1,1 @@
-struct Broker {
-
-}
+struct Broker {}

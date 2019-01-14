@@ -41,9 +41,7 @@ impl Rpc for NoopRpc {
     fn respond_vote(&self, state: &State, candidate_id: u32, granted: bool) {}
     fn request_vote(&self, state: &State, node_id: u32) {}
 
-    fn ping(&self, node_id: u32) {
-
-    }
+    fn ping(&self, node_id: u32) {}
 }
 
 pub type ChannelMap = Arc<Mutex<HashMap<NodeId, Sender<Message>>>>;
@@ -83,6 +81,7 @@ impl Rpc for TpcRpc {
 pub struct Header {
     version: u32,
 }
+
 pub struct VoteRequest {
     header: Header,
 

@@ -8,7 +8,7 @@ use std::path::PathBuf;
 use crate::entry::Entry;
 use crate::index::Index;
 
-const MAX_SEGMENT_BYES: u64 =  1024 * 1024 * 1024;
+const MAX_SEGMENT_BYES: u64 = 1024 * 1024 * 1024;
 
 pub struct Segment {
     base_offset: u64,
