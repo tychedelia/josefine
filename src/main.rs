@@ -14,6 +14,7 @@ use josefine_raft::config::Config;
 use josefine_raft::raft::Node;
 use josefine_raft::server::RaftServer;
 use std::collections::HashMap;
+use config::ConfigError;
 
 fn main() {
     let matches = App::new("Josefine")
@@ -36,19 +37,22 @@ fn main() {
         .merge(config::File::with_name(config_path)).expect("Could not read configuration file")
         .merge(config::Environment::with_prefix("JOSEFINE")).unwrap();
 
-
-    let config_map = settings.try_into::<HashMap<String, String>>().expect("Could not parse config");
-
     let mut config = Config::default();
 
-    if config_map.contains_key("id") {
-        config.id = config_map["id"].parse().expect(format!("Could not parse id {} to integer", config_map["id"]).as_str());
+    match settings.get("id") {
+        Ok(id) =>  config.id = id,
+        Err(ConfigError::NotFound(_)) => {},
+        Err(e) => panic!(format!("{}", e)),
     }
-    if config_map.contains_key("ip") {
-        config.ip = config_map["ip"].parse().expect(format!("Could not parse ip address {}", config_map["ip"]).as_str());
+    match settings.get("ip") {
+        Ok(ip) =>  config.ip = ip,
+        Err(ConfigError::NotFound(_)) => {},
+        Err(e) => panic!(format!("{}", e)),
     }
-    if config_map.contains_key("port") {
-        config.port = config_map["port"].parse().expect(format!("Could not parse port {} into integer", config_map["port"]).as_str())
+    match settings.get("port") {
+        Ok(port) =>  config.port = port,
+        Err(ConfigError::NotFound(_)) => {},
+        Err(e) => panic!(format!("{}", e)),
     }
 
     let mut server = RaftServer::new(config);
