@@ -4,9 +4,17 @@ use crate::raft::State;
 use std::sync::mpsc::Sender;
 use std::sync::mpsc::Receiver;
 use crate::config::Config;
+use std::sync::Mutex;
+use std::sync::Arc;
+use std::collections::HashMap;
+use std::net::TcpStream;
+use std::net::IpAddr;
+use std::net::Ipv4Addr;
+use std::net::TcpListener;
+use std::io::Write;
 
 pub enum Message {
-//    AppendRequest(AppendRequest),
+    //    AppendRequest(AppendRequest),
 //    AppendResponse(AppendResponse),
     VoteRequest(VoteRequest),
     VoteResponse(VoteResponse),
@@ -17,56 +25,65 @@ pub enum Message {
 pub trait Rpc {
     fn respond_vote(&self, state: &State, candidate_id: NodeId, granted: bool);
     fn request_vote(&self, state: &State, node_id: NodeId);
+    fn ping(&self, node_id: NodeId);
 }
 
-pub struct MemoryRpc {
-    sender: Sender<Message>,
+pub struct NoopRpc {}
+
+impl NoopRpc {
+    pub fn new() -> NoopRpc {
+        NoopRpc {}
+    }
+}
+
+impl Rpc for NoopRpc {
+    fn respond_vote(&self, state: &State, candidate_id: u32, granted: bool) {}
+    fn request_vote(&self, state: &State, node_id: u32) {}
+
+    fn ping(&self, node_id: u32) {
+
+    }
+}
+
+pub type ChannelMap = Arc<Mutex<HashMap<NodeId, Sender<Message>>>>;
+
+pub const PORT: u64 = 8080;
+
+pub struct TpcRpc {
     config: Config,
 }
 
-impl MemoryRpc {
-    pub fn new(config: Config, sender: Sender<Message>) -> MemoryRpc {
-        MemoryRpc {
-            sender,
-            config,
-        }
+impl TpcRpc {
+    fn get_stream(&self, node_id: NodeId) -> TcpStream {
+        let ip = Ipv4Addr::from(node_id);
+        let address = format!("{}:{}", ip, PORT);
+        TcpStream::connect(address).unwrap()
     }
 
-    fn header(&self) -> Header {
-        Header {
-            version: self.config.protocol_version,
+    pub fn new(config: Config) -> TpcRpc {
+        TpcRpc {
+            config
         }
+    }
+}
+
+impl Rpc for TpcRpc {
+    fn respond_vote(&self, state: &State, candidate_id: u32, granted: bool) {
+        unimplemented!()
+    }
+
+    fn request_vote(&self, state: &State, node_id: u32) {
+        unimplemented!()
+    }
+
+    fn ping(&self, node_id: u32) {
+        self.get_stream(node_id).write_all("PING".as_bytes());
     }
 }
 
 pub struct Header {
     version: u32,
 }
-
-impl Rpc for MemoryRpc {
-    fn respond_vote(&self, state: &State, candidate_id: u32, granted: bool) {
-        let res = VoteResponse {
-            header: self.header(),
-            term: state.current_term,
-            granted
-        };
-
-        self.sender.send(Message::VoteResponse(res));
-    }
-
-    fn request_vote(&self, state: &State, node_id: u32) {
-        let res = VoteRequest {
-            header: self.header(),
-            term: state.current_term,
-            candidate_id: self.config.id,
-            last_index: state.commit_index,
-            last_term: state.current_term,
-        };
-
-        self.sender.send(Message::VoteRequest(res));
-    }
-}
-
 pub struct VoteRequest {
     header: Header,
 

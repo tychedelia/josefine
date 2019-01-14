@@ -23,7 +23,7 @@ impl<I: Io, R: Rpc> Raft<Candidate, I, R> {
         self.state.voted_for = self.id;
         let from = self.id;
         let term = self.state.current_term;
-        self.apply(Command::Vote { from, term, voted: true })
+        self.apply(Command::VoteResponse { from, term, granted: true })
     }
 }
 
@@ -32,8 +32,8 @@ impl<I: Io, R: Rpc> Apply<I, R> for Raft<Candidate, I, R> {
         trace!("Applying command {:?} to {}", command, self.id);
 
         match command {
-            Command::Vote { voted, from, .. } => {
-                self.inner.election.vote(from, voted);
+            Command::VoteResponse { granted, from, .. } => {
+                self.inner.election.vote(from, granted);
                 match self.inner.election.election_status() {
                     ElectionStatus::Elected => {
                         let raft: Raft<Leader, I, R> = Raft::from(self);

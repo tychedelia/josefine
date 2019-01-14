@@ -6,7 +6,7 @@ use crate::candidate::Candidate;
 use crate::config::{Config, ConfigError};
 use crate::election::Election;
 use crate::raft::{Apply, RaftHandle};
-use crate::raft::{Command, NodeId, Io, Node, Raft, Role, State};
+use crate::raft::{Command, Io, Node, NodeId, Raft, Role, State};
 use crate::rpc::Rpc;
 
 pub struct Follower {
@@ -29,9 +29,17 @@ impl<I: Io, R: Rpc> Apply<I, R> for Raft<Follower, I, R> {
                 self.io.heartbeat(from);
                 Ok(RaftHandle::Follower(self))
             }
+            Command::VoteRequest { term, from } => {
+                self.rpc.respond_vote(&self.state, from, true);
+                Ok(RaftHandle::Follower(self))
+            },
             Command::Timeout => {
                 let raft: Raft<Candidate, I, R> = Raft::from(self);
                 raft.seek_election()
+            }
+            Command::Ping(node_id) => {
+                self.rpc.ping(node_id);
+                Ok(RaftHandle::Follower(self))
             }
             _ => Ok(RaftHandle::Follower(self))
         }
@@ -39,8 +47,8 @@ impl<I: Io, R: Rpc> Apply<I, R> for Raft<Follower, I, R> {
 }
 
 impl<I: Io, R: Rpc> Raft<Follower, I, R> {
-    fn new(config: &Config, io: I, rpc: R) -> Result<Raft<Follower, I, R>, ConfigError> {
-        &config.validate()?;
+    pub fn new(config: Config, io: I, rpc: R) -> Result<Raft<Follower, I, R>, ConfigError> {
+        config.validate()?;
 
         Ok(Raft {
             id: config.id,
@@ -71,22 +79,27 @@ impl<I: Io, R: Rpc> From<Raft<Follower, I, R>> for Raft<Candidate, I, R> {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::mpsc::channel;
+
+    use crate::follower::Follower;
     use crate::raft::MemoryIo;
+    use crate::rpc::NoopRpc;
 
     use super::Apply;
-    use super::RaftHandle;
     use super::Command;
     use super::Config;
     use super::Io;
     use super::Node;
     use super::Raft;
-    use crate::rpc::MemoryRpc;
-    use std::sync::mpsc::channel;
+    use super::RaftHandle;
+    use std::sync::Mutex;
+    use std::sync::Arc;
+    use std::collections::HashMap;
+    use crate::rpc::Message;
 
     #[test]
     fn follower_to_candidate() {
-        let (tx, rx) = channel();
-        let mut follower = Raft::new(&Config::default(), MemoryIo::new(), MemoryRpc::new(Config::default(), tx)).unwrap();
+        let mut follower = new_follower();
         follower.add_node_to_cluster(Node::new(10));
 
         let id = follower.id;
@@ -101,8 +114,7 @@ mod tests {
 
     #[test]
     fn follower_to_leader_single_node_cluster() {
-        let (tx, rx) = channel();
-        let follower = Raft::new(&Config::default(), MemoryIo::new(), MemoryRpc::new(Config::default(), tx)).unwrap();
+        let follower = new_follower();
         let id = follower.id;
         match follower.apply(Command::Timeout).unwrap() {
             RaftHandle::Follower(_) => panic!(),
@@ -113,13 +125,17 @@ mod tests {
 
     #[test]
     fn follower_noop() {
-        let (tx, rx) = channel();
-        let follower = Raft::new(&Config::default(), MemoryIo::new(), MemoryRpc::new(Config::default(), tx)).unwrap();
+        let follower = new_follower();
         let id = follower.id;
         match follower.apply(Command::Noop).unwrap() {
             RaftHandle::Follower(follower) => assert_eq!(id, follower.id),
             RaftHandle::Candidate(candidate) => panic!(),
             RaftHandle::Leader(_) => panic!(),
         }
+    }
+
+    fn new_follower() -> Raft<Follower, MemoryIo, NoopRpc> {
+        let config = Config::default();
+        Raft::new(config, MemoryIo::new(), NoopRpc::new()).unwrap()
     }
 }

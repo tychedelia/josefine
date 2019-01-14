@@ -13,9 +13,9 @@ pub type NodeId = u32;
 #[derive(Debug)]
 pub enum Command {
     // Our vote has been requested by another node.
-    RequestVote { term: u64, from: NodeId },
+    VoteRequest { term: u64, from: NodeId },
     // Vote (or not) for another node.
-    Vote { term: u64, from: NodeId, voted: bool },
+    VoteResponse { term: u64, from: NodeId, granted: bool },
     // Request from another node to append entries to our log.
     Append { term: u64, from: NodeId, entries: Vec<Entry> },
     // Heartbeat from another node.
@@ -24,6 +24,7 @@ pub enum Command {
     Timeout,
     // Don't do anything. TODO: Change to more useful health check or info command, or remove.
     Noop,
+    Ping(NodeId),
 }
 
 // Possible states in the raft state machine.
@@ -159,12 +160,13 @@ impl<S, I: Io, R: Rpc> Raft<S, I, R> {
 
     pub fn get_term(command: &Command) -> Option<u64> {
         match command {
-            Command::RequestVote { term, .. } => Some(term.clone()),
-            Command::Vote { term, .. } => Some(term.clone()),
+            Command::VoteRequest { term, .. } => Some(term.clone()),
+            Command::VoteResponse { term, .. } => Some(term.clone()),
             Command::Append { term, .. } => Some(term.clone()),
             Command::Heartbeat { term, .. } => Some(term.clone()),
             Command::Timeout => None,
             Command::Noop => None,
+            _ => None,
         }
     }
 }
@@ -179,8 +181,17 @@ pub enum RaftHandle<I: Io, R: Rpc> {
     Leader(Raft<Leader, I, R>),
 }
 
+impl <I: Io, R: Rpc> Apply<I, R> for RaftHandle<I, R> {
+    fn apply(self, command: Command) -> Result<RaftHandle<I, R>, Error> {
+        match self {
+            RaftHandle::Follower(raft) => { raft.apply(command) },
+            RaftHandle::Candidate(raft) => { raft.apply(command) },
+            RaftHandle::Leader(raft) => { raft.apply(command) },
+        }
+    }
+}
+
 // Applying a command is the basic way the state machine is moved forward.
-// TODO: I'd like to be able to limit the applicable commands per variant using the type system.
 pub trait Apply<I: Io, R: Rpc> {
     // Apply a command to the raft state machine, which may result in a new raft state.
     fn apply(self, command: Command) -> Result<RaftHandle<I, R>, Error>;

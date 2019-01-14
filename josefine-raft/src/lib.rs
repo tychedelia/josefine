@@ -6,6 +6,7 @@ mod leader;
 mod config;
 mod progress;
 mod rpc;
+mod server;
 
 #[cfg(test)]
 mod tests {

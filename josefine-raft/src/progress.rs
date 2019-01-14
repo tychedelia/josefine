@@ -21,7 +21,6 @@ impl Progress<Snapshot> {
 
 }
 
-
 struct Replicate {}
 
 impl Progress<Replicate> {

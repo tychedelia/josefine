@@ -9,6 +9,7 @@ use crate::raft::NodeId;
 
 use log::{info, trace, warn};
 
+#[derive(Copy, Clone)]
 pub struct Config {
     pub id: NodeId,
     pub protocol_version: u32,
