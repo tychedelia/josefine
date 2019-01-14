@@ -34,8 +34,7 @@ impl RaftServer {
     pub fn start(self) {
 //        info!("Starting {}:{}", self.config.ip, self.config.port);
 
-        let ip = Ipv4Addr::from(self.config.id);
-        let address = format!("{}:{}", ip, self.config.port);
+        let address = format!("{}:{}", self.config.ip, self.config.port);
         let listener = TcpListener::bind(address).unwrap();
 
         let timeout = Duration::from_millis(100);
@@ -48,7 +47,7 @@ impl RaftServer {
                 match stream {
                     Ok(_stream) => {
 //                        info!("Stream!");
-                        tx.send(Command::Noop).unwrap();
+                        tx.send(Command::Ping(0)).unwrap();
                     }
                     Err(e) => { panic!(e) }
                 }

@@ -7,7 +7,7 @@ use std::time::Duration;
 
 use crate::raft::NodeId;
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct Config {
     pub id: NodeId,
     pub ip: IpAddr,
@@ -56,6 +56,7 @@ impl Default for Config {
     fn default() -> Self {
         let ip = resolve("localhost")
             .unwrap_or(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)));
+
         let id = match ip {
             IpAddr::V4(ipv4) => {
                 ipv4.into()

@@ -1,4 +1,5 @@
 extern crate clap;
+extern crate config;
 extern crate josefine_raft;
 extern crate slog;
 extern crate slog_async;
@@ -12,52 +13,45 @@ use clap::Arg;
 use josefine_raft::config::Config;
 use josefine_raft::raft::Node;
 use josefine_raft::server::RaftServer;
+use std::collections::HashMap;
 
 fn main() {
     let matches = App::new("Josefine")
         .version("0.0.1")
         .author("jcm")
         .about("Distributed log in rust.")
-        .arg(Arg::with_name("port")
-            .short("p")
-            .long("port")
-            .value_name("PORT"))
-        .arg(Arg::with_name("node")
-            .long("node")
-            .multiple(true)
-            .value_name("ADDRESS"))
+        .arg(Arg::with_name("config")
+            .long("config")
+            .value_name("PATH")
+            .required(true)
+            .default_value("Config.toml")
+            .help("Location of the config file."))
         .get_matches();
 
+    let config_path = matches.value_of("config").unwrap();
 
-    let config = match matches.value_of("port") {
-        Some(port) => Config {
-            port: port.parse().expect("Could not parse port to integer."),
-            ..Default::default()
-        },
-        None => Config::default(),
-    };
+    let mut settings = config::Config::default();
+
+    settings
+        .merge(config::File::with_name(config_path)).expect("Could not read configuration file")
+        .merge(config::Environment::with_prefix("JOSEFINE")).unwrap();
+
+
+    let config_map = settings.try_into::<HashMap<String, String>>().expect("Could not parse config");
+
+    let mut config = Config::default();
+
+    if config_map.contains_key("id") {
+        config.id = config_map["id"].parse().expect(format!("Could not parse id {} to integer", config_map["id"]).as_str());
+    }
+    if config_map.contains_key("ip") {
+        config.ip = config_map["ip"].parse().expect(format!("Could not parse ip address {}", config_map["ip"]).as_str());
+    }
+    if config_map.contains_key("port") {
+        config.port = config_map["port"].parse().expect(format!("Could not parse port {} into integer", config_map["port"]).as_str())
+    }
 
     let mut server = RaftServer::new(config);
-
-    match matches.values_of("node") {
-        Some(nodes) => {
-            for node in nodes {
-                let parts: Vec<&str> = node.split(":").collect();
-                let ip: IpAddr = parts[0].parse().expect("Could not parse ip address.");
-                let port: u32 = parts[1].parse().expect("Could not parse port to integer.");
-
-                let node = Node {
-                    id: 0,
-                    ip,
-                    port,
-                };
-
-                server.raft.add_node_to_cluster(node);
-            }
-        }
-        None => {}
-    };
-
     server.start();
 }
 
