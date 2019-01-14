@@ -3,7 +3,6 @@ use std::fmt;
 use std::fmt::Formatter;
 use std::net::{IpAddr, Ipv4Addr};
 use std::net::ToSocketAddrs;
-use std::str::FromStr;
 use std::time::Duration;
 
 use crate::raft::NodeId;
@@ -113,14 +112,14 @@ fn resolve(host: &str) -> Option<IpAddr> {
 
 #[cfg(test)]
 mod tests {
-    use std::net::{IpAddr, Ipv4Addr};
+    use std::net::IpAddr;
     use std::time::Duration;
 
     use super::Config;
 
     #[test]
     fn default() {
-        let config = Config::default();
+        Config::default();
     }
 
     #[test]

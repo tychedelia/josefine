@@ -1,19 +1,12 @@
-use std::collections::HashMap;
 use std::io::Write;
-use std::net::IpAddr;
 use std::net::Ipv4Addr;
-use std::net::TcpListener;
 use std::net::TcpStream;
-use std::sync::Arc;
-use std::sync::mpsc::Receiver;
-use std::sync::mpsc::Sender;
-use std::sync::Mutex;
 
 use crate::config::Config;
 use crate::raft::NodeId;
-use crate::raft::Raft;
 use crate::raft::State;
 
+#[allow(dead_code)]
 pub enum Message {
     //    AppendRequest(AppendRequest),
 //    AppendResponse(AppendResponse),
@@ -32,19 +25,18 @@ pub trait Rpc {
 pub struct NoopRpc {}
 
 impl NoopRpc {
+    #[allow(dead_code)]
     pub fn new() -> NoopRpc {
         NoopRpc {}
     }
 }
 
 impl Rpc for NoopRpc {
-    fn respond_vote(&self, state: &State, candidate_id: u32, granted: bool) {}
-    fn request_vote(&self, state: &State, node_id: u32) {}
+    fn respond_vote(&self, _state: &State, _candidate_id: u32, _granted: bool) {}
+    fn request_vote(&self, _state: &State, _node_id: u32) {}
 
-    fn ping(&self, node_id: u32) {}
+    fn ping(&self, _node_id: u32) {}
 }
-
-pub type ChannelMap = Arc<Mutex<HashMap<NodeId, Sender<Message>>>>;
 
 pub struct TpcRpc {
     config: Config,
@@ -65,23 +57,25 @@ impl TpcRpc {
 }
 
 impl Rpc for TpcRpc {
-    fn respond_vote(&self, state: &State, candidate_id: u32, granted: bool) {
+    fn respond_vote(&self, _state: &State, _candidate_id: u32, _granted: bool) {
         unimplemented!()
     }
 
-    fn request_vote(&self, state: &State, node_id: u32) {
+    fn request_vote(&self, _state: &State, _node_id: u32) {
         unimplemented!()
     }
 
     fn ping(&self, node_id: u32) {
-        self.get_stream(node_id).write_all("PING".as_bytes());
+        self.get_stream(node_id).write_all("PING".as_bytes()).unwrap();
     }
 }
 
+#[allow(dead_code)]
 pub struct Header {
     version: u32,
 }
 
+#[allow(dead_code)]
 pub struct VoteRequest {
     header: Header,
 
@@ -92,6 +86,7 @@ pub struct VoteRequest {
     last_term: u64,
 }
 
+#[allow(dead_code)]
 pub struct VoteResponse {
     header: Header,
 

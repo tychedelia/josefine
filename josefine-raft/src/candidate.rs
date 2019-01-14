@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::io::Error;
 
 use slog::Logger;
@@ -67,7 +66,7 @@ impl<I: Io, R: Rpc> From<Raft<Candidate, I, R>> for Raft<Follower, I, R> {
         Raft {
             id: val.id,
             state: val.state,
-            cluster: val.cluster,
+            nodes: val.nodes,
             io: val.io,
             rpc: val.rpc,
             role: Role::Follower,
@@ -82,7 +81,7 @@ impl<I: Io, R: Rpc> From<Raft<Candidate, I, R>> for Raft<Leader, I, R> {
         Raft {
             id: val.id,
             state: val.state,
-            cluster: val.cluster,
+            nodes: val.nodes,
             io: val.io,
             rpc: val.rpc,
             role: Role::Leader,

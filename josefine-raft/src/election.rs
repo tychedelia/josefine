@@ -1,6 +1,6 @@
 use std::collections::HashMap;
-
-use crate::raft::{Io, Node, NodeId, Raft};
+use crate::raft::NodeId;
+use crate::raft::Node;
 
 pub struct Election {
     voter_ids: Vec<NodeId>,
@@ -29,7 +29,7 @@ impl Election {
 
     pub fn election_status(&self) -> ElectionStatus {
         let (votes, total) = self.votes.iter()
-            .fold((0, 0), |(mut votes, mut total), (id, vote)| {
+            .fold((0, 0), |(mut votes, mut total), (_id, vote)| {
                 if *vote {
                     votes += 1;
                 }
@@ -49,6 +49,7 @@ impl Election {
     }
 
     #[inline]
+    #[allow(dead_code)]
     fn voters_size(&self) -> usize {
         self.voter_ids.len()
     }

@@ -1,6 +1,5 @@
 use std::io::Error;
 
-use slog::Fuse;
 use slog::Logger;
 
 use crate::follower::Follower;
@@ -16,7 +15,7 @@ pub struct Leader {
 }
 
 impl<I: Io, R: Rpc> Apply<I, R> for Raft<Leader, I, R> {
-    fn apply(self, command: Command) -> Result<RaftHandle<I, R>, Error> {
+    fn apply(self, _command: Command) -> Result<RaftHandle<I, R>, Error> {
         unimplemented!()
     }
 }
@@ -28,7 +27,7 @@ impl<I: Io, R: Rpc> From<Raft<Leader, I, R>> for Raft<Follower, I, R> {
         Raft {
             id: val.id,
             state: val.state,
-            cluster: val.cluster,
+            nodes: val.nodes,
             io: val.io,
             rpc: val.rpc,
             role: Role::Follower,

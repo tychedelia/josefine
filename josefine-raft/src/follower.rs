@@ -1,18 +1,8 @@
-use std::collections::HashMap;
-use std::fmt;
 use std::io;
-use std::result;
-use std::sync::mpsc::{channel, Receiver, Sender};
 
 use slog;
 use slog::Drain;
-use slog::Fuse;
-use slog::Key;
-use slog::KV;
 use slog::Logger;
-use slog::OwnedKVList;
-use slog::Record;
-use slog::Serializer;
 
 use crate::candidate::Candidate;
 use crate::config::{Config, ConfigError};
@@ -42,7 +32,7 @@ impl<I: Io, R: Rpc> Apply<I, R> for Raft<Follower, I, R> {
                 self.io.heartbeat(from);
                 Ok(RaftHandle::Follower(self))
             }
-            Command::VoteRequest { term, from } => {
+            Command::VoteRequest { from, .. } => {
                 self.rpc.respond_vote(&self.state, from, true);
                 Ok(RaftHandle::Follower(self))
             }
@@ -71,7 +61,7 @@ impl<I: Io, R: Rpc> Raft<Follower, I, R> {
         Ok(Raft {
             id: config.id,
             state: State::new(),
-            cluster: vec![Node::new(config.id, config.ip, config.port)],
+            nodes: vec![Node::new(config.id, config.ip, config.port)],
             io,
             rpc,
             inner: Follower { leader_id: None, log: log.new(o!("role" => "follower")) },
@@ -81,46 +71,13 @@ impl<I: Io, R: Rpc> Raft<Follower, I, R> {
     }
 }
 
-pub struct PrintlnSerializer;
-
-impl Serializer for PrintlnSerializer {
-    fn emit_arguments(&mut self, key: Key, val: &fmt::Arguments) -> Result<(), slog::Error> {
-        print!(", {}={}", key, val);
-        Ok(())
-    }
-}
-
-pub struct PrintlnDrain;
-
-impl Drain for PrintlnDrain {
-    type Ok = ();
-    type Err = ();
-
-    fn log(
-        &self,
-        record: &Record,
-        values: &OwnedKVList,
-    ) -> result::Result<Self::Ok, Self::Err> {
-        print!("{}", record.msg());
-
-        record
-            .kv()
-            .serialize(record, &mut PrintlnSerializer)
-            .unwrap();
-        values.serialize(record, &mut PrintlnSerializer).unwrap();
-
-        println!();
-        Ok(())
-    }
-}
-
 impl<I: Io, R: Rpc> From<Raft<Follower, I, R>> for Raft<Candidate, I, R> {
     fn from(val: Raft<Follower, I, R>) -> Raft<Candidate, I, R> {
-        let election = Election::new(&val.cluster);
+        let election = Election::new(&val.nodes);
         Raft {
             id: val.id,
             state: val.state,
-            cluster: val.cluster,
+            nodes: val.nodes,
             io: val.io,
             rpc: val.rpc,
             role: Role::Candidate,
@@ -132,15 +89,10 @@ impl<I: Io, R: Rpc> From<Raft<Follower, I, R>> for Raft<Candidate, I, R> {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
     use std::net::IpAddr;
-    use std::sync::Arc;
-    use std::sync::mpsc::channel;
-    use std::sync::Mutex;
 
     use crate::follower::Follower;
     use crate::raft::MemoryIo;
-    use crate::rpc::Message;
     use crate::rpc::NoopRpc;
 
     use super::Apply;
@@ -183,7 +135,7 @@ mod tests {
         let id = follower.id;
         match follower.apply(Command::Noop).unwrap() {
             RaftHandle::Follower(follower) => assert_eq!(id, follower.id),
-            RaftHandle::Candidate(candidate) => panic!(),
+            RaftHandle::Candidate(_) => panic!(),
             RaftHandle::Leader(_) => panic!(),
         }
     }

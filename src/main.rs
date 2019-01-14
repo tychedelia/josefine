@@ -1,15 +1,13 @@
 extern crate clap;
 extern crate josefine_raft;
-#[macro_use]
 extern crate slog;
 extern crate slog_async;
 extern crate slog_term;
 
 use std::net::IpAddr;
-use std::thread;
 
-use clap::{App, Arg, SubCommand};
-use slog::Drain;
+use clap::App;
+use clap::Arg;
 
 use josefine_raft::config::Config;
 use josefine_raft::raft::Node;
@@ -39,7 +37,7 @@ fn main() {
         None => Config::default(),
     };
 
-    let mut raft = RaftServer::new(config);
+    let mut server = RaftServer::new(config);
 
     match matches.values_of("node") {
         Some(nodes) => {
@@ -54,12 +52,12 @@ fn main() {
                     port,
                 };
 
-                raft.raft.add_node_to_cluster(node);
+                server.raft.add_node_to_cluster(node);
             }
         }
         None => {}
     };
 
-    raft.start();
+    server.start();
 }
 

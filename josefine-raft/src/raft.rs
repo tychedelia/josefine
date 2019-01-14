@@ -1,7 +1,5 @@
-use std::collections::HashMap;
 use std::io::Error;
 use std::net::IpAddr;
-use std::sync::mpsc::{Receiver, Sender};
 
 use slog::Logger;
 
@@ -71,12 +69,13 @@ impl Io for MemoryIo {
         self.entries.append(entries);
     }
 
-    fn heartbeat(&mut self, id: NodeId) {
+    fn heartbeat(&mut self, _id: NodeId) {
         unimplemented!()
     }
 }
 
 // Contains information about nodes in raft cluster.
+#[derive(Debug)]
 pub struct Node {
     pub id: NodeId,
     pub ip: IpAddr,
@@ -138,7 +137,7 @@ pub struct Raft<S, I: Io, R: Rpc> {
     pub log: Logger,
 
     // Known nodes in the cluster.
-    pub cluster: Vec<Node>,
+    pub nodes: Vec<Node>,
 
     // Volatile and persistent state.
     pub state: State,
@@ -161,7 +160,8 @@ pub struct Raft<S, I: Io, R: Rpc> {
 // Base methods for general operations (+ debugging and testing).
 impl<S, I: Io, R: Rpc> Raft<S, I, R> {
     pub fn add_node_to_cluster(&mut self, node: Node) {
-        self.cluster.push(node);
+        info!(self.log, "Adding node to cluster"; "node" => format!("{:?}", node));
+        self.nodes.push(node);
     }
 
     pub fn get_term(command: &Command) -> Option<u64> {

@@ -1,16 +1,9 @@
-use std::cell::Cell;
-use std::cell::RefCell;
-use std::collections::HashMap;
 use std::net::Ipv4Addr;
 use std::net::TcpListener;
-use std::sync::Arc;
 use std::sync::mpsc::channel;
 use std::sync::mpsc::RecvTimeoutError;
-use std::sync::mpsc::Sender;
-use std::sync::Mutex;
 use std::thread;
 use std::time::Duration;
-use std::time::Instant;
 
 use slog::*;
 
@@ -19,12 +12,8 @@ use crate::raft::Apply;
 use crate::raft::Command;
 use crate::raft::Io;
 use crate::raft::MemoryIo;
-use crate::raft::NodeId;
 use crate::raft::Raft;
 use crate::raft::RaftHandle;
-use crate::rpc::ChannelMap;
-use crate::rpc::Message;
-use crate::rpc::Rpc;
 use crate::rpc::TpcRpc;
 
 pub struct RaftServer {
@@ -44,12 +33,12 @@ impl RaftServer {
 
     pub fn start(self) {
 //        info!("Starting {}:{}", self.config.ip, self.config.port);
+
         let ip = Ipv4Addr::from(self.config.id);
         let address = format!("{}:{}", ip, self.config.port);
         let listener = TcpListener::bind(address).unwrap();
 
-        let mut t = Instant::now();
-        let mut timeout = Duration::from_millis(100);
+        let timeout = Duration::from_millis(100);
 
 
         let (tx, rx) = channel::<Command>();
@@ -57,7 +46,7 @@ impl RaftServer {
         thread::spawn(move || {
             for stream in listener.incoming() {
                 match stream {
-                    Ok(stream) => {
+                    Ok(_stream) => {
 //                        info!("Stream!");
                         tx.send(Command::Noop).unwrap();
                     }
