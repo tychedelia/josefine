@@ -23,6 +23,9 @@ use std::sync::Arc;
 use std::sync::Mutex;
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::str;
+use crate::rpc::Message;
+use std::io::BufReader;
 
 pub struct RaftServer {
     pub raft: RaftHandle<MemoryIo, TpcRpc>,
@@ -72,8 +75,9 @@ impl RaftServer {
             for stream in listener.incoming() {
                 match stream {
                     Ok(mut stream) => {
-                        info!(log, ""; "message" => stream.read(&mut [0; 128]).unwrap());
-                        tx.send(Command::Ping(69)).unwrap();
+                        let reader = BufReader::new(&stream);
+                        let msg: Message = serde_json::from_reader(reader).unwrap();
+                        info!(log, "!!!!!!!!"; "message" => format!("{:?}", msg));
                     }
                     Err(e) => { panic!(e) }
                 }

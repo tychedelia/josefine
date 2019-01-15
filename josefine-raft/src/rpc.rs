@@ -13,8 +13,23 @@ use slog::Logger;
 use slog::Drain;
 use crate::raft::NodeMap;
 
+#[derive(Serialize, Deserialize, Debug)]
+struct Ping {
+    message: String,
+}
+
+impl Ping {
+    pub fn new(message: String) -> Self {
+        Ping {
+            message,
+        }
+    }
+}
+
 #[allow(dead_code)]
+#[derive(Serialize, Deserialize, Debug)]
 pub enum Message {
+    Ping(Ping),
     //    AppendRequest(AppendRequest),
 //    AppendResponse(AppendResponse),
     VoteRequest(VoteRequest),
@@ -64,8 +79,10 @@ impl TpcRpc {
         };
 
         for node in &rpc.config.nodes {
+            let msg = Message::Ping(Ping::new(String::from("Hi")));
+            let msg = serde_json::to_vec(&msg).unwrap();
             TcpStream::connect(node).expect("Couldn't connect to node")
-                .write_all(b"hi!!").unwrap();
+                .write_all( &msg[..]).unwrap();
         }
 
         rpc
@@ -87,11 +104,13 @@ impl Rpc for TpcRpc {
 }
 
 #[allow(dead_code)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Header {
     version: u32,
 }
 
 #[allow(dead_code)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct VoteRequest {
     header: Header,
 
@@ -103,6 +122,7 @@ pub struct VoteRequest {
 }
 
 #[allow(dead_code)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct VoteResponse {
     header: Header,
 
