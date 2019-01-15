@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use crate::raft::NodeId;
 use crate::raft::Node;
+use crate::raft::NodeMap;
 
 pub struct Election {
     voter_ids: Vec<NodeId>,
@@ -14,11 +15,14 @@ pub enum ElectionStatus {
 }
 
 impl Election {
-    pub fn new(nodes: &Vec<Node>) -> Election {
+    pub fn new(nodes: NodeMap) -> Election {
+        let nodes = nodes.lock().unwrap();
+        let mut voter_ids = Vec::new();
+        for (k, _v) in nodes.iter() {
+            voter_ids.push(k.clone());
+        }
         Election {
-            voter_ids: nodes.into_iter()
-                .map(|x| x.id)
-                .collect(),
+            voter_ids,
             votes: HashMap::new(),
         }
     }

@@ -25,7 +25,6 @@ pub struct RaftConfig {
     pub snapshot_threshold: u64,
 }
 
-
 const MAX_PROTOCOL_VERSION: u32 = 0;
 
 impl RaftConfig {
@@ -52,7 +51,6 @@ impl RaftConfig {
             return Err(ConfigError::new("Snapshot interval is too low."));
         }
 
-//        trace!("Configuration validated successfully.");
         Ok(())
     }
 }

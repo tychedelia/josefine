@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::io;
 
 use slog;
@@ -5,11 +6,16 @@ use slog::Drain;
 use slog::Logger;
 
 use crate::candidate::Candidate;
-use crate::config::{RaftConfig, ConfigError};
+use crate::config::{ConfigError, RaftConfig};
 use crate::election::Election;
 use crate::raft::{Apply, RaftHandle};
 use crate::raft::{Command, Io, Node, NodeId, Raft, Role, State};
+use crate::raft::NodeMap;
 use crate::rpc::Rpc;
+use std::rc::Rc;
+use std::cell::RefCell;
+use std::sync::Arc;
+use std::sync::Mutex;
 
 pub struct Follower {
     pub leader_id: Option<NodeId>,
@@ -50,30 +56,45 @@ impl<I: Io, R: Rpc> Apply<I, R> for Raft<Follower, I, R> {
 }
 
 impl<I: Io, R: Rpc> Raft<Follower, I, R> {
-    pub fn new(config: RaftConfig, io: I, rpc: R) -> Result<Raft<Follower, I, R>, ConfigError> {
+    pub fn new(config: RaftConfig, io: I, rpc: R, logger: Option<Logger>, nodes: Option<NodeMap>) -> Result<Raft<Follower, I, R>, ConfigError> {
         config.validate()?;
 
-        let decorator = slog_term::TermDecorator::new().build();
-        let drain = slog_term::FullFormat::new(decorator).build().fuse();
-        let drain = slog_async::Async::new(drain).build().fuse();
-        let log = Logger::root(drain, o!("id" => config.id));
+        let log = match logger {
+            None => get_logger().new(o!("id" => config.id)),
+            Some(logger) => logger.new(o!("id" => config.id)),
+        };
 
-        Ok(Raft {
+        let nodes = match nodes {
+            Some(nodes) => nodes,
+            None => Arc::new(Mutex::new(HashMap::new())),
+        };
+
+        let raft = Raft {
             id: config.id,
             state: State::new(),
-            nodes: vec![Node::new(config.id, config.ip, config.port)],
+            nodes,
             io,
             rpc,
             inner: Follower { leader_id: None, log: log.new(o!("role" => "follower")) },
             role: Role::Follower,
             log,
-        })
+        };
+
+        Ok(raft)
     }
+}
+
+fn get_logger() -> Logger {
+    let decorator = slog_term::TermDecorator::new().build();
+    let drain = slog_term::FullFormat::new(decorator).build().fuse();
+    let drain = slog_async::Async::new(drain).build().fuse();
+
+    Logger::root(drain, o!())
 }
 
 impl<I: Io, R: Rpc> From<Raft<Follower, I, R>> for Raft<Candidate, I, R> {
     fn from(val: Raft<Follower, I, R>) -> Raft<Candidate, I, R> {
-        let election = Election::new(&val.nodes);
+        let election = Election::new(val.nodes.clone());
         Raft {
             id: val.id,
             state: val.state,
@@ -97,11 +118,13 @@ mod tests {
 
     use super::Apply;
     use super::Command;
-    use super::RaftConfig;
     use super::Io;
     use super::Node;
     use super::Raft;
+    use super::RaftConfig;
     use super::RaftHandle;
+    use std::rc::Rc;
+    use std::cell::RefCell;
 
     #[test]
     fn follower_to_candidate() {
@@ -142,6 +165,6 @@ mod tests {
 
     fn new_follower() -> Raft<Follower, MemoryIo, NoopRpc> {
         let config = RaftConfig::default();
-        Raft::new(config, MemoryIo::new(), NoopRpc::new()).unwrap()
+        Raft::new(config, MemoryIo::new(), NoopRpc::new(), None, None).unwrap()
     }
 }

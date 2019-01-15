@@ -5,6 +5,13 @@ use std::net::TcpStream;
 use crate::config::RaftConfig;
 use crate::raft::NodeId;
 use crate::raft::State;
+use crate::raft::Node;
+use std::rc::Rc;
+use std::cell::RefCell;
+use std::collections::HashMap;
+use slog::Logger;
+use slog::Drain;
+use crate::raft::NodeMap;
 
 #[allow(dead_code)]
 pub enum Message {
@@ -40,6 +47,7 @@ impl Rpc for NoopRpc {
 
 pub struct TpcRpc {
     config: RaftConfig,
+    nodes: NodeMap,
 }
 
 impl TpcRpc {
@@ -49,11 +57,27 @@ impl TpcRpc {
         TcpStream::connect(address).unwrap()
     }
 
-    pub fn new(config: RaftConfig) -> TpcRpc {
-        TpcRpc {
-            config
+    pub fn new(config: RaftConfig, nodes: NodeMap) -> TpcRpc {
+        let rpc = TpcRpc {
+            config,
+            nodes,
+        };
+
+        for node in &rpc.config.nodes {
+            TcpStream::connect(node).unwrap()
+                .write_all(b"hi!!");
         }
+
+        rpc
     }
+}
+
+fn get_logger() -> Logger {
+    let decorator = slog_term::TermDecorator::new().build();
+    let drain = slog_term::FullFormat::new(decorator).build().fuse();
+    let drain = slog_async::Async::new(drain).build().fuse();
+
+    Logger::root(drain, o!())
 }
 
 impl Rpc for TpcRpc {

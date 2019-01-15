@@ -4,6 +4,7 @@ use std::sync::mpsc::channel;
 use std::sync::mpsc::RecvTimeoutError;
 use std::thread;
 use std::time::Duration;
+use std::io::Read;
 
 use slog::*;
 
@@ -15,39 +16,62 @@ use crate::raft::MemoryIo;
 use crate::raft::Raft;
 use crate::raft::RaftHandle;
 use crate::rpc::TpcRpc;
+use crate::raft::Node;
+use std::collections::HashMap;
+use crate::raft::NodeId;
+use std::sync::Arc;
+use std::sync::Mutex;
 
 pub struct RaftServer {
     pub raft: RaftHandle<MemoryIo, TpcRpc>,
     config: RaftConfig,
+    log: Logger,
 }
 
 impl RaftServer {
-    pub fn new(config: RaftConfig) -> RaftServer {
-        let raft = RaftHandle::Follower(Raft::new(config.clone(), MemoryIo::new(), TpcRpc::new(config.clone())).unwrap());
+    pub fn new(config: RaftConfig, logger: Logger) -> RaftServer {
+        let log = logger.new(o!());
+
+        let nodes: HashMap<NodeId, Node> = config.nodes.iter()
+            .map(|x| {
+                let parts: Vec<&str> = x.split(":").collect();
+
+                Node {
+                id: 0,
+                ip: parts[0].parse().unwrap(),
+                port: parts[1].parse().unwrap(),
+            }})
+            .map(|x| (x.id, x))
+            .collect();
+
+        let nodes = Arc::new(Mutex::new(nodes));
+
+        let io = MemoryIo::new();
+        let rpc = TpcRpc::new(config.clone(), nodes.clone());
+        let raft = RaftHandle::new(config.clone(), io, rpc, logger, nodes.clone());
 
         RaftServer {
             raft,
             config,
+            log,
         }
     }
 
     pub fn start(self) {
-//        info!("Starting {}:{}", self.config.ip, self.config.port);
-
         let address = format!("{}:{}", self.config.ip, self.config.port);
-        let listener = TcpListener::bind(address).unwrap();
+        info!(self.log, "Listening"; "address" => &address);
 
+        let listener = TcpListener::bind(&address).unwrap();
         let timeout = Duration::from_millis(100);
-
-
         let (tx, rx) = channel::<Command>();
 
+        let log = self.log.new(o!());
         thread::spawn(move || {
             for stream in listener.incoming() {
                 match stream {
-                    Ok(_stream) => {
-//                        info!("Stream!");
-                        tx.send(Command::Ping(0)).unwrap();
+                    Ok(mut stream) => {
+                        info!(log, ""; "message" => stream.read(&mut [0; 128]).unwrap());
+                        tx.send(Command::Ping(69)).unwrap();
                     }
                     Err(e) => { panic!(e) }
                 }
@@ -56,9 +80,6 @@ impl RaftServer {
 
 
         let mut raft = self.raft;
-
-        info!(raft.log(), "Starting"; "address" => format!("{}:{}", self.config.ip, self.config.port));
-
         loop {
             match rx.recv_timeout(timeout) {
                 Ok(cmd) => {
@@ -68,32 +89,5 @@ impl RaftServer {
                 Err(RecvTimeoutError::Disconnected) => return,
             }
         }
-    }
-}
-
-
-#[cfg(test)]
-mod tests {
-    use std::thread;
-
-    use crate::config::RaftConfig;
-    use crate::server::RaftServer;
-
-    #[test]
-    fn test() {
-        thread::spawn(|| {
-            let server = RaftServer::new(RaftConfig::default());
-            server.start();
-        });
-
-        thread::spawn(|| {
-            let server = RaftServer::new(RaftConfig {
-                port: 6668,
-                ..Default::default()
-            });
-            server.start();
-        });
-
-        loop {}
     }
 }

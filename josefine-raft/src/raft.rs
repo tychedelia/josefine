@@ -1,9 +1,15 @@
+use std::cell::RefCell;
+use std::collections::HashMap;
 use std::io::Error;
 use std::net::IpAddr;
+use std::rc::Rc;
+use std::sync::Arc;
+use std::sync::Mutex;
 
 use slog::Logger;
 
 use crate::candidate::Candidate;
+use crate::config::RaftConfig;
 use crate::follower::Follower;
 use crate::leader::Leader;
 use crate::rpc::Rpc;
@@ -130,6 +136,8 @@ impl State {
     }
 }
 
+pub type NodeMap = Arc<Mutex<HashMap<NodeId, Node>>>;
+
 // Contains state and logic common to all raft variants.
 pub struct Raft<S, I: Io, R: Rpc> {
     // The identifier for this node.
@@ -137,7 +145,7 @@ pub struct Raft<S, I: Io, R: Rpc> {
     pub log: Logger,
 
     // Known nodes in the cluster.
-    pub nodes: Vec<Node>,
+    pub nodes: NodeMap,
 
     // Volatile and persistent state.
     pub state: State,
@@ -161,7 +169,9 @@ pub struct Raft<S, I: Io, R: Rpc> {
 impl<S, I: Io, R: Rpc> Raft<S, I, R> {
     pub fn add_node_to_cluster(&mut self, node: Node) {
         info!(self.log, "Adding node to cluster"; "node" => format!("{:?}", node));
-        self.nodes.push(node);
+
+        let mut nodes = self.nodes.lock().unwrap();
+        nodes.insert(node.id, node);
     }
 
     pub fn get_term(command: &Command) -> Option<u64> {
@@ -188,6 +198,11 @@ pub enum RaftHandle<I: Io, R: Rpc> {
 }
 
 impl<I: Io, R: Rpc> RaftHandle<I, R> {
+    pub fn new(config: RaftConfig, io: I, rpc: R, logger: Logger, nodes: NodeMap) -> RaftHandle<I, R> {
+        let raft = Raft::new(config, io, rpc, Some(logger), Some(nodes));
+        RaftHandle::Follower(raft.unwrap())
+    }
+
     pub fn log(&self) -> &slog::Logger {
         match self {
             RaftHandle::Follower(raft) => &raft.inner.log,

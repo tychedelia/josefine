@@ -1,5 +1,6 @@
 extern crate clap;
 extern crate josefine_raft;
+#[macro_use]
 extern crate slog;
 extern crate slog_async;
 extern crate slog_term;
@@ -9,6 +10,8 @@ use clap::Arg;
 
 use josefine_raft::config::RaftConfig;
 use josefine_raft::server::RaftServer;
+use slog::Drain;
+use slog::Logger;
 
 fn main() {
     let matches = App::new("Josefine")
@@ -24,16 +27,29 @@ fn main() {
         .get_matches();
 
     let config_path = matches.value_of("config").unwrap();
+    let config = get_config(config_path);
+    let logger = get_logger();
 
+    info!(logger, "Using configuration values"; "config" => format!("{:?}", config));
+
+    let server = RaftServer::new(config, logger);
+    server.start();
+}
+
+fn get_config(config_path: &str) -> RaftConfig {
     let mut settings = config::Config::default();
     settings
         .merge(config::File::with_name(config_path)).expect("Could not read configuration file")
         .merge(config::Environment::with_prefix("JOSEFINE")).expect("Could not read environment variables");
 
-    let config: RaftConfig = settings.try_into().expect("Could not create configuration");
+    settings.try_into().expect("Could not create configuration")
+}
 
-    println!("{:?}", config);
-    let server = RaftServer::new(config);
-    server.start();
+fn get_logger() -> Logger {
+    let decorator = slog_term::TermDecorator::new().build();
+    let drain = slog_term::FullFormat::new(decorator).build().fuse();
+    let drain = slog_async::Async::new(drain).build().fuse();
+
+    Logger::root(drain, o!())
 }
 
