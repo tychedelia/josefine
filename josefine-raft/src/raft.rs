@@ -136,7 +136,7 @@ impl State {
     }
 }
 
-pub type NodeMap = Arc<Mutex<HashMap<NodeId, Node>>>;
+pub type NodeMap = Rc<RefCell<HashMap<NodeId, Node>>>;
 
 // Contains state and logic common to all raft variants.
 pub struct Raft<S, I: Io, R: Rpc> {
@@ -170,8 +170,7 @@ impl<S, I: Io, R: Rpc> Raft<S, I, R> {
     pub fn add_node_to_cluster(&mut self, node: Node) {
         info!(self.log, "Adding node to cluster"; "node" => format!("{:?}", node));
 
-        let mut nodes = self.nodes.lock().unwrap();
-        nodes.insert(node.id, node);
+        self.nodes.borrow_mut().insert(node.id, node);
     }
 
     pub fn get_term(command: &Command) -> Option<u64> {

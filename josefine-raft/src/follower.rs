@@ -66,7 +66,7 @@ impl<I: Io, R: Rpc> Raft<Follower, I, R> {
 
         let nodes = match nodes {
             Some(nodes) => nodes,
-            None => Arc::new(Mutex::new(HashMap::new())),
+            None => Rc::new(RefCell::new(HashMap::new())),
         };
 
         let raft = Raft {

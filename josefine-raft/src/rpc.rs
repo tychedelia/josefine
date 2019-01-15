@@ -54,7 +54,7 @@ impl TpcRpc {
     fn get_stream(&self, node_id: NodeId) -> TcpStream {
         let ip = Ipv4Addr::from(node_id);
         let address = format!("{}:{}", ip, self.config.port);
-        TcpStream::connect(address).unwrap()
+        TcpStream::connect(address).expect("Couldn't connect to node")
     }
 
     pub fn new(config: RaftConfig, nodes: NodeMap) -> TpcRpc {
@@ -64,7 +64,7 @@ impl TpcRpc {
         };
 
         for node in &rpc.config.nodes {
-            TcpStream::connect(node).unwrap()
+            TcpStream::connect(node).expect("Couldn't connect to node")
                 .write_all(b"hi!!");
         }
 

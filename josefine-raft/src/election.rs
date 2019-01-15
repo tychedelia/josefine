@@ -16,9 +16,8 @@ pub enum ElectionStatus {
 
 impl Election {
     pub fn new(nodes: NodeMap) -> Election {
-        let nodes = nodes.lock().unwrap();
         let mut voter_ids = Vec::new();
-        for (k, _v) in nodes.iter() {
+        for (k, _v) in nodes.borrow().iter() {
             voter_ids.push(k.clone());
         }
         Election {

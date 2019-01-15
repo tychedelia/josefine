@@ -21,6 +21,8 @@ use std::collections::HashMap;
 use crate::raft::NodeId;
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 pub struct RaftServer {
     pub raft: RaftHandle<MemoryIo, TpcRpc>,
@@ -44,7 +46,7 @@ impl RaftServer {
             .map(|x| (x.id, x))
             .collect();
 
-        let nodes = Arc::new(Mutex::new(nodes));
+        let nodes = Rc::new(RefCell::new(nodes));
 
         let io = MemoryIo::new();
         let rpc = TpcRpc::new(config.clone(), nodes.clone());
