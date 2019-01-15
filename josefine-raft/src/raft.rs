@@ -13,6 +13,9 @@ use crate::config::RaftConfig;
 use crate::follower::Follower;
 use crate::leader::Leader;
 use crate::rpc::Rpc;
+use threadpool::ThreadPool;
+use std::time::Duration;
+use std::time::Instant;
 
 pub type NodeId = u32;
 
@@ -114,9 +117,9 @@ pub struct State {
     pub last_applied: u64,
 
     // timers
-    pub election_time: usize,
+    pub election_time: Instant,
     pub heartbeat_time: usize,
-    pub election_timeout: usize,
+    pub election_timeout: Duration,
     pub heartbeat_timeout: usize,
     pub min_election_timeout: usize,
     pub max_election_timeout: usize,
@@ -135,12 +138,12 @@ impl Default for State {
             voted_for: 0,
             commit_index: 0,
             last_applied: 0,
-            election_time: 0,
+            election_time: Instant::now(),
             heartbeat_time: 0,
-            election_timeout: 0,
+            election_timeout: Duration::from_millis(0),
             heartbeat_timeout: 0,
-            min_election_timeout: 0,
-            max_election_timeout: 0,
+            min_election_timeout: 10,
+            max_election_timeout: 1000,
         }
     }
 }

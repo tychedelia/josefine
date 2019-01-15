@@ -20,6 +20,7 @@ impl Election {
         for (k, _v) in nodes.borrow().iter() {
             voter_ids.push(k.clone());
         }
+
         Election {
             voter_ids,
             votes: HashMap::new(),

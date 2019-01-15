@@ -18,11 +18,12 @@ use std::sync::Arc;
 use std::sync::Mutex;
 use std::time::Duration;
 use rand::Rng;
+use threadpool::ThreadPool;
+use std::time::Instant;
 
 pub struct Follower {
     pub leader_id: Option<NodeId>,
     pub log: Logger,
-    pub current_election_timeout: usize,
 }
 
 impl<I: Io, R: Rpc> Apply<I, R> for Raft<Follower, I, R> {
@@ -30,9 +31,8 @@ impl<I: Io, R: Rpc> Apply<I, R> for Raft<Follower, I, R> {
         match command {
             Command::Tick => {
                 info!(self.inner.log, "Tick!");
-
                 if let None = self.inner.leader_id {
-                    if self.inner.current_election_timeout == 0 {
+                    if self.state.election_time.elapsed() > self.state.election_timeout {
                        return self.apply(Command::Timeout);
                     }
                 }
@@ -40,13 +40,13 @@ impl<I: Io, R: Rpc> Apply<I, R> for Raft<Follower, I, R> {
                 Ok(RaftHandle::Follower(self))
             }
             Command::Append { mut entries, from, .. } => {
-                self.state.election_time = 0;
+                self.state.election_time = Instant::now();
                 self.inner.leader_id = Some(from);
                 self.io.append(&mut entries);
                 Ok(RaftHandle::Follower(self))
             }
             Command::Heartbeat { from, .. } => {
-                self.state.election_time = 0;
+                self.state.election_time = Instant::now();
                 self.inner.leader_id = Some(from);
                 self.io.heartbeat(from);
                 Ok(RaftHandle::Follower(self))
@@ -92,7 +92,7 @@ impl<I: Io, R: Rpc> Raft<Follower, I, R> {
             port: config.port,
         });
 
-        let raft = Raft {
+        let mut raft = Raft {
             id: config.id,
             state: State::new(),
             nodes,
@@ -101,19 +101,29 @@ impl<I: Io, R: Rpc> Raft<Follower, I, R> {
             inner: Follower {
                 leader_id: None,
                 log: log.new(o!("role" => "follower")),
-                current_election_timeout: 0,
             },
             role: Role::Follower,
             log,
         };
 
+        raft.init();
         Ok(raft)
     }
 
-    fn set_election_timeout(&mut self) {
-        let prev_timeout = self.inner.current_election_timeout;
+    fn init(&mut self) {
+        self.set_election_timeout();
+    }
+
+
+    fn get_randomized_timeout(&self) -> Duration {
+        let prev_timeout = self.state.election_timeout;
         let timeout = rand::thread_rng().gen_range(self.state.min_election_timeout, self.state.max_election_timeout);
-        self.inner.current_election_timeout = timeout;
+        Duration::from_millis(timeout as u64)
+    }
+
+    fn set_election_timeout(&mut self) {
+        self.state.election_timeout = self.get_randomized_timeout();
+        self.state.election_time = Instant::now();
     }
 }
 

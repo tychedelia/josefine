@@ -6,6 +6,7 @@ extern crate serde_derive;
 extern crate slog;
 extern crate slog_async;
 extern crate slog_term;
+extern crate threadpool;
 
 mod follower;
 mod candidate;

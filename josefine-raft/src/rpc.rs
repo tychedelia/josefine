@@ -14,6 +14,7 @@ use slog::Drain;
 use crate::raft::NodeMap;
 use std::sync::mpsc::Sender;
 use crate::raft::Command;
+use threadpool::ThreadPool;
 
 #[derive(Serialize, Deserialize, Debug)]
 struct Ping {
@@ -72,6 +73,7 @@ pub struct TpcRpc {
     config: RaftConfig,
     tx: Sender<Command>,
     nodes: NodeMap,
+    pool: ThreadPool,
 }
 
 impl TpcRpc {
@@ -86,6 +88,7 @@ impl TpcRpc {
             config,
             tx,
             nodes,
+            pool: ThreadPool::new(5),
         };
 
         for node in &rpc.config.nodes {
@@ -109,7 +112,7 @@ impl Rpc for TpcRpc {
         let ping = Ping {
             header: self.get_header(),
             id: node_id,
-            message: "ping!".to_string()
+            message: "ping!".to_string(),
         };
         let msg = Message::Ping(ping);
         let msg = serde_json::to_vec(&msg).expect("Couldn't serialize value");
