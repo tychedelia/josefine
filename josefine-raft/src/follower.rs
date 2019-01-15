@@ -5,7 +5,7 @@ use slog::Drain;
 use slog::Logger;
 
 use crate::candidate::Candidate;
-use crate::config::{Config, ConfigError};
+use crate::config::{RaftConfig, ConfigError};
 use crate::election::Election;
 use crate::raft::{Apply, RaftHandle};
 use crate::raft::{Command, Io, Node, NodeId, Raft, Role, State};
@@ -50,7 +50,7 @@ impl<I: Io, R: Rpc> Apply<I, R> for Raft<Follower, I, R> {
 }
 
 impl<I: Io, R: Rpc> Raft<Follower, I, R> {
-    pub fn new(config: Config, io: I, rpc: R) -> Result<Raft<Follower, I, R>, ConfigError> {
+    pub fn new(config: RaftConfig, io: I, rpc: R) -> Result<Raft<Follower, I, R>, ConfigError> {
         config.validate()?;
 
         let decorator = slog_term::TermDecorator::new().build();
@@ -97,7 +97,7 @@ mod tests {
 
     use super::Apply;
     use super::Command;
-    use super::Config;
+    use super::RaftConfig;
     use super::Io;
     use super::Node;
     use super::Raft;
@@ -141,7 +141,7 @@ mod tests {
     }
 
     fn new_follower() -> Raft<Follower, MemoryIo, NoopRpc> {
-        let config = Config::default();
+        let config = RaftConfig::default();
         Raft::new(config, MemoryIo::new(), NoopRpc::new()).unwrap()
     }
 }

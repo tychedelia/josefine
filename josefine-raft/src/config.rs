@@ -6,12 +6,16 @@ use std::net::ToSocketAddrs;
 use std::time::Duration;
 
 use crate::raft::NodeId;
+use crate::config;
+use std::net::SocketAddr;
 
-#[derive(Copy, Clone, Debug)]
-pub struct Config {
+#[serde(default)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct RaftConfig {
     pub id: NodeId,
     pub ip: IpAddr,
     pub port: u32,
+    pub nodes: Vec<String>,
     pub protocol_version: u32,
     pub heartbeat_timeout: Duration,
     pub election_timeout: Duration,
@@ -21,9 +25,10 @@ pub struct Config {
     pub snapshot_threshold: u64,
 }
 
+
 const MAX_PROTOCOL_VERSION: u32 = 0;
 
-impl Config {
+impl RaftConfig {
     pub fn validate(&self) -> Result<(), ConfigError> {
         if self.protocol_version > MAX_PROTOCOL_VERSION {
             return Err(ConfigError::new("Invalid protocol version."));
@@ -52,7 +57,7 @@ impl Config {
     }
 }
 
-impl Default for Config {
+impl Default for RaftConfig {
     fn default() -> Self {
         let ip = resolve("localhost")
             .unwrap_or(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)));
@@ -66,10 +71,11 @@ impl Default for Config {
             }
         };
 
-        Config {
+        RaftConfig {
             id,
             ip,
             port: 6669,
+            nodes: vec![],
             protocol_version: 0,
             heartbeat_timeout: Duration::from_millis(1000),
             election_timeout: Duration::from_millis(1000),
@@ -116,19 +122,20 @@ mod tests {
     use std::net::IpAddr;
     use std::time::Duration;
 
-    use super::Config;
+    use super::RaftConfig;
 
     #[test]
     fn default() {
-        Config::default();
+        RaftConfig::default();
     }
 
     #[test]
     fn validation() {
-        let config = Config {
+        let config = RaftConfig {
             id: 0,
             ip: IpAddr::from([0, 0, 0, 0]),
             port: 0,
+            nodes: vec![],
             protocol_version: 6666,
             heartbeat_timeout: Duration::from_millis(1), // shouldn't validate
             election_timeout: Duration::from_secs(100),

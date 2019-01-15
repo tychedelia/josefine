@@ -2,7 +2,7 @@ use std::io::Write;
 use std::net::Ipv4Addr;
 use std::net::TcpStream;
 
-use crate::config::Config;
+use crate::config::RaftConfig;
 use crate::raft::NodeId;
 use crate::raft::State;
 
@@ -39,7 +39,7 @@ impl Rpc for NoopRpc {
 }
 
 pub struct TpcRpc {
-    config: Config,
+    config: RaftConfig,
 }
 
 impl TpcRpc {
@@ -49,7 +49,7 @@ impl TpcRpc {
         TcpStream::connect(address).unwrap()
     }
 
-    pub fn new(config: Config) -> TpcRpc {
+    pub fn new(config: RaftConfig) -> TpcRpc {
         TpcRpc {
             config
         }

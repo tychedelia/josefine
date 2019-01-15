@@ -7,7 +7,7 @@ use std::time::Duration;
 
 use slog::*;
 
-use crate::config::Config;
+use crate::config::RaftConfig;
 use crate::raft::Apply;
 use crate::raft::Command;
 use crate::raft::Io;
@@ -18,12 +18,12 @@ use crate::rpc::TpcRpc;
 
 pub struct RaftServer {
     pub raft: RaftHandle<MemoryIo, TpcRpc>,
-    config: Config,
+    config: RaftConfig,
 }
 
 impl RaftServer {
-    pub fn new(config: Config) -> RaftServer {
-        let raft = RaftHandle::Follower(Raft::new(config, MemoryIo::new(), TpcRpc::new(config)).unwrap());
+    pub fn new(config: RaftConfig) -> RaftServer {
+        let raft = RaftHandle::Follower(Raft::new(config.clone(), MemoryIo::new(), TpcRpc::new(config.clone())).unwrap());
 
         RaftServer {
             raft,
@@ -76,18 +76,18 @@ impl RaftServer {
 mod tests {
     use std::thread;
 
-    use crate::config::Config;
+    use crate::config::RaftConfig;
     use crate::server::RaftServer;
 
     #[test]
     fn test() {
         thread::spawn(|| {
-            let server = RaftServer::new(Config::default());
+            let server = RaftServer::new(RaftConfig::default());
             server.start();
         });
 
         thread::spawn(|| {
-            let server = RaftServer::new(Config {
+            let server = RaftServer::new(RaftConfig {
                 port: 6668,
                 ..Default::default()
             });

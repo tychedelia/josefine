@@ -1,20 +1,14 @@
 extern crate clap;
-extern crate config;
 extern crate josefine_raft;
 extern crate slog;
 extern crate slog_async;
 extern crate slog_term;
 
-use std::net::IpAddr;
-
 use clap::App;
 use clap::Arg;
 
-use josefine_raft::config::Config;
-use josefine_raft::raft::Node;
+use josefine_raft::config::RaftConfig;
 use josefine_raft::server::RaftServer;
-use std::collections::HashMap;
-use config::ConfigError;
 
 fn main() {
     let matches = App::new("Josefine")
@@ -32,30 +26,14 @@ fn main() {
     let config_path = matches.value_of("config").unwrap();
 
     let mut settings = config::Config::default();
-
     settings
         .merge(config::File::with_name(config_path)).expect("Could not read configuration file")
-        .merge(config::Environment::with_prefix("JOSEFINE")).unwrap();
+        .merge(config::Environment::with_prefix("JOSEFINE")).expect("Could not read environment variables");
 
-    let mut config = Config::default();
+    let config: RaftConfig = settings.try_into().expect("Could not create configuration");
 
-    match settings.get("id") {
-        Ok(id) =>  config.id = id,
-        Err(ConfigError::NotFound(_)) => {},
-        Err(e) => panic!(format!("{}", e)),
-    }
-    match settings.get("ip") {
-        Ok(ip) =>  config.ip = ip,
-        Err(ConfigError::NotFound(_)) => {},
-        Err(e) => panic!(format!("{}", e)),
-    }
-    match settings.get("port") {
-        Ok(port) =>  config.port = port,
-        Err(ConfigError::NotFound(_)) => {},
-        Err(e) => panic!(format!("{}", e)),
-    }
-
-    let mut server = RaftServer::new(config);
+    println!("{:?}", config);
+    let server = RaftServer::new(config);
     server.start();
 }
 
