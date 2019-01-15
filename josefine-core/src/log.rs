@@ -36,7 +36,7 @@ impl Log {
 
 impl Write for Log {
     fn write(&mut self, buf: &[u8]) -> Result<usize, Error> {
-        let lock = self.rwlock.write().expect("Couldn't obtain write lock.");
+        let _lock = self.rwlock.write().expect("Couldn't obtain write lock.");
 
         if self.segments[self.active_segment].full() {
             let segment = Segment::new(self.path.to_owned(), self.newest_offset());
@@ -55,7 +55,7 @@ impl Write for Log {
 
 impl Read for Log {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, Error> {
-        let lock = self.rwlock.read().expect("Couldn't obtain read lock.");
+        let _lock = self.rwlock.read().expect("Couldn't obtain read lock.");
         self.segments[self.active_segment].read(buf)
     }
 }

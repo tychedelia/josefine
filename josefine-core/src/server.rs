@@ -40,15 +40,15 @@ impl Server {
         }
     }
 
-    fn get(req: &mut Request) -> IronResult<Response> {
+    fn get(_req: &mut Request) -> IronResult<Response> {
         Ok(Response::with((status::Ok, "get")))
     }
 
-    fn set(req: &mut Request) -> IronResult<Response> {
+    fn set(_req: &mut Request) -> IronResult<Response> {
         Ok(Response::with((status::Ok, "set")))
     }
 
-    fn delete(req: &mut Request) -> IronResult<Response> {
+    fn delete(_req: &mut Request) -> IronResult<Response> {
         Ok(Response::with((status::Ok, "delete")))
     }
 
