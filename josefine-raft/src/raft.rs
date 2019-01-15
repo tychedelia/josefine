@@ -19,6 +19,8 @@ pub type NodeId = u32;
 // Commands that can be applied to the state machine.
 #[derive(Debug)]
 pub enum Command {
+    //
+    AddNode(Node),
     // Our vote has been requested by another node.
     VoteRequest { term: u64, from: NodeId },
     // Vote (or not) for another node.
@@ -81,7 +83,7 @@ impl Io for MemoryIo {
 }
 
 // Contains information about nodes in raft cluster.
-#[derive(Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Node {
     pub id: NodeId,
     pub ip: IpAddr,

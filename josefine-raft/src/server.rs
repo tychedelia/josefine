@@ -78,6 +78,12 @@ impl RaftServer {
                         let reader = BufReader::new(&stream);
                         let msg: Message = serde_json::from_reader(reader).unwrap();
                         info!(log, "!!!!!!!!"; "message" => format!("{:?}", msg));
+                        match msg {
+                            Message::AddNodeRequest(node) => {
+                                tx.send(Command::AddNode(node));
+                            },
+                            _ => {},
+                        }
                     }
                     Err(e) => { panic!(e) }
                 }

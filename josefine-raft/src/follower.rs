@@ -50,6 +50,13 @@ impl<I: Io, R: Rpc> Apply<I, R> for Raft<Follower, I, R> {
                 self.rpc.ping(node_id);
                 Ok(RaftHandle::Follower(self))
             }
+            Command::AddNode(node) => {
+                info!(self.log, "Adding node"; "node" => format!("{:?}", node));
+                let node_id = node.id;
+                self.nodes.borrow_mut().insert(node.id, node);
+                self.rpc.ping(node_id);
+                Ok(RaftHandle::Follower(self))
+            }
             _ => Ok(RaftHandle::Follower(self))
         }
     }
@@ -114,7 +121,6 @@ mod tests {
 
     use crate::follower::Follower;
     use crate::raft::MemoryIo;
-    use crate::rpc::NoopRpc;
 
     use super::Apply;
     use super::Command;
@@ -125,6 +131,7 @@ mod tests {
     use super::RaftHandle;
     use std::rc::Rc;
     use std::cell::RefCell;
+    use crate::rpc::NoopRpc;
 
     #[test]
     fn follower_to_candidate() {

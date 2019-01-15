@@ -15,21 +15,17 @@ use crate::raft::NodeMap;
 
 #[derive(Serialize, Deserialize, Debug)]
 struct Ping {
+    header: Header,
+    id: NodeId,
     message: String,
 }
 
-impl Ping {
-    pub fn new(message: String) -> Self {
-        Ping {
-            message,
-        }
-    }
-}
 
 #[allow(dead_code)]
 #[derive(Serialize, Deserialize, Debug)]
 pub enum Message {
     Ping(Ping),
+    AddNodeRequest(Node),
     //    AppendRequest(AppendRequest),
 //    AppendResponse(AppendResponse),
     VoteRequest(VoteRequest),
@@ -42,6 +38,8 @@ pub trait Rpc {
     fn respond_vote(&self, state: &State, candidate_id: NodeId, granted: bool);
     fn request_vote(&self, state: &State, node_id: NodeId);
     fn ping(&self, node_id: NodeId);
+    fn get_header(&self) -> Header;
+    fn add_self_to_cluster(&self, address: &str);
 }
 
 pub struct NoopRpc {}
@@ -58,6 +56,14 @@ impl Rpc for NoopRpc {
     fn request_vote(&self, _state: &State, _node_id: u32) {}
 
     fn ping(&self, _node_id: u32) {}
+
+    fn get_header(&self) -> Header {
+        unimplemented!()
+    }
+
+    fn add_self_to_cluster(&self, address: &str) {
+        unimplemented!()
+    }
 }
 
 pub struct TpcRpc {
@@ -67,8 +73,8 @@ pub struct TpcRpc {
 
 impl TpcRpc {
     fn get_stream(&self, node_id: NodeId) -> TcpStream {
-        let ip = Ipv4Addr::from(node_id);
-        let address = format!("{}:{}", ip, self.config.port);
+        let node = &self.nodes.borrow()[&node_id];
+        let address = format!("{}:{}", node.ip, node.port);
         TcpStream::connect(address).expect("Couldn't connect to node")
     }
 
@@ -79,10 +85,7 @@ impl TpcRpc {
         };
 
         for node in &rpc.config.nodes {
-            let msg = Message::Ping(Ping::new(String::from("Hi")));
-            let msg = serde_json::to_vec(&msg).unwrap();
-            TcpStream::connect(node).expect("Couldn't connect to node")
-                .write_all( &msg[..]).unwrap();
+            rpc.add_self_to_cluster(node);
         }
 
         rpc
@@ -99,7 +102,31 @@ impl Rpc for TpcRpc {
     }
 
     fn ping(&self, node_id: u32) {
-        self.get_stream(node_id).write_all(b"PING").unwrap();
+        let ping = Ping {
+            header: self.get_header(),
+            id: node_id,
+            message: "ping!".to_string()
+        };
+        let msg = Message::Ping(ping);
+        let msg = serde_json::to_vec(&msg).expect("Couldn't serialize value");
+        self.get_stream(node_id).write_all(&msg[..]);
+    }
+
+    fn get_header(&self) -> Header {
+        Header {
+            version: self.config.protocol_version
+        }
+    }
+
+    fn add_self_to_cluster(&self, address: &str) {
+        let mut stream = TcpStream::connect(address).expect("Couldn't connect to node");
+        let msg = Message::AddNodeRequest(Node {
+            id: self.config.id,
+            ip: self.config.ip,
+            port: self.config.port,
+        });
+        let msg = serde_json::to_vec(&msg).expect("Couldn't serialize value");
+        stream.write_all(&msg[..]);
     }
 }
 
