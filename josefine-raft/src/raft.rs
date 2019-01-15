@@ -177,9 +177,10 @@ pub struct Raft<S, I: Io, R: Rpc> {
 // Base methods for general operations (+ debugging and testing).
 impl<S, I: Io, R: Rpc> Raft<S, I, R> {
     pub fn add_node_to_cluster(&mut self, node: Node) {
-        info!(self.log, "Adding node to cluster"; "node" => format!("{:?}", node));
-
+        info!(self.log, "Adding node"; "node" => format!("{:?}", node));
+        let node_id = node.id;
         self.nodes.borrow_mut().insert(node.id, node);
+        self.rpc.ping(node_id);
     }
 
     pub fn get_term(command: &Command) -> Option<u64> {

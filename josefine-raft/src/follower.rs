@@ -29,13 +29,20 @@ impl<I: Io, R: Rpc> Apply<I, R> for Raft<Follower, I, R> {
     fn apply(mut self, command: Command) -> Result<RaftHandle<I, R>, io::Error> {
         match command {
             Command::Tick => {
+                info!(self.inner.log, "Tick!");
+
+                if let None = self.inner.leader_id {
+                    if self.inner.current_election_timeout == 0 {
+                       return self.apply(Command::Timeout);
+                    }
+                }
+
                 Ok(RaftHandle::Follower(self))
             }
             Command::Append { mut entries, from, .. } => {
                 self.state.election_time = 0;
                 self.inner.leader_id = Some(from);
-                self.io.
-                    append(&mut entries);
+                self.io.append(&mut entries);
                 Ok(RaftHandle::Follower(self))
             }
             Command::Heartbeat { from, .. } => {
@@ -57,10 +64,7 @@ impl<I: Io, R: Rpc> Apply<I, R> for Raft<Follower, I, R> {
                 Ok(RaftHandle::Follower(self))
             }
             Command::AddNode(node) => {
-                info!(self.log, "Adding node"; "node" => format!("{:?}", node));
-                let node_id = node.id;
-                self.nodes.borrow_mut().insert(node.id, node);
-                self.rpc.ping(node_id);
+                self.add_node_to_cluster(node);
                 Ok(RaftHandle::Follower(self))
             }
             _ => Ok(RaftHandle::Follower(self))
@@ -81,6 +85,12 @@ impl<I: Io, R: Rpc> Raft<Follower, I, R> {
             Some(nodes) => nodes,
             None => Rc::new(RefCell::new(HashMap::new())),
         };
+
+        nodes.borrow_mut().insert(config.id, Node {
+            id: config.id,
+            ip: config.ip,
+            port: config.port,
+        });
 
         let raft = Raft {
             id: config.id,

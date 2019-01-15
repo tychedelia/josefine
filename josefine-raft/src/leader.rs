@@ -15,8 +15,10 @@ pub struct Leader {
 }
 
 impl<I: Io, R: Rpc> Apply<I, R> for Raft<Leader, I, R> {
-    fn apply(self, _command: Command) -> Result<RaftHandle<I, R>, Error> {
-        unimplemented!()
+    fn apply(self, command: Command) -> Result<RaftHandle<I, R>, Error> {
+        match command {
+            _ => Ok(RaftHandle::Leader(self))
+        }
     }
 }
 

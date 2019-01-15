@@ -19,7 +19,7 @@ pub struct Candidate {
 
 impl<I: Io, R: Rpc> Raft<Candidate, I, R> {
     pub fn seek_election(mut self) -> Result<RaftHandle<I, R>, Error> {
-//        info!("{} seeking election", "{}", self.id);
+        info!(self.inner.log, "Seeking election");
         self.state.voted_for = self.id;
         let from = self.id;
         let term = self.state.current_term;
@@ -32,6 +32,10 @@ impl<I: Io, R: Rpc> Apply<I, R> for Raft<Candidate, I, R> {
 //        trace!("Applying command {:?} to {}", "", command, self.id);
 
         match command {
+            Command::Tick => {
+                info!(self.inner.log, "Tick!");
+                Ok(RaftHandle::Candidate(self))
+            }
             Command::VoteResponse { granted, from, .. } => {
                 self.inner.election.vote(from, granted);
                 match self.inner.election.election_status() {
@@ -78,6 +82,7 @@ impl<I: Io, R: Rpc> From<Raft<Candidate, I, R>> for Raft<Follower, I, R> {
 
 impl<I: Io, R: Rpc> From<Raft<Candidate, I, R>> for Raft<Leader, I, R> {
     fn from(val: Raft<Candidate, I, R>) -> Raft<Leader, I, R> {
+        info!(val.inner.log, "Becoming the leader");
         Raft {
             id: val.id,
             state: val.state,
