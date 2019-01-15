@@ -16,15 +16,21 @@ use std::rc::Rc;
 use std::cell::RefCell;
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::time::Duration;
+use rand::Rng;
 
 pub struct Follower {
     pub leader_id: Option<NodeId>,
     pub log: Logger,
+    pub current_election_timeout: usize,
 }
 
 impl<I: Io, R: Rpc> Apply<I, R> for Raft<Follower, I, R> {
     fn apply(mut self, command: Command) -> Result<RaftHandle<I, R>, io::Error> {
         match command {
+            Command::Tick => {
+                Ok(RaftHandle::Follower(self))
+            }
             Command::Append { mut entries, from, .. } => {
                 self.state.election_time = 0;
                 self.inner.leader_id = Some(from);
@@ -82,12 +88,22 @@ impl<I: Io, R: Rpc> Raft<Follower, I, R> {
             nodes,
             io,
             rpc,
-            inner: Follower { leader_id: None, log: log.new(o!("role" => "follower")) },
+            inner: Follower {
+                leader_id: None,
+                log: log.new(o!("role" => "follower")),
+                current_election_timeout: 0,
+            },
             role: Role::Follower,
             log,
         };
 
         Ok(raft)
+    }
+
+    fn set_election_timeout(&mut self) {
+        let prev_timeout = self.inner.current_election_timeout;
+        let timeout = rand::thread_rng().gen_range(self.state.min_election_timeout, self.state.max_election_timeout);
+        self.inner.current_election_timeout = timeout;
     }
 }
 

@@ -26,16 +26,22 @@ use std::rc::Rc;
 use std::str;
 use crate::rpc::Message;
 use std::io::BufReader;
+use std::sync::mpsc::Sender;
+use std::sync::mpsc::Receiver;
+use std::time::Instant;
 
 pub struct RaftServer {
     pub raft: RaftHandle<MemoryIo, TpcRpc>,
     config: RaftConfig,
     log: Logger,
+    tx: Sender<Command>,
+    rx: Receiver<Command>,
 }
 
 impl RaftServer {
     pub fn new(config: RaftConfig, logger: Logger) -> RaftServer {
         let log = logger.new(o!());
+        let (tx, rx) = channel::<Command>();
 
         let nodes: HashMap<NodeId, Node> = config.nodes.iter()
             .map(|x| {
@@ -52,32 +58,60 @@ impl RaftServer {
         let nodes = Rc::new(RefCell::new(nodes));
 
         let io = MemoryIo::new();
-        let rpc = TpcRpc::new(config.clone(), nodes.clone());
+        let rpc = TpcRpc::new(config.clone(), tx.clone(), nodes.clone());
         let raft = RaftHandle::new(config.clone(), io, rpc, logger, nodes.clone());
 
         RaftServer {
             raft,
             config,
             log,
+            tx,
+            rx,
         }
     }
 
     pub fn start(self) {
+        self.listen();
+
+        let mut timeout = Duration::from_millis(100);
+        let mut t = Instant::now();
+        let mut raft = self.raft;
+
+        loop {
+            match self.rx.recv_timeout(timeout) {
+                Ok(cmd) => {
+                    raft = raft.apply(cmd).unwrap();
+                }
+                Err(RecvTimeoutError::Timeout) => (),
+                Err(RecvTimeoutError::Disconnected) => return,
+            }
+
+            let d = t.elapsed();
+            t = Instant::now();
+            if d >= timeout {
+                timeout = Duration::from_millis(100);
+                raft = raft.apply(Command::Tick).unwrap();
+            } else {
+                timeout -= d;
+            }
+        }
+    }
+
+    fn listen(&self) {
         let address = format!("{}:{}", self.config.ip, self.config.port);
         info!(self.log, "Listening"; "address" => &address);
 
         let listener = TcpListener::bind(&address).unwrap();
-        let timeout = Duration::from_millis(100);
-        let (tx, rx) = channel::<Command>();
-
+        let tx = self.tx.clone();
         let log = self.log.new(o!());
+
         thread::spawn(move || {
             for stream in listener.incoming() {
                 match stream {
                     Ok(mut stream) => {
                         let reader = BufReader::new(&stream);
                         let msg: Message = serde_json::from_reader(reader).unwrap();
-                        info!(log, "!!!!!!!!"; "message" => format!("{:?}", msg));
+                        trace!(log, ""; "message" => format!("{:?}", msg));
                         match msg {
                             Message::AddNodeRequest(node) => {
                                 tx.send(Command::AddNode(node));
@@ -89,17 +123,5 @@ impl RaftServer {
                 }
             }
         });
-
-
-        let mut raft = self.raft;
-        loop {
-            match rx.recv_timeout(timeout) {
-                Ok(cmd) => {
-                    raft = raft.apply(cmd).unwrap();
-                }
-                Err(RecvTimeoutError::Timeout) => (),
-                Err(RecvTimeoutError::Disconnected) => return,
-            }
-        }
     }
 }

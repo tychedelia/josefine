@@ -19,6 +19,7 @@ pub type NodeId = u32;
 // Commands that can be applied to the state machine.
 #[derive(Debug)]
 pub enum Command {
+    Tick,
     //
     AddNode(Node),
     // Our vote has been requested by another node.

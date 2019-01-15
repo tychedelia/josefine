@@ -12,6 +12,8 @@ use std::collections::HashMap;
 use slog::Logger;
 use slog::Drain;
 use crate::raft::NodeMap;
+use std::sync::mpsc::Sender;
+use crate::raft::Command;
 
 #[derive(Serialize, Deserialize, Debug)]
 struct Ping {
@@ -68,6 +70,7 @@ impl Rpc for NoopRpc {
 
 pub struct TpcRpc {
     config: RaftConfig,
+    tx: Sender<Command>,
     nodes: NodeMap,
 }
 
@@ -78,9 +81,10 @@ impl TpcRpc {
         TcpStream::connect(address).expect("Couldn't connect to node")
     }
 
-    pub fn new(config: RaftConfig, nodes: NodeMap) -> TpcRpc {
+    pub fn new(config: RaftConfig, tx: Sender<Command>, nodes: NodeMap) -> TpcRpc {
         let rpc = TpcRpc {
             config,
+            tx,
             nodes,
         };
 

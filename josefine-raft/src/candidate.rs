@@ -70,7 +70,7 @@ impl<I: Io, R: Rpc> From<Raft<Candidate, I, R>> for Raft<Follower, I, R> {
             io: val.io,
             rpc: val.rpc,
             role: Role::Follower,
-            inner: Follower { leader_id: None, log: val.log.new(o!("role" => "follower")) },
+            inner: Follower { leader_id: None, log: val.log.new(o!("role" => "follower")), current_election_timeout: 0 },
             log: val.log,
         }
     }
