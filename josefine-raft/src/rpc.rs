@@ -65,19 +65,11 @@ impl TpcRpc {
 
         for node in &rpc.config.nodes {
             TcpStream::connect(node).expect("Couldn't connect to node")
-                .write_all(b"hi!!");
+                .write_all(b"hi!!").unwrap();
         }
 
         rpc
     }
-}
-
-fn get_logger() -> Logger {
-    let decorator = slog_term::TermDecorator::new().build();
-    let drain = slog_term::FullFormat::new(decorator).build().fuse();
-    let drain = slog_async::Async::new(drain).build().fuse();
-
-    Logger::root(drain, o!())
 }
 
 impl Rpc for TpcRpc {
@@ -90,7 +82,7 @@ impl Rpc for TpcRpc {
     }
 
     fn ping(&self, node_id: u32) {
-        self.get_stream(node_id).write_all("PING".as_bytes()).unwrap();
+        self.get_stream(node_id).write_all(b"PING").unwrap();
     }
 }
 

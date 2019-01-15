@@ -121,6 +121,12 @@ pub struct State {
 
 impl State {
     pub fn new() -> State {
+        State::default()
+    }
+}
+
+impl Default for State {
+    fn default() -> Self {
         State {
             current_term: 0,
             voted_for: 0,
@@ -175,10 +181,10 @@ impl<S, I: Io, R: Rpc> Raft<S, I, R> {
 
     pub fn get_term(command: &Command) -> Option<u64> {
         match command {
-            Command::VoteRequest { term, .. } => Some(term.clone()),
-            Command::VoteResponse { term, .. } => Some(term.clone()),
-            Command::Append { term, .. } => Some(term.clone()),
-            Command::Heartbeat { term, .. } => Some(term.clone()),
+            Command::VoteRequest { term, .. } => Some(*term),
+            Command::VoteResponse { term, .. } => Some(*term),
+            Command::Append { term, .. } => Some(*term),
+            Command::Heartbeat { term, .. } => Some(*term),
             Command::Timeout => None,
             Command::Noop => None,
             _ => None,

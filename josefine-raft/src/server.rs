@@ -36,7 +36,7 @@ impl RaftServer {
 
         let nodes: HashMap<NodeId, Node> = config.nodes.iter()
             .map(|x| {
-                let parts: Vec<&str> = x.split(":").collect();
+                let parts: Vec<&str> = x.split(':').collect();
 
                 Node {
                 id: 0,

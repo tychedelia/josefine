@@ -58,7 +58,7 @@ impl RaftConfig {
 impl Default for RaftConfig {
     fn default() -> Self {
         let ip = resolve("localhost")
-            .unwrap_or(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)));
+            .unwrap_or_else(|| IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)));
 
         let id = match ip {
             IpAddr::V4(ipv4) => {
