@@ -18,13 +18,13 @@ pub struct Candidate {
 }
 
 impl<I: Io, R: Rpc> Raft<Candidate, I, R> {
-    pub fn seek_election(mut self) -> Result<RaftHandle<I, R>, Error> {
+    pub(crate) fn seek_election(mut self) -> Result<RaftHandle<I, R>, Error> {
         info!(self.role.log, "Seeking election");
         self.state.voted_for = Some(self.id);
         self.state.current_term += 1;
         let from = self.id;
         let term = self.state.current_term;
-        self.apply(Command::VoteResponse { from, term, granted: true })
+        self.apply(Command::VoteResponse { candidate_id: from, term, granted: true })
     }
 }
 
@@ -43,12 +43,12 @@ impl<I: Io, R: Rpc> Apply<I, R> for Raft<Candidate, I, R> {
                 info!(self.role.log, "Tick!");
                 Ok(RaftHandle::Candidate(self))
             }
-            Command::VoteRequest { from, term, .. } => {
-                self.rpc.respond_vote(&self.state, self.id, false);
+            Command::VoteRequest { candidate_id, term, .. } => {
+                self.rpc.respond_vote(&self.state, candidate_id, false);
                 Ok(RaftHandle::Candidate(self))
             }
-            Command::VoteResponse { granted, from, .. } => {
-                self.role.election.vote(from, granted);
+            Command::VoteResponse { granted, candidate_id, .. } => {
+                self.role.election.vote(candidate_id, granted);
                 match self.role.election.election_status() {
                     ElectionStatus::Elected => Ok(RaftHandle::Leader(Raft::from(self))),
                     ElectionStatus::Voting => Ok(RaftHandle::Candidate(self)),
@@ -64,9 +64,9 @@ impl<I: Io, R: Rpc> Apply<I, R> for Raft<Candidate, I, R> {
 
                 Ok(RaftHandle::Candidate(self))
             }
-            Command::Heartbeat { from, .. } => {
+            Command::Heartbeat { leader_id, .. } => {
                 let mut raft: Raft<Follower, I, R> = Raft::from(self);
-                raft.io.heartbeat(from);
+                raft.io.heartbeat(leader_id);
                 Ok(RaftHandle::Follower(raft))
             }
             _ => Ok(RaftHandle::Candidate(self))

@@ -11,23 +11,36 @@ use std::net::SocketAddr;
 
 #[serde(default)]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+/// The configuration for this Raft instance.
 pub struct RaftConfig {
+    /// The id used for this instance. Should be unique.
     pub id: NodeId,
+    /// The ip address to listen for requests on in TCP implmentations.
     pub ip: IpAddr,
+    /// The port to listen for request on in TCP implementations.
     pub port: u32,
+    /// A list of addresses to query for cluster membership.
     pub nodes: Vec<String>,
+    /// The version of the protocol spoken by this instance.
     pub protocol_version: u32,
+    /// The default timeout for a heartbeat.
     pub heartbeat_timeout: Duration,
+    /// The default timeout for an election.
     pub election_timeout: Duration,
+    ///
     pub commit_timeout: Duration,
+    /// Maximum number of entries that can be sent in an append message.
     pub max_append_entries: u64,
+    ///
     pub snapshot_interval: Duration,
+    ///
     pub snapshot_threshold: u64,
 }
 
 const MAX_PROTOCOL_VERSION: u32 = 0;
 
 impl RaftConfig {
+    /// Validates the configuration, ensuring all values make sense.
     pub fn validate(&self) -> Result<(), ConfigError> {
         if self.protocol_version > MAX_PROTOCOL_VERSION {
             return Err(ConfigError::new("Invalid protocol version."));
@@ -86,11 +99,13 @@ impl Default for RaftConfig {
 }
 
 #[derive(Debug)]
+/// Represents an error with the configuration.
 pub struct ConfigError {
     reason: String
 }
 
 impl ConfigError {
+    /// Create an error with the provided reason.
     pub fn new(reason: &str) -> ConfigError {
         ConfigError { reason: reason.to_string() }
     }

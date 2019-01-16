@@ -30,8 +30,12 @@ use std::sync::mpsc::Sender;
 use std::sync::mpsc::Receiver;
 use std::time::Instant;
 
+/// A server implementation that wraps the Raft state machine and handles connection with other nodes via a TPC
+/// RPC implementation.
+///
+/// The server handles wiring up the state machine and driving it forward at a fixed interval.
 pub struct RaftServer {
-    pub raft: RaftHandle<MemoryIo, TpcRpc>,
+    raft: RaftHandle<MemoryIo, TpcRpc>,
     config: RaftConfig,
     log: Logger,
     tx: Sender<Command>,
@@ -39,6 +43,20 @@ pub struct RaftServer {
 }
 
 impl RaftServer {
+    /// Creates a new server that wraps the Raft state machine and handles driving the state machine
+    /// forward on the basis of some external input.
+    ///
+    /// # Arguments
+    ///
+    /// * `config` - The configuration for this raft instance.
+    /// * `logger` - The root logger to use for the application.
+    ///
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// let server = RaftServer::new(Config::default(), logger);
+    /// ```
     pub fn new(config: RaftConfig, logger: Logger) -> RaftServer {
         let log = logger.new(o!());
         let (tx, rx) = channel::<Command>();
@@ -70,6 +88,7 @@ impl RaftServer {
         }
     }
 
+    /// Start the server and the state machine. Raft is driven every 100 milliseconds.
     pub fn start(self) {
         self.listen();
 
@@ -119,7 +138,7 @@ impl RaftServer {
                             Message::AppendRequest(req) => {
                                 Command::Append {
                                     term: req.term,
-                                    from: 0,
+                                    leader_id: 0,
                                     entries: vec![]
                                 }
                             }

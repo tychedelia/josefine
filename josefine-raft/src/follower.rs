@@ -43,28 +43,29 @@ impl<I: Io, R: Rpc> Apply<I, R> for Raft<Follower, I, R> {
 
                 Ok(RaftHandle::Follower(self))
             }
-            Command::Append { mut entries, from, .. } => {
+            Command::Append { mut entries, leader_id, .. } => {
                 self.state.election_time = Some(Instant::now());
-                self.role.leader_id = Some(from);
-                self.state.voted_for = Some(from);
+                self.role.leader_id = Some(leader_id);
+                self.state.voted_for = Some(leader_id);
                 self.io.append(&mut entries);
                 Ok(RaftHandle::Follower(self))
             }
-            Command::Heartbeat { from, .. } => {
+            Command::Heartbeat {leader_id, .. } => {
                 self.state.election_time = Some(Instant::now());
-                self.role.leader_id = Some(from);
-                self.io.heartbeat(from);
+                self.role.leader_id = Some(leader_id);
+                self.io.heartbeat(leader_id);
                 Ok(RaftHandle::Follower(self))
             }
-            Command::VoteRequest { from, .. } => {
-                self.rpc.respond_vote(&self.state, from, true);
+            Command::VoteRequest { candidate_id, .. } => {
+                self.rpc.respond_vote(&self.state, candidate_id, true);
                 Ok(RaftHandle::Follower(self))
             }
             Command::Timeout => {
-                let raft: Raft<Candidate, I, R> = Raft::from(self);
-                if let None = self.state.voted_for {
-                    raft.seek_election()
+                if self.state.voted_for.is_none() {
+                    let raft: Raft<Candidate, I, R> = Raft::from(self);
+                    return raft.seek_election();
                 }
+                Ok(RaftHandle::Follower(self))
             }
             Command::Ping(node_id) => {
                 self.rpc.ping(node_id);
@@ -80,7 +81,24 @@ impl<I: Io, R: Rpc> Apply<I, R> for Raft<Follower, I, R> {
 }
 
 impl<I: Io, R: Rpc> Raft<Follower, I, R> {
-    pub fn new(config: RaftConfig, io: I, rpc: R, logger: Option<Logger>, nodes: Option<NodeMap>) -> Result<Raft<Follower, I, R>, ConfigError> {
+    /// Creates an initialized instance of Raft in the follower with the provided configuration.
+    ///
+    /// # Arguments
+    ///
+    /// * `config` - The configuration to use for creating the state machine.
+    /// * `io` - The implementation used to persist the non-volatile state of the state machine and
+    /// entries for the commit log.
+    /// * `logger` - An optional logger implementation.
+    /// * `nodes` - An optional map of nodes present in the cluster.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// let raft = Raft::new(io, rpc, logger, nodes);
+    /// ```
+    ///
+    pub fn new(config: RaftConfig, io: I, rpc: R, logger: Option<Logger>, nodes: Option<NodeMap>)
+               -> Result<Raft<Follower, I, R>, ConfigError> {
         config.validate()?;
 
         let log = match logger {
@@ -101,7 +119,7 @@ impl<I: Io, R: Rpc> Raft<Follower, I, R> {
 
         let mut raft = Raft {
             id: config.id,
-            state: State::new(),
+            state: State::default(),
             nodes,
             io,
             rpc,
@@ -183,7 +201,7 @@ mod tests {
     #[test]
     fn follower_to_candidate() {
         let mut follower = new_follower();
-        follower.add_node_to_cluster(Node::new(10, IpAddr::from([0, 0, 0, 0]), 0));
+        follower.add_node_to_cluster(Node { id: 10, ip: IpAddr::from([0, 0, 0, 0]), port: 0 });
 
         let id = follower.id;
         match follower.apply(Command::Timeout).unwrap() {

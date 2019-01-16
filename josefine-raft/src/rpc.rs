@@ -18,7 +18,7 @@ use threadpool::ThreadPool;
 use crate::raft::Entry;
 
 #[derive(Serialize, Deserialize, Debug)]
-struct Ping {
+pub struct Ping {
     header: Header,
     id: NodeId,
     message: String,
