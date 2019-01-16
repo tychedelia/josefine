@@ -40,14 +40,7 @@ pub enum Command {
     Ping(NodeId),
 }
 
-// Possible states in the raft state machine.
-pub enum Role {
-    Follower,
-    Candidate,
-    Leader,
-}
-
-pub trait RaftRole {
+pub trait Role {
     fn term(&mut self, term: u64);
 }
 
@@ -64,7 +57,7 @@ pub trait Io {
 }
 
 // An entry in the commit log.
-#[derive(Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Entry {
     pub term: u64,
     pub index: u64,
@@ -155,7 +148,7 @@ impl Default for State {
 pub type NodeMap = Rc<RefCell<HashMap<NodeId, Node>>>;
 
 // Contains state and logic common to all raft variants.
-pub struct Raft<S: RaftRole, I: Io, R: Rpc> {
+pub struct Raft<S: Role, I: Io, R: Rpc> {
     // The identifier for this node.
     pub id: NodeId,
     pub log: Logger,
@@ -172,15 +165,12 @@ pub struct Raft<S: RaftRole, I: Io, R: Rpc> {
     // Rpc implementation
     pub rpc: R,
 
-    // Flag for testing state
-    pub role: Role,
-
     // Struct for role specific state + methods.
-    pub inner: S,
+    pub role: S,
 }
 
 // Base methods for general operations (+ debugging and testing).
-impl<S: RaftRole, I: Io, R: Rpc> Raft<S, I, R> {
+impl<S: Role, I: Io, R: Rpc> Raft<S, I, R> {
     pub fn add_node_to_cluster(&mut self, node: Node) {
         info!(self.log, "Adding node"; "node" => format!("{:?}", node));
         let node_id = node.id;
@@ -192,7 +182,7 @@ impl<S: RaftRole, I: Io, R: Rpc> Raft<S, I, R> {
         self.state.voted_for = None;
         self.state.current_term = term;
 
-        self.inner.term(term);
+        self.role.term(term);
     }
 }
 

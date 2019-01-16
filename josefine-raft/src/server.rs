@@ -58,7 +58,7 @@ impl RaftServer {
         let nodes = Rc::new(RefCell::new(nodes));
 
         let io = MemoryIo::new();
-        let rpc = TpcRpc::new(config.clone(), tx.clone(), nodes.clone());
+        let rpc = TpcRpc::new(config.clone(), tx.clone(), nodes.clone(), log.new(o!()));
         let raft = RaftHandle::new(config.clone(), io, rpc, logger, nodes.clone());
 
         RaftServer {
@@ -112,12 +112,20 @@ impl RaftServer {
                         let reader = BufReader::new(&stream);
                         let msg: Message = serde_json::from_reader(reader).unwrap();
                         trace!(log, ""; "message" => format!("{:?}", msg));
-                        match msg {
+                        let cmd = match msg {
                             Message::AddNodeRequest(node) => {
-                                tx.send(Command::AddNode(node));
-                            },
-                            _ => {},
-                        }
+                                Command::AddNode(node)
+                            }
+                            Message::AppendRequest(req) => {
+                                Command::Append {
+                                    term: req.term,
+                                    from: 0,
+                                    entries: vec![]
+                                }
+                            }
+                            _ => Command::Noop,
+                        };
+                        tx.send(cmd);
                     }
                     Err(e) => { panic!(e) }
                 }

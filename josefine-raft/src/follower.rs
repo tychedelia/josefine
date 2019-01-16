@@ -20,14 +20,13 @@ use std::time::Duration;
 use rand::Rng;
 use threadpool::ThreadPool;
 use std::time::Instant;
-use crate::raft::RaftRole;
 
 pub struct Follower {
     pub leader_id: Option<NodeId>,
     pub log: Logger,
 }
 
-impl RaftRole for Follower {
+impl Role for Follower {
     fn term(&mut self, term: u64) {
         self.leader_id = None;
     }
@@ -37,7 +36,7 @@ impl<I: Io, R: Rpc> Apply<I, R> for Raft<Follower, I, R> {
     fn apply(mut self, command: Command) -> Result<RaftHandle<I, R>, io::Error> {
         match command {
             Command::Tick => {
-                info!(self.inner.log, "Tick!");
+                info!(self.role.log, "Tick!");
                 if self.has_timed_out() {
                     return self.apply(Command::Timeout);
                 }
@@ -46,13 +45,14 @@ impl<I: Io, R: Rpc> Apply<I, R> for Raft<Follower, I, R> {
             }
             Command::Append { mut entries, from, .. } => {
                 self.state.election_time = Some(Instant::now());
-                self.inner.leader_id = Some(from);
+                self.role.leader_id = Some(from);
+                self.state.voted_for = Some(from);
                 self.io.append(&mut entries);
                 Ok(RaftHandle::Follower(self))
             }
             Command::Heartbeat { from, .. } => {
                 self.state.election_time = Some(Instant::now());
-                self.inner.leader_id = Some(from);
+                self.role.leader_id = Some(from);
                 self.io.heartbeat(from);
                 Ok(RaftHandle::Follower(self))
             }
@@ -62,7 +62,9 @@ impl<I: Io, R: Rpc> Apply<I, R> for Raft<Follower, I, R> {
             }
             Command::Timeout => {
                 let raft: Raft<Candidate, I, R> = Raft::from(self);
-                raft.seek_election()
+                if let None = self.state.voted_for {
+                    raft.seek_election()
+                }
             }
             Command::Ping(node_id) => {
                 self.rpc.ping(node_id);
@@ -103,11 +105,10 @@ impl<I: Io, R: Rpc> Raft<Follower, I, R> {
             nodes,
             io,
             rpc,
-            inner: Follower {
+            role: Follower {
                 leader_id: None,
                 log: log.new(o!("role" => "follower")),
             },
-            role: Role::Follower,
             log,
         };
 
@@ -120,8 +121,8 @@ impl<I: Io, R: Rpc> Raft<Follower, I, R> {
     }
 
     fn has_timed_out(&self) -> bool {
-        match (self.state.voted_for, self.state.election_time, self.state.election_timeout) {
-            (None, Some(time), Some(timeout)) => time.elapsed() > timeout,
+        match (self.state.election_time, self.state.election_timeout) {
+            (Some(time), Some(timeout)) => time.elapsed() > timeout,
             _ => false,
         }
     }
@@ -155,8 +156,7 @@ impl<I: Io, R: Rpc> From<Raft<Follower, I, R>> for Raft<Candidate, I, R> {
             nodes: val.nodes,
             io: val.io,
             rpc: val.rpc,
-            role: Role::Candidate,
-            inner: Candidate { election, log: val.log.new(o!("role" => "candidate")) },
+            role: Candidate { election, log: val.log.new(o!("role" => "candidate")) },
             log: val.log,
         }
     }
