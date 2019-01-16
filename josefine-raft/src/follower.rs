@@ -20,6 +20,7 @@ use std::time::Duration;
 use rand::Rng;
 use threadpool::ThreadPool;
 use std::time::Instant;
+use std::sync::RwLock;
 
 pub struct Follower {
     pub leader_id: Option<NodeId>,
@@ -108,10 +109,10 @@ impl<I: Io, R: Rpc> Raft<Follower, I, R> {
 
         let nodes = match nodes {
             Some(nodes) => nodes,
-            None => Rc::new(RefCell::new(HashMap::new())),
+            None => Arc::new(RwLock::new(HashMap::new())),
         };
 
-        nodes.borrow_mut().insert(config.id, Node {
+        nodes.write().unwrap().insert(config.id, Node {
             id: config.id,
             ip: config.ip,
             port: config.port,

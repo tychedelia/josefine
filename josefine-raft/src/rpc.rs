@@ -85,7 +85,7 @@ pub struct TpcRpc {
 
 impl TpcRpc {
     fn get_stream(&self, node_id: NodeId) -> Option<TcpStream> {
-        let node = &self.nodes.borrow()[&node_id];
+        let node = &self.nodes.read().unwrap()[&node_id];
         let address = format!("{}:{}", node.ip, node.port);
         match TcpStream::connect(address) {
             Ok(stream) => Some(stream),
@@ -122,7 +122,7 @@ impl Rpc for TpcRpc {
             leader_index: index,
         };
 
-        for (id, _) in self.nodes.borrow().iter() {
+        for (id, _) in self.nodes.read().unwrap().iter() {
             let msg = serde_json::to_vec(&req).expect("Could not serialize message");
             if let Some(mut stream) = self.get_stream(*id) {
                 match stream.write_all(&msg[..]) {

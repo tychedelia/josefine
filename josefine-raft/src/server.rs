@@ -29,6 +29,7 @@ use std::io::BufReader;
 use std::sync::mpsc::Sender;
 use std::sync::mpsc::Receiver;
 use std::time::Instant;
+use std::sync::RwLock;
 
 /// A server implementation that wraps the Raft state machine and handles connection with other nodes via a TPC
 /// RPC implementation.
@@ -73,7 +74,7 @@ impl RaftServer {
             .map(|x| (x.id, x))
             .collect();
 
-        let nodes = Rc::new(RefCell::new(nodes));
+        let nodes = Arc::new(RwLock::new(nodes));
 
         let io = MemoryIo::new();
         let rpc = TpcRpc::new(config.clone(), tx.clone(), nodes.clone(), log.new(o!()));

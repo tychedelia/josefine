@@ -31,7 +31,7 @@ impl Election {
         self.voter_ids.clear();
         self.votes.clear();
 
-        for (k, _v) in self.nodes.borrow().iter() {
+        for (k, _v) in self.nodes.read().unwrap().iter() {
             self.voter_ids.push(k.clone());
         }
     }

@@ -16,6 +16,7 @@ use crate::rpc::Rpc;
 use threadpool::ThreadPool;
 use std::time::Duration;
 use std::time::Instant;
+use std::sync::RwLock;
 
 /// An id that uniquely identifies this instance of Raft.
 pub type NodeId = u32;
@@ -186,7 +187,7 @@ impl Default for State {
 
 /// A map of nodes in the cluster shared between a few components in the crate.
 // TODO: Refactor into better pattern.
-pub type NodeMap = Rc<RefCell<HashMap<NodeId, Node>>>;
+pub type NodeMap = Arc<RwLock<HashMap<NodeId, Node>>>;
 
 /// The primary struct representing the state machine. Contains fields common all roles.
 pub struct Raft<S: Role, I: Io, R: Rpc> {
@@ -218,7 +219,7 @@ impl<S: Role, I: Io, R: Rpc> Raft<S, I, R> {
     pub fn add_node_to_cluster(&mut self, node: Node) {
         info!(self.log, "Adding node"; "node" => format!("{:?}", node));
         let node_id = node.id;
-        self.nodes.borrow_mut().insert(node.id, node);
+        self.nodes.write().unwrap().insert(node.id, node);
         self.rpc.ping(node_id);
     }
 
