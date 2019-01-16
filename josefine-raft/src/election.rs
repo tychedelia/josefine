@@ -6,6 +6,7 @@ use crate::raft::NodeMap;
 pub struct Election {
     voter_ids: Vec<NodeId>,
     votes: HashMap<NodeId, bool>,
+    nodes: NodeMap,
 }
 
 pub enum ElectionStatus {
@@ -16,14 +17,22 @@ pub enum ElectionStatus {
 
 impl Election {
     pub fn new(nodes: NodeMap) -> Election {
-        let mut voter_ids = Vec::new();
-        for (k, _v) in nodes.borrow().iter() {
-            voter_ids.push(k.clone());
-        }
-
-        Election {
-            voter_ids,
+        let mut election = Election {
+            nodes,
+            voter_ids: Vec::new(),
             votes: HashMap::new(),
+        };
+
+        election.reset();
+        election
+    }
+
+    pub fn reset(&mut self) {
+        self.voter_ids.clear();
+        self.votes.clear();
+
+        for (k, _v) in self.nodes.borrow().iter() {
+            self.voter_ids.push(k.clone());
         }
     }
 

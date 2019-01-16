@@ -11,6 +11,7 @@ use crate::raft::Io;
 use crate::raft::Raft;
 use crate::raft::Role;
 use crate::rpc::Rpc;
+use crate::raft::RaftRole;
 
 pub struct Candidate {
     pub election: Election,
@@ -20,10 +21,16 @@ pub struct Candidate {
 impl<I: Io, R: Rpc> Raft<Candidate, I, R> {
     pub fn seek_election(mut self) -> Result<RaftHandle<I, R>, Error> {
         info!(self.inner.log, "Seeking election");
-        self.state.voted_for = self.id;
+        self.state.voted_for = Some(self.id);
         let from = self.id;
         let term = self.state.current_term;
         self.apply(Command::VoteResponse { from, term, granted: true })
+    }
+}
+
+impl RaftRole for Candidate {
+    fn term(&mut self, term: u64) {
+        self.election.reset();
     }
 }
 

@@ -47,6 +47,10 @@ pub enum Role {
     Leader,
 }
 
+pub trait RaftRole {
+    fn term(&mut self, term: u64);
+}
+
 // Defines all IO (i.e. persistence) related behavior. Making our implementation generic over
 // IO is slightly annoying, but allows us, e.g., to implement different backend strategies for
 // persistence, which makes it easier for testing and helps isolate the "pure logic" of the state
@@ -110,17 +114,17 @@ impl Node {
 pub struct State {
     // update on storage
     pub current_term: u64,
-    pub voted_for: NodeId,
+    pub voted_for: Option<NodeId>,
 
     // volatile state
     pub commit_index: u64,
     pub last_applied: u64,
 
     // timers
-    pub election_time: Instant,
-    pub heartbeat_time: usize,
-    pub election_timeout: Duration,
-    pub heartbeat_timeout: usize,
+    pub election_time: Option<Instant>,
+    pub heartbeat_time: Option<Instant>,
+    pub election_timeout: Option<Duration>,
+    pub heartbeat_timeout: Option<Duration>,
     pub min_election_timeout: usize,
     pub max_election_timeout: usize,
 }
@@ -135,13 +139,13 @@ impl Default for State {
     fn default() -> Self {
         State {
             current_term: 0,
-            voted_for: 0,
+            voted_for: None,
             commit_index: 0,
             last_applied: 0,
-            election_time: Instant::now(),
-            heartbeat_time: 0,
-            election_timeout: Duration::from_millis(0),
-            heartbeat_timeout: 0,
+            election_time: None,
+            heartbeat_time: None,
+            election_timeout: None,
+            heartbeat_timeout: None,
             min_election_timeout: 10,
             max_election_timeout: 1000,
         }
@@ -151,7 +155,7 @@ impl Default for State {
 pub type NodeMap = Rc<RefCell<HashMap<NodeId, Node>>>;
 
 // Contains state and logic common to all raft variants.
-pub struct Raft<S, I: Io, R: Rpc> {
+pub struct Raft<S: RaftRole, I: Io, R: Rpc> {
     // The identifier for this node.
     pub id: NodeId,
     pub log: Logger,
@@ -169,16 +173,14 @@ pub struct Raft<S, I: Io, R: Rpc> {
     pub rpc: R,
 
     // Flag for testing state
-    // TODO: Necessary?
     pub role: Role,
 
     // Struct for role specific state + methods.
-    // TODO: Better name for this field
     pub inner: S,
 }
 
 // Base methods for general operations (+ debugging and testing).
-impl<S, I: Io, R: Rpc> Raft<S, I, R> {
+impl<S: RaftRole, I: Io, R: Rpc> Raft<S, I, R> {
     pub fn add_node_to_cluster(&mut self, node: Node) {
         info!(self.log, "Adding node"; "node" => format!("{:?}", node));
         let node_id = node.id;
@@ -186,16 +188,11 @@ impl<S, I: Io, R: Rpc> Raft<S, I, R> {
         self.rpc.ping(node_id);
     }
 
-    pub fn get_term(command: &Command) -> Option<u64> {
-        match command {
-            Command::VoteRequest { term, .. } => Some(*term),
-            Command::VoteResponse { term, .. } => Some(*term),
-            Command::Append { term, .. } => Some(*term),
-            Command::Heartbeat { term, .. } => Some(*term),
-            Command::Timeout => None,
-            Command::Noop => None,
-            _ => None,
-        }
+    pub fn term(&mut self, term: u64) {
+        self.state.voted_for = None;
+        self.state.current_term = term;
+
+        self.inner.term(term);
     }
 }
 
@@ -213,22 +210,6 @@ impl<I: Io, R: Rpc> RaftHandle<I, R> {
     pub fn new(config: RaftConfig, io: I, rpc: R, logger: Logger, nodes: NodeMap) -> RaftHandle<I, R> {
         let raft = Raft::new(config, io, rpc, Some(logger), Some(nodes));
         RaftHandle::Follower(raft.unwrap())
-    }
-
-    pub fn log(&self) -> &slog::Logger {
-        match self {
-            RaftHandle::Follower(raft) => &raft.inner.log,
-            RaftHandle::Candidate(raft) => &raft.inner.log,
-            RaftHandle::Leader(raft) => &raft.inner.log,
-        }
-    }
-
-    pub fn add_node_to_cluster(&mut self, node: Node) {
-        match self {
-            RaftHandle::Follower(raft) => raft.add_node_to_cluster(node),
-            RaftHandle::Candidate(raft) => raft.add_node_to_cluster(node),
-            RaftHandle::Leader(raft) => raft.add_node_to_cluster(node),
-        }
     }
 }
 

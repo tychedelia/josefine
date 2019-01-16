@@ -20,10 +20,17 @@ use std::time::Duration;
 use rand::Rng;
 use threadpool::ThreadPool;
 use std::time::Instant;
+use crate::raft::RaftRole;
 
 pub struct Follower {
     pub leader_id: Option<NodeId>,
     pub log: Logger,
+}
+
+impl RaftRole for Follower {
+    fn term(&mut self, term: u64) {
+        self.leader_id = None;
+    }
 }
 
 impl<I: Io, R: Rpc> Apply<I, R> for Raft<Follower, I, R> {
@@ -31,22 +38,20 @@ impl<I: Io, R: Rpc> Apply<I, R> for Raft<Follower, I, R> {
         match command {
             Command::Tick => {
                 info!(self.inner.log, "Tick!");
-                if let None = self.inner.leader_id {
-                    if self.state.election_time.elapsed() > self.state.election_timeout {
-                       return self.apply(Command::Timeout);
-                    }
+                if self.has_timed_out() {
+                    return self.apply(Command::Timeout);
                 }
 
                 Ok(RaftHandle::Follower(self))
             }
             Command::Append { mut entries, from, .. } => {
-                self.state.election_time = Instant::now();
+                self.state.election_time = Some(Instant::now());
                 self.inner.leader_id = Some(from);
                 self.io.append(&mut entries);
                 Ok(RaftHandle::Follower(self))
             }
             Command::Heartbeat { from, .. } => {
-                self.state.election_time = Instant::now();
+                self.state.election_time = Some(Instant::now());
                 self.inner.leader_id = Some(from);
                 self.io.heartbeat(from);
                 Ok(RaftHandle::Follower(self))
@@ -114,6 +119,12 @@ impl<I: Io, R: Rpc> Raft<Follower, I, R> {
         self.set_election_timeout();
     }
 
+    fn has_timed_out(&self) -> bool {
+        match (self.state.voted_for, self.state.election_time, self.state.election_timeout) {
+            (None, Some(time), Some(timeout)) => time.elapsed() > timeout,
+            _ => false,
+        }
+    }
 
     fn get_randomized_timeout(&self) -> Duration {
         let prev_timeout = self.state.election_timeout;
@@ -122,8 +133,8 @@ impl<I: Io, R: Rpc> Raft<Follower, I, R> {
     }
 
     fn set_election_timeout(&mut self) {
-        self.state.election_timeout = self.get_randomized_timeout();
-        self.state.election_time = Instant::now();
+        self.state.election_timeout = Some(self.get_randomized_timeout());
+        self.state.election_time = Some(Instant::now());
     }
 }
 

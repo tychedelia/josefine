@@ -8,10 +8,16 @@ use crate::raft::Command;
 use crate::raft::Raft;
 use crate::raft::Role;
 use crate::rpc::Rpc;
+use crate::raft::RaftRole;
 
 //
 pub struct Leader {
     pub log: Logger,
+}
+
+impl RaftRole for Leader {
+    fn term(&mut self, term: u64) {
+    }
 }
 
 impl<I: Io, R: Rpc> Apply<I, R> for Raft<Leader, I, R> {
