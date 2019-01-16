@@ -27,7 +27,7 @@ pub struct Follower {
 }
 
 impl Role for Follower {
-    fn term(&mut self, term: u64) {
+    fn term(&mut self, _term: u64) {
         self.leader_id = None;
     }
 }
@@ -146,7 +146,7 @@ impl<I: Io, R: Rpc> Raft<Follower, I, R> {
     }
 
     fn get_randomized_timeout(&self) -> Duration {
-        let prev_timeout = self.state.election_timeout;
+        let _prev_timeout = self.state.election_timeout;
         let timeout = rand::thread_rng().gen_range(self.state.min_election_timeout, self.state.max_election_timeout);
         Duration::from_millis(timeout as u64)
     }

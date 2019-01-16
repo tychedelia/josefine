@@ -29,7 +29,7 @@ impl<I: Io, R: Rpc> Raft<Candidate, I, R> {
 }
 
 impl Role for Candidate {
-    fn term(&mut self, term: u64) {
+    fn term(&mut self, _term: u64) {
         self.election.reset();
     }
 }
@@ -43,7 +43,7 @@ impl<I: Io, R: Rpc> Apply<I, R> for Raft<Candidate, I, R> {
                 info!(self.role.log, "Tick!");
                 Ok(RaftHandle::Candidate(self))
             }
-            Command::VoteRequest { candidate_id, term, .. } => {
+            Command::VoteRequest { candidate_id, term: _, .. } => {
                 self.rpc.respond_vote(&self.state, candidate_id, false);
                 Ok(RaftHandle::Candidate(self))
             }

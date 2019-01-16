@@ -57,7 +57,7 @@ impl NoopRpc {
 }
 
 impl Rpc for NoopRpc {
-    fn heartbeat(&self, term: u64, index: u64, entries: Vec<Entry>) {
+    fn heartbeat(&self, _term: u64, _index: u64, _entries: Vec<Entry>) {
         unimplemented!()
     }
 
@@ -70,7 +70,7 @@ impl Rpc for NoopRpc {
         unimplemented!()
     }
 
-    fn add_self_to_cluster(&self, address: &str) {
+    fn add_self_to_cluster(&self, _address: &str) {
         unimplemented!()
     }
 }
@@ -126,7 +126,7 @@ impl Rpc for TpcRpc {
             let msg = serde_json::to_vec(&req).expect("Could not serialize message");
             if let Some(mut stream) = self.get_stream(*id) {
                 match stream.write_all(&msg[..]) {
-                    Err(err) => { error!(self.log, "Could not write to node"; "node_id" => format!("{}", id)) }
+                    Err(_err) => { error!(self.log, "Could not write to node"; "node_id" => format!("{}", id)) }
                     _ => {}
                 };
             }
@@ -151,7 +151,7 @@ impl Rpc for TpcRpc {
         let msg = serde_json::to_vec(&msg).expect("Couldn't serialize value");
         if let Some(mut stream) = self.get_stream(node_id) {
             match stream.write_all(&msg[..]) {
-                Err(err) => { error!(self.log, "Could not write to node"; "node_id" => format!("{}", node_id)) }
+                Err(_err) => { error!(self.log, "Could not write to node"; "node_id" => format!("{}", node_id)) }
                 _ => {}
             };
         }

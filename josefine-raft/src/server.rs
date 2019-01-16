@@ -127,7 +127,7 @@ impl RaftServer {
         thread::spawn(move || {
             for stream in listener.incoming() {
                 match stream {
-                    Ok(mut stream) => {
+                    Ok(stream) => {
                         let reader = BufReader::new(&stream);
                         let msg: Message = serde_json::from_reader(reader).unwrap();
                         trace!(log, ""; "message" => format!("{:?}", msg));

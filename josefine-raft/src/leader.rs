@@ -23,7 +23,7 @@ impl<I: Io, R: Rpc> Raft<Leader, I, R> {
 }
 
 impl Role for Leader {
-    fn term(&mut self, term: u64) {
+    fn term(&mut self, _term: u64) {
     }
 
 }
