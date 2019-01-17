@@ -19,6 +19,9 @@ extern crate slog;
 extern crate slog_async;
 extern crate slog_term;
 extern crate threadpool;
+extern crate failure;
+#[macro_use]
+extern crate failure_derive;
 
 mod follower;
 mod candidate;

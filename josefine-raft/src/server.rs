@@ -1,10 +1,18 @@
+use std::collections::HashMap;
+use std::io::BufReader;
+use std::io::Read;
 use std::net::Ipv4Addr;
 use std::net::TcpListener;
+use std::str;
+use std::sync::Arc;
 use std::sync::mpsc::channel;
+use std::sync::mpsc::Receiver;
 use std::sync::mpsc::RecvTimeoutError;
+use std::sync::mpsc::Sender;
+use std::sync::RwLock;
 use std::thread;
 use std::time::Duration;
-use std::io::Read;
+use std::time::Instant;
 
 use slog::*;
 
@@ -13,23 +21,12 @@ use crate::raft::Apply;
 use crate::raft::Command;
 use crate::raft::Io;
 use crate::raft::MemoryIo;
-use crate::raft::Raft;
-use crate::raft::RaftHandle;
-use crate::rpc::TpcRpc;
 use crate::raft::Node;
-use std::collections::HashMap;
 use crate::raft::NodeId;
-use std::sync::Arc;
-use std::sync::Mutex;
-use std::cell::RefCell;
-use std::rc::Rc;
-use std::str;
+use crate::raft::RaftHandle;
 use crate::rpc::Message;
-use std::io::BufReader;
-use std::sync::mpsc::Sender;
-use std::sync::mpsc::Receiver;
-use std::time::Instant;
-use std::sync::RwLock;
+use crate::rpc::TpcRpc;
+use crate::raft::NodeMap;
 
 /// A server implementation that wraps the Raft state machine and handles connection with other nodes via a TPC
 /// RPC implementation.
@@ -118,38 +115,6 @@ impl RaftServer {
     }
 
     fn listen(&self) {
-        let address = format!("{}:{}", self.config.ip, self.config.port);
-        info!(self.log, "Listening"; "address" => &address);
 
-        let listener = TcpListener::bind(&address).unwrap();
-        let tx = self.tx.clone();
-        let log = self.log.new(o!());
-
-        thread::spawn(move || {
-            for stream in listener.incoming() {
-                match stream {
-                    Ok(stream) => {
-                        let reader = BufReader::new(&stream);
-                        let msg: Message = serde_json::from_reader(reader).unwrap();
-                        trace!(log, ""; "message" => format!("{:?}", msg));
-                        let cmd = match msg {
-                            Message::AddNodeRequest(node) => {
-                                Command::AddNode(node)
-                            }
-                            Message::AppendRequest(req) => {
-                                Command::Append {
-                                    term: req.term,
-                                    leader_id: 0,
-                                    entries: vec![]
-                                }
-                            }
-                            _ => Command::Noop,
-                        };
-                        tx.send(cmd);
-                    }
-                    Err(e) => { panic!(e) }
-                }
-            }
-        });
     }
 }

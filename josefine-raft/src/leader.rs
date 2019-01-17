@@ -8,10 +8,12 @@ use crate::raft::Command;
 use crate::raft::Raft;
 use crate::raft::Role;
 use crate::rpc::Rpc;
+use crate::progress::ReplicationProgress;
 
 //
 pub struct Leader {
     pub log: Logger,
+    pub progress: ReplicationProgress,
 }
 
 

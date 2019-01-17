@@ -1,21 +1,29 @@
-use std::io::Write;
-use std::net::Ipv4Addr;
-use std::net::TcpStream;
-
-use crate::config::RaftConfig;
-use crate::raft::NodeId;
-use crate::raft::State;
-use crate::raft::Node;
-use std::rc::Rc;
 use std::cell::RefCell;
 use std::collections::HashMap;
-use slog::Logger;
-use slog::Drain;
-use crate::raft::NodeMap;
+use std::io::BufReader;
+use std::io::Write;
+use std::iter;
+use std::net::Ipv4Addr;
+use std::net::SocketAddr;
+use std::net::TcpStream;
+use std::rc::Rc;
+use std::sync::Arc;
 use std::sync::mpsc::Sender;
-use crate::raft::Command;
+use std::sync::RwLock;
+use std::thread;
+
+use slog::Drain;
+use slog::Logger;
 use threadpool::ThreadPool;
+
+use crate::config::RaftConfig;
+use crate::raft::Command;
 use crate::raft::Entry;
+use crate::raft::Node;
+use crate::raft::NodeId;
+use crate::raft::NodeMap;
+use crate::raft::State;
+use std::error::Error;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Ping {
@@ -84,13 +92,11 @@ pub struct TpcRpc {
 }
 
 impl TpcRpc {
-    fn get_stream(&self, node_id: NodeId) -> Option<TcpStream> {
+    fn get_stream(&self, node_id: NodeId) -> Result<TcpStream, failure::Error> {
         let node = &self.nodes.read().unwrap()[&node_id];
         let address = format!("{}:{}", node.ip, node.port);
-        match TcpStream::connect(address) {
-            Ok(stream) => Some(stream),
-            _ => None,
-        }
+        TcpStream::connect(address)
+            .map_err(|e| e.into())
     }
 
     pub fn new(config: RaftConfig, tx: Sender<Command>, nodes: NodeMap, log: Logger) -> TpcRpc {
@@ -110,6 +116,9 @@ impl TpcRpc {
     }
 }
 
+
+
+
 impl Rpc for TpcRpc {
     fn heartbeat(&self, term: u64, index: u64, entries: Vec<Entry>) {
         let req = AppendRequest {
@@ -124,7 +133,7 @@ impl Rpc for TpcRpc {
 
         for (id, _) in self.nodes.read().unwrap().iter() {
             let msg = serde_json::to_vec(&req).expect("Could not serialize message");
-            if let Some(mut stream) = self.get_stream(*id) {
+            if let Ok(mut stream) = self.get_stream(*id) {
                 match stream.write_all(&msg[..]) {
                     Err(_err) => { error!(self.log, "Could not write to node"; "node_id" => format!("{}", id)) }
                     _ => {}
@@ -132,6 +141,7 @@ impl Rpc for TpcRpc {
             }
         }
     }
+
 
     fn respond_vote(&self, _state: &State, _candidate_id: u32, _granted: bool) {
         unimplemented!()
@@ -149,7 +159,7 @@ impl Rpc for TpcRpc {
         };
         let msg = Message::Ping(ping);
         let msg = serde_json::to_vec(&msg).expect("Couldn't serialize value");
-        if let Some(mut stream) = self.get_stream(node_id) {
+        if let Ok(mut stream) = self.get_stream(node_id) {
             match stream.write_all(&msg[..]) {
                 Err(_err) => { error!(self.log, "Could not write to node"; "node_id" => format!("{}", node_id)) }
                 _ => {}

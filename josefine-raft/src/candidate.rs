@@ -11,6 +11,7 @@ use crate::raft::Io;
 use crate::raft::Raft;
 use crate::raft::Role;
 use crate::rpc::Rpc;
+use crate::progress::ReplicationProgress;
 
 pub struct Candidate {
     pub election: Election,
@@ -59,7 +60,7 @@ impl<I: Io, R: Rpc> Apply<I, R> for Raft<Candidate, I, R> {
                 if term >= self.state.current_term {
                     let mut raft: Raft<Follower, I, R> = Raft::from(self);
                     raft.io.append(&mut entries);
-                    return Ok(RaftHandle::Follower(raft))
+                    return Ok(RaftHandle::Follower(raft));
                 }
 
                 Ok(RaftHandle::Candidate(self))
@@ -94,10 +95,10 @@ impl<I: Io, R: Rpc> From<Raft<Candidate, I, R>> for Raft<Leader, I, R> {
         Raft {
             id: val.id,
             state: val.state,
-            nodes: val.nodes,
+            nodes: val.nodes.clone(),
             io: val.io,
             rpc: val.rpc,
-            role: Leader { log: val.log.new(o!("role" => "leader")) },
+            role: Leader { log: val.log.new(o!("role" => "leader")), progress: ReplicationProgress::new(val.nodes.clone()) },
             log: val.log,
         }
     }

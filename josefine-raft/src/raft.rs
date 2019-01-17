@@ -17,6 +17,8 @@ use threadpool::ThreadPool;
 use std::time::Duration;
 use std::time::Instant;
 use std::sync::RwLock;
+use std::ops::Index;
+use std::sync::RwLockReadGuard;
 
 /// An id that uniquely identifies this instance of Raft.
 pub type NodeId = u32;
@@ -130,9 +132,7 @@ pub struct Node {
     pub port: u32,
 }
 
-impl Node {
-
-}
+impl Node {}
 
 /// Volatile and persistent state that is common to all roles.
 // NB: These could just be fields on the common Raft struct, but copying them is annoying.
@@ -165,8 +165,7 @@ pub struct State {
     pub max_election_timeout: usize,
 }
 
-impl State {
-}
+impl State {}
 
 impl Default for State {
     fn default() -> Self {
