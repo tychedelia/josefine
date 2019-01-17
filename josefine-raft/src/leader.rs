@@ -33,6 +33,10 @@ impl Role for Leader {
 impl<I: Io, R: Rpc> Apply<I, R> for Raft<Leader, I, R> {
     fn apply(self, command: Command) -> Result<RaftHandle<I, R>, Error> {
         match command {
+            Command::Tick => {
+                self.rpc.heartbeat(self.state.current_term, self.state.commit_index, vec![]);
+                Ok(RaftHandle::Leader(self))
+            }
             _ => Ok(RaftHandle::Leader(self))
         }
     }
@@ -50,6 +54,7 @@ impl<I: Io, R: Rpc> From<Raft<Leader, I, R>> for Raft<Follower, I, R> {
             rpc: val.rpc,
             role: Follower { leader_id: None, log: val.log.new(o!("role" => "follower"))  },
             log: val.log,
+            config: val.config,
         }
     }
 }

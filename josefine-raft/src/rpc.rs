@@ -52,7 +52,7 @@ pub trait Rpc {
     fn request_vote(&self, state: &State, node_id: NodeId);
     fn ping(&self, node_id: NodeId);
     fn get_header(&self) -> Header;
-    fn add_self_to_cluster(&self, address: &str);
+    fn add_self_to_cluster(&self, address: &str) -> Result<(), failure::Error>;
 }
 
 pub struct NoopRpc {}
@@ -78,7 +78,7 @@ impl Rpc for NoopRpc {
         unimplemented!()
     }
 
-    fn add_self_to_cluster(&self, _address: &str) {
+    fn add_self_to_cluster(&self, _address: &str) -> Result<(), failure::Error>     {
         unimplemented!()
     }
 }
@@ -94,25 +94,18 @@ pub struct TpcRpc {
 impl TpcRpc {
     fn get_stream(&self, node_id: NodeId) -> Result<TcpStream, failure::Error> {
         let node = &self.nodes.read().unwrap()[&node_id];
-        let address = format!("{}:{}", node.ip, node.port);
-        TcpStream::connect(address)
+        TcpStream::connect(node.addr)
             .map_err(|e| e.into())
     }
 
     pub fn new(config: RaftConfig, tx: Sender<Command>, nodes: NodeMap, log: Logger) -> TpcRpc {
-        let rpc = TpcRpc {
+        TpcRpc {
             config,
             tx,
             nodes,
             log,
             pool: ThreadPool::new(5),
-        };
-
-        for node in &rpc.config.nodes {
-            rpc.add_self_to_cluster(node);
         }
-
-        rpc
     }
 }
 
@@ -173,16 +166,16 @@ impl Rpc for TpcRpc {
         }
     }
 
-    fn add_self_to_cluster(&self, address: &str) {
-        if let Ok(mut stream) = TcpStream::connect(address) {
-            let msg = Message::AddNodeRequest(Node {
-                id: self.config.id,
-                ip: self.config.ip,
-                port: self.config.port,
-            });
-            let msg = serde_json::to_vec(&msg).expect("Couldn't serialize value");
-            stream.write_all(&msg[..]);
-        }
+    fn add_self_to_cluster(&self, address: &str) -> Result<(), failure::Error> {
+        info!(self.log, "Adding self to cluster"; "addr" => address);
+        let mut stream = TcpStream::connect(address)?;
+        let msg = Message::AddNodeRequest(Node {
+            id: self.config.id,
+            addr: SocketAddr::new(self.config.ip, self.config.port),
+        });
+        let msg = serde_json::to_vec(&msg).expect("Couldn't serialize value");
+        stream.write_all(&msg[..])?;
+        Ok(())
     }
 }
 

@@ -21,6 +21,7 @@ use rand::Rng;
 use threadpool::ThreadPool;
 use std::time::Instant;
 use std::sync::RwLock;
+use std::net::SocketAddr;
 
 pub struct Follower {
     pub leader_id: Option<NodeId>,
@@ -36,8 +37,14 @@ impl Role for Follower {
 impl<I: Io, R: Rpc> Apply<I, R> for Raft<Follower, I, R> {
     fn apply(mut self, command: Command) -> Result<RaftHandle<I, R>, io::Error> {
         match command {
+            Command::Start => {
+                for addr in &self.config.nodes {
+                    self.rpc.add_self_to_cluster(addr);
+                }
+
+                Ok(RaftHandle::Follower(self))
+            }
             Command::Tick => {
-                info!(self.role.log, "Tick!");
                 if self.has_timed_out() {
                     return self.apply(Command::Timeout);
                 }
@@ -114,12 +121,12 @@ impl<I: Io, R: Rpc> Raft<Follower, I, R> {
 
         nodes.write().unwrap().insert(config.id, Node {
             id: config.id,
-            ip: config.ip,
-            port: config.port,
+            addr: SocketAddr::new(config.ip, config.port),
         });
 
         let mut raft = Raft {
             id: config.id,
+            config,
             state: State::default(),
             nodes,
             io,
@@ -177,6 +184,7 @@ impl<I: Io, R: Rpc> From<Raft<Follower, I, R>> for Raft<Candidate, I, R> {
             rpc: val.rpc,
             role: Candidate { election, log: val.log.new(o!("role" => "candidate")) },
             log: val.log,
+            config: val.config,
         }
     }
 }
@@ -198,11 +206,12 @@ mod tests {
     use std::rc::Rc;
     use std::cell::RefCell;
     use crate::rpc::NoopRpc;
+    use std::net::SocketAddr;
 
     #[test]
     fn follower_to_candidate() {
         let mut follower = new_follower();
-        follower.add_node_to_cluster(Node { id: 10, ip: IpAddr::from([0, 0, 0, 0]), port: 0 });
+        follower.add_node_to_cluster(Node { id: 10, addr: SocketAddr::new("127.0.0.1".parse().unwrap(), 8080) });
 
         let id = follower.id;
         match follower.apply(Command::Timeout).unwrap() {

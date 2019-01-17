@@ -27,6 +27,7 @@ use crate::raft::RaftHandle;
 use crate::rpc::Message;
 use crate::rpc::TpcRpc;
 use crate::raft::NodeMap;
+use std::net::SocketAddr;
 
 /// A server implementation that wraps the Raft state machine and handles connection with other nodes via a TPC
 /// RPC implementation.
@@ -61,13 +62,12 @@ impl RaftServer {
 
         let nodes: HashMap<NodeId, Node> = config.nodes.iter()
             .map(|x| {
-                let parts: Vec<&str> = x.split(':').collect();
-
                 Node {
-                id: 0,
-                ip: parts[0].parse().unwrap(),
-                port: parts[1].parse().unwrap(),
-            }})
+                    id: 0,
+                    addr: x.parse().expect("Could not parse address"),
+
+                }
+            })
             .map(|x| (x.id, x))
             .collect();
 
@@ -92,7 +92,7 @@ impl RaftServer {
 
         let mut timeout = Duration::from_millis(100);
         let mut t = Instant::now();
-        let mut raft = self.raft;
+        let mut raft = self.raft.apply(Command::Start).unwrap();
 
         loop {
             match self.rx.recv_timeout(timeout) {
@@ -115,6 +115,38 @@ impl RaftServer {
     }
 
     fn listen(&self) {
+        let address = format!("{}:{}", self.config.ip, self.config.port);
+        info!(self.log, "Listening"; "address" => &address);
 
+        let listener = TcpListener::bind(&address).unwrap();
+        let tx = self.tx.clone();
+        let log = self.log.new(o!());
+
+        thread::spawn(move || {
+            for stream in listener.incoming() {
+                match stream {
+                    Ok(stream) => {
+                        let reader = BufReader::new(&stream);
+                        let msg: Message = serde_json::from_reader(reader).unwrap();
+                        info!(log, ""; "message" => format!("{:?}", msg));
+                        let cmd = match msg {
+                            Message::AddNodeRequest(node) => {
+                                Command::AddNode(node)
+                            }
+                            Message::AppendRequest(req) => {
+                                Command::Append {
+                                    term: req.term,
+                                    leader_id: 0,
+                                    entries: vec![],
+                                }
+                            }
+                            _ => Command::Noop,
+                        };
+                        tx.send(cmd);
+                    }
+                    Err(e) => { panic!(e) }
+                }
+            }
+        });
     }
 }

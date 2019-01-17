@@ -18,7 +18,7 @@ pub struct RaftConfig {
     /// The ip address to listen for requests on in TCP implmentations.
     pub ip: IpAddr,
     /// The port to listen for request on in TCP implementations.
-    pub port: u32,
+    pub port: u16,
     /// A list of addresses to query for cluster membership.
     pub nodes: Vec<String>,
     /// The version of the protocol spoken by this instance.

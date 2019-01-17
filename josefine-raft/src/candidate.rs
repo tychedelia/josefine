@@ -41,7 +41,6 @@ impl<I: Io, R: Rpc> Apply<I, R> for Raft<Candidate, I, R> {
 
         match command {
             Command::Tick => {
-                info!(self.role.log, "Tick!");
                 Ok(RaftHandle::Candidate(self))
             }
             Command::VoteRequest { candidate_id, term: _, .. } => {
@@ -58,6 +57,7 @@ impl<I: Io, R: Rpc> Apply<I, R> for Raft<Candidate, I, R> {
             }
             Command::Append { mut entries, term, .. } => {
                 if term >= self.state.current_term {
+                    info!(self.role.log, "Received higher term, transitioning to follower");
                     let mut raft: Raft<Follower, I, R> = Raft::from(self);
                     raft.io.append(&mut entries);
                     return Ok(RaftHandle::Follower(raft));
@@ -85,6 +85,7 @@ impl<I: Io, R: Rpc> From<Raft<Candidate, I, R>> for Raft<Follower, I, R> {
             rpc: val.rpc,
             role: Follower { leader_id: None, log: val.log.new(o!("role" => "follower")) },
             log: val.log,
+            config: val.config,
         }
     }
 }
@@ -100,6 +101,7 @@ impl<I: Io, R: Rpc> From<Raft<Candidate, I, R>> for Raft<Leader, I, R> {
             rpc: val.rpc,
             role: Leader { log: val.log.new(o!("role" => "leader")), progress: ReplicationProgress::new(val.nodes.clone()) },
             log: val.log,
+            config: val.config,
         }
     }
 }

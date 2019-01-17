@@ -19,6 +19,7 @@ use std::time::Instant;
 use std::sync::RwLock;
 use std::ops::Index;
 use std::sync::RwLockReadGuard;
+use std::net::SocketAddr;
 
 /// An id that uniquely identifies this instance of Raft.
 pub type NodeId = u32;
@@ -26,6 +27,8 @@ pub type NodeId = u32;
 /// Commands that can be applied to the state machine.
 #[derive(Debug)]
 pub enum Command {
+    /// Called once at beginning to bootstrap the state machine.
+    Start,
     /// Move the state machine forward.
     Tick,
     /// Add a node to the list of known nodes.
@@ -126,13 +129,12 @@ impl Io for MemoryIo {
 pub struct Node {
     /// The id of the node.
     pub id: NodeId,
-    /// The ip address, as IPv4 or IPv6.
-    pub ip: IpAddr,
-    /// The port the node is listening on (for TCP implementations).
-    pub port: u32,
+    /// The socket address for the TCP connection.
+    pub addr: SocketAddr,
 }
 
-impl Node {}
+impl Node {
+}
 
 /// Volatile and persistent state that is common to all roles.
 // NB: These could just be fields on the common Raft struct, but copying them is annoying.
@@ -195,6 +197,9 @@ pub struct Raft<S: Role, I: Io, R: Rpc> {
     /// The logger implementation for this node.
     pub log: Logger,
 
+    /// Configuration for this instance.
+    pub config: RaftConfig,
+
     /// A map of known nodes in the cluster.
     pub nodes: NodeMap,
 
@@ -220,6 +225,13 @@ impl<S: Role, I: Io, R: Rpc> Raft<S, I, R> {
         let node_id = node.id;
         self.nodes.write().unwrap().insert(node.id, node);
         self.rpc.ping(node_id);
+    }
+
+    ///
+    pub fn start(&mut self) {
+        for node_addr in self.config.nodes.iter() {
+            self.rpc.add_self_to_cluster(node_addr);
+        }
     }
 
     /// Set the current term.
