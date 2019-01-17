@@ -60,18 +60,7 @@ impl RaftServer {
         let log = logger.new(o!());
         let (tx, rx) = channel::<Command>();
 
-        let nodes: HashMap<NodeId, Node> = config.nodes.iter()
-            .map(|x| {
-                Node {
-                    id: 0,
-                    addr: x.parse().expect("Could not parse address"),
-
-                }
-            })
-            .map(|x| (x.id, x))
-            .collect();
-
-        let nodes = Arc::new(RwLock::new(nodes));
+        let nodes = Arc::new(RwLock::new(HashMap::new()));
 
         let io = MemoryIo::new();
         let rpc = TpcRpc::new(config.clone(), tx.clone(), nodes.clone(), log.new(o!()));

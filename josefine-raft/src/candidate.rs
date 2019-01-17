@@ -99,7 +99,7 @@ impl<I: Io, R: Rpc> From<Raft<Candidate, I, R>> for Raft<Leader, I, R> {
             nodes: val.nodes.clone(),
             io: val.io,
             rpc: val.rpc,
-            role: Leader { log: val.log.new(o!("role" => "leader")), progress: ReplicationProgress::new(val.nodes.clone()) },
+            role: Leader { log: val.log.new(o!("role" => "leader", "nodes" => format!("{:?}", val.nodes.read().unwrap()))), progress: ReplicationProgress::new(val.nodes.clone()) },
             log: val.log,
             config: val.config,
         }

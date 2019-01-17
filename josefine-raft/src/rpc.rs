@@ -55,12 +55,12 @@ pub trait Rpc {
     fn add_self_to_cluster(&self, address: &str) -> Result<(), failure::Error>;
 }
 
-pub struct NoopRpc {}
+pub struct NoopRpc { }
 
 impl NoopRpc {
     #[allow(dead_code)]
     pub fn new() -> NoopRpc {
-        NoopRpc {}
+        NoopRpc { }
     }
 }
 
@@ -69,10 +69,10 @@ impl Rpc for NoopRpc {
         unimplemented!()
     }
 
-    fn respond_vote(&self, _state: &State, _candidate_id: u32, _granted: bool) {}
-    fn request_vote(&self, _state: &State, _node_id: u32) {}
+    fn respond_vote(&self, _state: &State, _candidate_id: u32, _granted: bool) { }
+    fn request_vote(&self, _state: &State, _node_id: u32) { }
 
-    fn ping(&self, _node_id: u32) {}
+    fn ping(&self, _node_id: u32) { }
 
     fn get_header(&self) -> Header {
         unimplemented!()
@@ -124,8 +124,14 @@ impl Rpc for TpcRpc {
             leader_index: index,
         };
 
+        let msg = Message::AppendRequest(req);
         for (id, _) in self.nodes.read().unwrap().iter() {
-            let msg = serde_json::to_vec(&req).expect("Could not serialize message");
+            if id == &self.config.id {
+                continue;
+            }
+
+            let msg = serde_json::to_vec(&msg).expect("Could not serialize message");
+
             if let Ok(mut stream) = self.get_stream(*id) {
                 match stream.write_all(&msg[..]) {
                     Err(_err) => { error!(self.log, "Could not write to node"; "node_id" => format!("{}", id)) }
