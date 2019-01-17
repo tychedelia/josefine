@@ -41,6 +41,14 @@ impl<I: Io, R: Rpc> Apply<I, R> for Raft<Leader, I, R> {
                 self.add_node_to_cluster(node);
                 Ok(RaftHandle::Leader(self))
             }
+            Command::Append { term, leader_id, .. } => {
+                if term > self.state.current_term {
+                    self.term(term);
+                    return Ok(RaftHandle::Follower(Raft::from(self)));
+                }
+
+                Ok(RaftHandle::Leader(self))
+            }
             _ => Ok(RaftHandle::Leader(self))
         }
     }

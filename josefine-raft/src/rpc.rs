@@ -125,19 +125,16 @@ impl Rpc for TpcRpc {
         };
 
         let msg = Message::AppendRequest(req);
+        let msg = serde_json::to_vec(&msg).expect("Couldn't serialize json");
+
         for (id, _) in self.nodes.read().unwrap().iter() {
             if id == &self.config.id {
                 continue;
             }
 
-            let msg = serde_json::to_vec(&msg).expect("Could not serialize message");
-
-            if let Ok(mut stream) = self.get_stream(*id) {
-                match stream.write_all(&msg[..]) {
-                    Err(_err) => { error!(self.log, "Could not write to node"; "node_id" => format!("{}", id)) }
-                    _ => {}
-                };
-            }
+            self.get_stream(*id)
+                .and_then(|mut stream| stream.write_all(&msg[..])
+                    .map_err(|err| err.into()));
         }
     }
 
