@@ -65,7 +65,7 @@ impl RaftServer {
 
         let io = MemoryIo::new();
         let rpc = TpcRpc::new(config.clone(), tx.clone(), nodes.clone(), log.new(o!()));
-        let raft = RaftHandle::new(config.clone(), io, rpc, logger, nodes.clone());
+        let raft = RaftHandle::new(config.clone(), tx.clone(), io, rpc, logger, nodes.clone());
 
         RaftServer {
             raft,

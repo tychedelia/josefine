@@ -139,8 +139,9 @@ impl Rpc for TpcRpc {
             self.get_stream(*id)
                 .and_then(|mut stream| stream.write_all(&msg[..])
                     .map_err(|error| error.into()))
-                .map_err(|error| RpcError::Connection(error))?;
+                .map_err( RpcError::Connection)?;
         }
+
 
         Ok(())
     }

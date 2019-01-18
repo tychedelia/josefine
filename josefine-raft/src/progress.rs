@@ -68,11 +68,12 @@ impl<T: ProgressState> Progress<T> {
     }
 
     fn increment(&mut self, index: u64) -> bool {
-        let mut updated = false;
-        if self.index < index {
+        let updated = if self.index < index {
             self.index = index;
-            updated = true;
-        }
+            true
+        } else {
+            false
+        };
 
         if self.next < index + 1 {
             self.next = index + 1;

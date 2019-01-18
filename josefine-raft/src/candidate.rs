@@ -88,6 +88,7 @@ impl<I: Io, R: Rpc> From<Raft<Candidate, I, R>> for Raft<Follower, I, R> {
             id: val.id,
             state: val.state,
             nodes: val.nodes,
+            tx: val.tx,
             io: val.io,
             rpc: val.rpc,
             role: Follower { leader_id: None, log: val.log.new(o!("role" => "follower")) },
@@ -103,6 +104,7 @@ impl<I: Io, R: Rpc> From<Raft<Candidate, I, R>> for Raft<Leader, I, R> {
         Raft {
             id: val.id,
             state: val.state,
+            tx: val.tx,
             nodes: val.nodes.clone(),
             io: val.io,
             rpc: val.rpc,

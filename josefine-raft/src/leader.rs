@@ -48,7 +48,9 @@ impl<I: Io, R: Rpc> Apply<I, R> for Raft<Leader, I, R> {
         match command {
             Command::Tick => {
                 if self.needs_heartbeat() {
-                    self.rpc.heartbeat(self.state.current_term, self.state.commit_index, vec![]);
+                    if let Err(err) = self.rpc.heartbeat(self.state.current_term, self.state.commit_index, vec![]) {
+                        panic!("Could not heartbeat")
+                    }
                     self.reset_heartbeat_timer();
                 }
                 Ok(RaftHandle::Leader(self))
@@ -77,6 +79,7 @@ impl<I: Io, R: Rpc> From<Raft<Leader, I, R>> for Raft<Follower, I, R> {
         Raft {
             id: val.id,
             state: val.state,
+            tx: val.tx,
             nodes: val.nodes,
             io: val.io,
             rpc: val.rpc,

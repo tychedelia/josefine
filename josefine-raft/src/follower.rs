@@ -22,6 +22,8 @@ use threadpool::ThreadPool;
 use std::time::Instant;
 use std::sync::RwLock;
 use std::net::SocketAddr;
+use std::sync::mpsc::Sender;
+use std::thread;
 
 pub struct Follower {
     pub leader_id: Option<NodeId>,
@@ -39,7 +41,10 @@ impl<I: Io, R: Rpc> Apply<I, R> for Raft<Follower, I, R> {
         match command {
             Command::Start => {
                 for addr in &self.config.nodes {
-                    self.rpc.add_self_to_cluster(addr);
+                    if let Err(err) = self.rpc.add_self_to_cluster(addr) {
+                        error!(self.log, "Could not add node to cluster");
+                        self.retry(Command::Start, Duration::from_millis(1000));
+                    };
                 }
 
                 Ok(RaftHandle::Follower(self))
@@ -110,7 +115,7 @@ impl<I: Io, R: Rpc> Raft<Follower, I, R> {
     /// let raft = Raft::new(io, rpc, logger, nodes);
     /// ```
     ///
-    pub fn new(config: RaftConfig, io: I, rpc: R, logger: Option<Logger>, nodes: Option<NodeMap>)
+    pub fn new(config: RaftConfig, tx: Sender<Command>, io: I, rpc: R, logger: Option<Logger>, nodes: Option<NodeMap>)
                -> Result<Raft<Follower, I, R>, ConfigError> {
         config.validate()?;
 
@@ -141,10 +146,19 @@ impl<I: Io, R: Rpc> Raft<Follower, I, R> {
                 log: log.new(o!("role" => "follower")),
             },
             log,
+            tx,
         };
 
         raft.init();
         Ok(raft)
+    }
+
+    fn retry(&self, command: Command, duration: Duration) {
+        let tx = self.tx.clone();
+        thread::spawn(move || {
+            thread::sleep(duration);
+            tx.send(command);
+        });
     }
 
     fn init(&mut self) {
@@ -189,6 +203,7 @@ impl<I: Io, R: Rpc> From<Raft<Follower, I, R>> for Raft<Candidate, I, R> {
             rpc: val.rpc,
             role: Candidate { election, log: val.log.new(o!("role" => "candidate")) },
             log: val.log,
+            tx: val.tx,
             config: val.config,
         }
     }
@@ -212,6 +227,7 @@ mod tests {
     use std::cell::RefCell;
     use crate::rpc::NoopRpc;
     use std::net::SocketAddr;
+    use std::sync::mpsc;
 
     #[test]
     fn follower_to_candidate() {
@@ -252,6 +268,7 @@ mod tests {
 
     fn new_follower() -> Raft<Follower, MemoryIo, NoopRpc> {
         let config = RaftConfig::default();
-        Raft::new(config, MemoryIo::new(), NoopRpc::new(), None, None).unwrap()
+        let (tx, rx) = mpsc::channel();
+        Raft::new(config, tx, MemoryIo::new(), NoopRpc::new(), None, None).unwrap()
     }
 }

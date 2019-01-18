@@ -20,6 +20,7 @@ use std::sync::RwLock;
 use std::ops::Index;
 use std::sync::RwLockReadGuard;
 use std::net::SocketAddr;
+use std::sync::mpsc::Sender;
 
 /// An id that uniquely identifies this instance of Raft.
 pub type NodeId = u32;
@@ -111,6 +112,12 @@ pub struct MemoryIo {
     entries: Vec<Entry>
 }
 
+impl Default for MemoryIo {
+    fn default() -> Self {
+        MemoryIo { entries: Vec::new() }
+    }
+}
+
 impl MemoryIo {
     /// Obtain a new instance of the memory io implementation.
     pub fn new() -> Self {
@@ -195,6 +202,9 @@ pub struct Raft<S: Role, I: Io, R: Rpc> {
     /// The logger implementation for this node.
     pub log: Logger,
 
+    ///
+    pub tx: Sender<Command>,
+
     /// Configuration for this instance.
     pub config: RaftConfig,
 
@@ -225,13 +235,6 @@ impl<S: Role, I: Io, R: Rpc> Raft<S, I, R> {
         self.rpc.ping(node_id);
     }
 
-    ///
-    pub fn start(&mut self) {
-        for node_addr in self.config.nodes.iter() {
-            self.rpc.add_self_to_cluster(node_addr);
-        }
-    }
-
     /// Set the current term.
     pub fn term(&mut self, term: u64) {
         self.state.voted_for = None;
@@ -256,8 +259,8 @@ pub enum RaftHandle<I: Io, R: Rpc> {
 
 impl<I: Io, R: Rpc> RaftHandle<I, R> {
     /// Obtain a new instance of raft initialized in the default follower state.
-    pub fn new(config: RaftConfig, io: I, rpc: R, logger: Logger, nodes: NodeMap) -> RaftHandle<I, R> {
-        let raft = Raft::new(config, io, rpc, Some(logger), Some(nodes));
+    pub fn new(config: RaftConfig, tx: Sender<Command>, io: I, rpc: R, logger: Logger, nodes: NodeMap) -> RaftHandle<I, R> {
+        let raft = Raft::new(config, tx, io, rpc, Some(logger), Some(nodes));
         RaftHandle::Follower(raft.unwrap())
     }
 }
