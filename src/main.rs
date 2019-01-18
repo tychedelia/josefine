@@ -33,7 +33,7 @@ fn main() {
     info!(logger, "Using configuration values"; "config" => format!("{:?}", config));
 
     let server = RaftServer::new(config, logger);
-    server.start();
+    server.start(None);
 }
 
 fn get_config(config_path: &str) -> RaftConfig {

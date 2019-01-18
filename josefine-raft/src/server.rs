@@ -16,6 +16,7 @@ use std::time::Instant;
 
 use slog::*;
 
+use crate::log;
 use crate::config::RaftConfig;
 use crate::raft::Apply;
 use crate::raft::Command;
@@ -34,7 +35,7 @@ use std::net::SocketAddr;
 ///
 /// The server handles wiring up the state machine and driving it forward at a fixed interval.
 pub struct RaftServer {
-    raft: RaftHandle<MemoryIo, TpcRpc>,
+    pub(crate) raft: RaftHandle<MemoryIo, TpcRpc>,
     config: RaftConfig,
     log: Logger,
     tx: Sender<Command>,
@@ -76,20 +77,28 @@ impl RaftServer {
     }
 
     /// Start the server and the state machine. Raft is driven every 100 milliseconds.
-    pub fn start(self) {
+    pub fn start(self, run_for: Option<Duration>) -> RaftHandle<MemoryIo, TpcRpc> {
         self.listen();
 
         let mut timeout = Duration::from_millis(100);
         let mut t = Instant::now();
         let mut raft = self.raft.apply(Command::Start).unwrap();
 
+        let now = Instant::now();
+
         loop {
+            if let Some(run_for) = run_for {
+                if now.elapsed() > run_for {
+                    break
+                }
+            }
+
             match self.rx.recv_timeout(timeout) {
                 Ok(cmd) => {
                     raft = raft.apply(cmd).unwrap();
                 }
                 Err(RecvTimeoutError::Timeout) => (),
-                Err(RecvTimeoutError::Disconnected) => return,
+                Err(RecvTimeoutError::Disconnected) => return raft,
             }
 
             let d = t.elapsed();
@@ -101,6 +110,8 @@ impl RaftServer {
                 timeout -= d;
             }
         }
+
+        raft
     }
 
     fn listen(&self) {
@@ -145,5 +156,37 @@ impl RaftServer {
                 }
             }
         });
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use crate::server::RaftServer;
+    use slog::Logger;
+    use crate::config::RaftConfig;
+    use crate::log;
+    use crate::raft::RaftHandle;
+    use std::thread;
+    use std::time::Duration;
+
+    #[test]
+    fn it_runs() {
+
+        let t = thread::spawn(|| {
+            let election_timeout_max = 1000; // TODO: Expose constants better
+
+            let config = RaftConfig::default();
+            let server = RaftServer::new(config, log::get_root_logger());
+            let server = server.start(Some(Duration::from_millis(election_timeout_max)));
+            server
+        });
+
+        let server = t.join().unwrap();
+        match server {
+            RaftHandle::Follower(_) => panic!(),
+            RaftHandle::Candidate(_) => panic!(),
+            RaftHandle::Leader(_) => {},
+        }
     }
 }

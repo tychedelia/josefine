@@ -46,6 +46,7 @@ pub mod raft;
 pub mod config;
 mod progress;
 mod rpc;
+mod log;
 
 /// The Raft server contains a raft state machine and handles input to the state machine, providing
 /// an RPC implementation to handle communication with other nodes and an IO implementation that
