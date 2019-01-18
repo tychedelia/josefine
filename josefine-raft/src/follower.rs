@@ -65,10 +65,7 @@ impl<I: Io, R: Rpc> Apply<I, R> for Raft<Follower, I, R> {
                 Ok(RaftHandle::Follower(self))
             }
             Command::VoteRequest { candidate_id, last_index, last_term, .. } => {
-                if self.state.current_term > last_term {
-                    self.rpc.respond_vote(&self.state, candidate_id,false);
-                }
-                else if self.state.commit_index > last_index {
+                if self.state.current_term > last_term || self.state.commit_index > last_index {
                     self.rpc.respond_vote(&self.state, candidate_id,false);
                 }
                 else {

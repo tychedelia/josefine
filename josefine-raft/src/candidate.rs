@@ -67,10 +67,15 @@ impl<I: Io, R: Rpc> Apply<I, R> for Raft<Candidate, I, R> {
 
                 Ok(RaftHandle::Candidate(self))
             }
-            Command::Heartbeat { leader_id, .. } => {
-                let mut raft: Raft<Follower, I, R> = Raft::from(self);
-                raft.io.heartbeat(leader_id);
-                Ok(RaftHandle::Follower(raft))
+            Command::Heartbeat { term, leader_id, .. } => {
+                if term >= self.state.current_term {
+                    info!(self.role.log, "Received higher term, transitioning to follower");
+                    let mut raft: Raft<Follower, I, R> = Raft::from(self);
+                    raft.io.heartbeat(leader_id);
+                    return Ok(RaftHandle::Follower(raft));
+                }
+
+                Ok(RaftHandle::Candidate(self))
             }
             _ => Ok(RaftHandle::Candidate(self))
         }

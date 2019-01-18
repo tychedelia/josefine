@@ -48,8 +48,8 @@ impl RaftConfig {
         if self.id == 0 {
             return Err(ConfigError::new("Id cannot be zero."));
         }
-        if self.port < 1023 || self.port > 65535 {
-            return Err(ConfigError::new("Invalid range for port."));
+        if self.port < 1023 {
+            return Err(ConfigError::new("Port value too low."));
         }
         if self.heartbeat_timeout < Duration::from_millis(5) {
             return Err(ConfigError::new("Heartbeat timeout is too low."));
