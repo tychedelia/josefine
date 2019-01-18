@@ -150,7 +150,7 @@ impl RaftServer {
                             }
                             _ => Command::Noop,
                         };
-                        tx.send(cmd);
+                        tx.send(cmd).expect("Channel should be open");
                     }
                     Err(e) => { panic!(e) }
                 }

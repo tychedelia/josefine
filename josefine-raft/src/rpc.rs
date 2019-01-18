@@ -24,6 +24,7 @@ use crate::raft::NodeId;
 use crate::raft::NodeMap;
 use crate::raft::State;
 use std::error::Error;
+use std::io;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Ping {
@@ -47,7 +48,7 @@ pub enum Message {
 }
 
 pub trait Rpc {
-    fn heartbeat(&self, term: u64, index: u64, entries: Vec<Entry>);
+    fn heartbeat(&self, term: u64, index: u64, entries: Vec<Entry>) -> Result<(), RpcError>;
     fn respond_vote(&self, state: &State, candidate_id: NodeId, granted: bool);
     fn request_vote(&self, state: &State, node_id: NodeId);
     fn ping(&self, node_id: NodeId);
@@ -55,30 +56,30 @@ pub trait Rpc {
     fn add_self_to_cluster(&self, address: &str) -> Result<(), failure::Error>;
 }
 
-pub struct NoopRpc { }
+pub struct NoopRpc {}
 
 impl NoopRpc {
     #[allow(dead_code)]
     pub fn new() -> NoopRpc {
-        NoopRpc { }
+        NoopRpc {}
     }
 }
 
 impl Rpc for NoopRpc {
-    fn heartbeat(&self, _term: u64, _index: u64, _entries: Vec<Entry>) {
+    fn heartbeat(&self, _term: u64, _index: u64, _entries: Vec<Entry>) -> Result<(), RpcError> {
         unimplemented!()
     }
 
-    fn respond_vote(&self, _state: &State, _candidate_id: u32, _granted: bool) { }
-    fn request_vote(&self, _state: &State, _node_id: u32) { }
+    fn respond_vote(&self, _state: &State, _candidate_id: u32, _granted: bool) {}
+    fn request_vote(&self, _state: &State, _node_id: u32) {}
 
-    fn ping(&self, _node_id: u32) { }
+    fn ping(&self, _node_id: u32) {}
 
     fn get_header(&self) -> Header {
         unimplemented!()
     }
 
-    fn add_self_to_cluster(&self, _address: &str) -> Result<(), failure::Error>     {
+    fn add_self_to_cluster(&self, _address: &str) -> Result<(), failure::Error> {
         unimplemented!()
     }
 }
@@ -109,11 +110,14 @@ impl TpcRpc {
     }
 }
 
-
-
+#[derive(Fail, Debug)]
+pub enum RpcError {
+    #[fail(display = "A connection error occured.")]
+    Connection(#[fail(cause)] failure::Error)
+}
 
 impl Rpc for TpcRpc {
-    fn heartbeat(&self, term: u64, index: u64, entries: Vec<Entry>) {
+    fn heartbeat(&self, term: u64, index: u64, entries: Vec<Entry>) -> Result<(), RpcError> {
         let req = AppendRequest {
             header: self.get_header(),
             term,
@@ -134,8 +138,11 @@ impl Rpc for TpcRpc {
 
             self.get_stream(*id)
                 .and_then(|mut stream| stream.write_all(&msg[..])
-                    .map_err(|err| err.into()));
+                    .map_err(|error| error.into()))
+                .map_err(|error| RpcError::Connection(error))?;
         }
+
+        Ok(())
     }
 
 
@@ -156,9 +163,8 @@ impl Rpc for TpcRpc {
         let msg = Message::Ping(ping);
         let msg = serde_json::to_vec(&msg).expect("Couldn't serialize value");
         if let Ok(mut stream) = self.get_stream(node_id) {
-            match stream.write_all(&msg[..]) {
-                Err(_err) => { error!(self.log, "Could not write to node"; "node_id" => format!("{}", node_id)) }
-                _ => {}
+            if let Err(_err) = stream.write_all(&msg[..]) {
+                error!(self.log, "Could not write to node"; "node_id" => format!("{}", node_id));
             };
         }
     }
