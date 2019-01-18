@@ -39,6 +39,10 @@ pub enum Command {
         term: u64,
         /// The id of the candidate requesting the vote.
         candidate_id: NodeId,
+        ///
+        last_term: u64,
+        ///
+        last_index: u64,
     },
     /// Respond to a vote from another node.
     VoteResponse {
@@ -50,7 +54,7 @@ pub enum Command {
         granted: bool,
     },
     /// Request from another node to append entries to our log.
-    Append {
+    AppendEntries {
         /// The term of the node requesting entries be appended to our commit log.
         term: u64,
         /// The id of the node sending entries.
@@ -155,12 +159,8 @@ pub struct State {
 
     /// The time the election was started.
     pub election_time: Option<Instant>,
-    /// The time of the last heartbeat.
-    pub heartbeat_time: Option<Instant>,
     /// The timeout for the current election.
     pub election_timeout: Option<Duration>,
-    /// The timeout since the last heartbeat.
-    pub heartbeat_timeout: Option<Duration>,
     /// The max timeout that can be selected randomly.
     pub min_election_timeout: usize,
     /// The min timeout that can be selected randomly.
@@ -177,9 +177,7 @@ impl Default for State {
             commit_index: 0,
             last_applied: 0,
             election_time: None,
-            heartbeat_time: None,
             election_timeout: None,
-            heartbeat_timeout: None,
             min_election_timeout: 10,
             max_election_timeout: 1000,
         }

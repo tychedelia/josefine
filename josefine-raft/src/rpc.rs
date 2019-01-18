@@ -191,13 +191,13 @@ pub struct Header {
 #[allow(dead_code)]
 #[derive(Serialize, Deserialize, Debug)]
 pub struct VoteRequest {
-    header: Header,
+    pub header: Header,
 
-    term: u64,
-    candidate_id: NodeId,
+    pub term: u64,
+    pub candidate_id: NodeId,
 
-    last_index: u64,
-    last_term: u64,
+    pub last_index: u64,
+    pub last_term: u64,
 }
 
 #[allow(dead_code)]

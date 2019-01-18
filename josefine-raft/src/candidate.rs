@@ -12,6 +12,8 @@ use crate::raft::Raft;
 use crate::raft::Role;
 use crate::rpc::Rpc;
 use crate::progress::ReplicationProgress;
+use std::time::Instant;
+use std::time::Duration;
 
 pub struct Candidate {
     pub election: Election,
@@ -55,7 +57,7 @@ impl<I: Io, R: Rpc> Apply<I, R> for Raft<Candidate, I, R> {
                     ElectionStatus::Defeated => Ok(RaftHandle::Follower(Raft::from(self))),
                 }
             }
-            Command::Append { mut entries, term, .. } => {
+            Command::AppendEntries { mut entries, term, .. } => {
                 if term >= self.state.current_term {
                     info!(self.role.log, "Received higher term, transitioning to follower");
                     let mut raft: Raft<Follower, I, R> = Raft::from(self);
@@ -99,7 +101,12 @@ impl<I: Io, R: Rpc> From<Raft<Candidate, I, R>> for Raft<Leader, I, R> {
             nodes: val.nodes.clone(),
             io: val.io,
             rpc: val.rpc,
-            role: Leader { log: val.log.new(o!("role" => "leader", "nodes" => format!("{:?}", val.nodes.read().unwrap()))), progress: ReplicationProgress::new(val.nodes.clone()) },
+            role: Leader {
+                log: val.log.new(o!("role" => "leader", "nodes" => format!("{:?}", val.nodes.read().unwrap()))),
+                progress: ReplicationProgress::new(val.nodes.clone()),
+                heartbeat_time: Instant::now(),
+                heartbeat_timeout: val.config.heartbeat_timeout,
+            },
             log: val.log,
             config: val.config,
         }

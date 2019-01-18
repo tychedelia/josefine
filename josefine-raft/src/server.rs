@@ -123,10 +123,18 @@ impl RaftServer {
                                 Command::AddNode(node)
                             }
                             Message::AppendRequest(req) => {
-                                Command::Append {
+                                Command::AppendEntries {
                                     term: req.term,
                                     leader_id: 0,
                                     entries: vec![],
+                                }
+                            }
+                            Message::VoteRequest(req) => {
+                                Command::VoteRequest {
+                                    term: req.term,
+                                    candidate_id: req.candidate_id,
+                                    last_term: req.last_term,
+                                    last_index: req.last_index,
                                 }
                             }
                             _ => Command::Noop,

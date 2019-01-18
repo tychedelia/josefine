@@ -51,7 +51,7 @@ impl<I: Io, R: Rpc> Apply<I, R> for Raft<Follower, I, R> {
 
                 Ok(RaftHandle::Follower(self))
             }
-            Command::Append { mut entries, leader_id, .. } => {
+            Command::AppendEntries { mut entries, leader_id, .. } => {
                 self.state.election_time = Some(Instant::now());
                 self.role.leader_id = Some(leader_id);
                 self.state.voted_for = Some(leader_id);
@@ -64,8 +64,16 @@ impl<I: Io, R: Rpc> Apply<I, R> for Raft<Follower, I, R> {
                 self.io.heartbeat(leader_id);
                 Ok(RaftHandle::Follower(self))
             }
-            Command::VoteRequest { candidate_id, .. } => {
-                self.rpc.respond_vote(&self.state, candidate_id, true);
+            Command::VoteRequest { candidate_id, last_index, last_term, .. } => {
+                if self.state.current_term > last_term {
+                    self.rpc.respond_vote(&self.state, candidate_id,false);
+                }
+                else if self.state.commit_index > last_index {
+                    self.rpc.respond_vote(&self.state, candidate_id,false);
+                }
+                else {
+                    self.rpc.respond_vote(&self.state, candidate_id, true);
+                }
                 Ok(RaftHandle::Follower(self))
             }
             Command::Timeout => {

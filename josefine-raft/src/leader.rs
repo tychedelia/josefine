@@ -9,18 +9,31 @@ use crate::raft::Raft;
 use crate::raft::Role;
 use crate::rpc::Rpc;
 use crate::progress::ReplicationProgress;
+use std::time::Instant;
+use std::time::Duration;
+use rand::Rng;
 
 //
 pub struct Leader {
     pub log: Logger,
     pub progress: ReplicationProgress,
+    /// The time of the last heartbeat.
+    pub heartbeat_time: Instant,
+    /// The timeout since the last heartbeat.
+    pub heartbeat_timeout: Duration,
 }
-
-
 
 impl<I: Io, R: Rpc> Raft<Leader, I, R> {
     fn heartbeat(&self) {
         self.rpc.heartbeat(self.state.current_term, self.state.commit_index, vec!());
+    }
+
+    fn needs_heartbeat(&self) -> bool {
+        self.role.heartbeat_time.elapsed() > self.role.heartbeat_timeout
+    }
+
+    fn reset_heartbeat_timer(&mut self) {
+        self.role.heartbeat_time = Instant::now();
     }
 }
 
@@ -34,14 +47,17 @@ impl<I: Io, R: Rpc> Apply<I, R> for Raft<Leader, I, R> {
     fn apply(mut self, command: Command) -> Result<RaftHandle<I, R>, Error> {
         match command {
             Command::Tick => {
-                self.rpc.heartbeat(self.state.current_term, self.state.commit_index, vec![]);
+                if self.needs_heartbeat() {
+                    self.rpc.heartbeat(self.state.current_term, self.state.commit_index, vec![]);
+                    self.reset_heartbeat_timer();
+                }
                 Ok(RaftHandle::Leader(self))
             }
             Command::AddNode(node) => {
                 self.add_node_to_cluster(node);
                 Ok(RaftHandle::Leader(self))
             }
-            Command::Append { term, leader_id, .. } => {
+            Command::AppendEntries { term, leader_id, .. } => {
                 if term > self.state.current_term {
                     self.term(term);
                     return Ok(RaftHandle::Follower(Raft::from(self)));
