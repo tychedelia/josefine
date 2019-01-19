@@ -43,7 +43,7 @@ impl<I: Io, R: Rpc> Apply<I, R> for Raft<Follower, I, R> {
                 for addr in &self.config.nodes {
                     if let Err(err) = self.rpc.add_self_to_cluster(addr) {
                         error!(self.log, "Could not add node to cluster");
-                        self.retry(Command::Start, Duration::from_millis(1000));
+                        self.retry(Command::Start, Duration::from_millis(100));
                     };
                 }
 
@@ -154,6 +154,7 @@ impl<I: Io, R: Rpc> Raft<Follower, I, R> {
     }
 
     fn retry(&self, command: Command, duration: Duration) {
+        info!(self.log, "Retrying command");
         let tx = self.tx.clone();
         thread::spawn(move || {
             thread::sleep(duration);
