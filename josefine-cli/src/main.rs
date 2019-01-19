@@ -12,6 +12,8 @@ use std::io::Write;
 use std::io::Read;
 use std::net::TcpStream;
 use std::net::IpAddr;
+use rustyline::error::ReadlineError;
+use rustyline::Editor;
 
 
 #[derive(Debug)]
@@ -80,19 +82,33 @@ fn main() {
 
     println!("Connected!");
 
-    let mut line = String::new();
-    loop {
-        print_prompt();
-        match io::stdin().read_line(&mut line) {
-            Ok(size) => {
-                let operation = get_op(&line.as_bytes());
-                println!("{:?}", operation);
-            }
-            Err(e) => {}
-        }
-
-        line.clear();
+    // `()` can be used when no completer is required
+    let mut rl = Editor::<()>::new();
+    if rl.load_history("history.txt").is_err() {
+        println!("No previous history.");
     }
+    loop {
+        let readline = rl.readline(">> ");
+        match readline {
+            Ok(line) => {
+                rl.add_history_entry(line.as_ref());
+                println!("Line: {}", line);
+            },
+            Err(ReadlineError::Interrupted) => {
+                println!("CTRL-C");
+                break
+            },
+            Err(ReadlineError::Eof) => {
+                println!("CTRL-D");
+                break
+            },
+            Err(err) => {
+                println!("Error: {:?}", err);
+                break
+            }
+        }
+    }
+    rl.save_history("history.txt").unwrap();
 }
 
 fn print_prompt() {
