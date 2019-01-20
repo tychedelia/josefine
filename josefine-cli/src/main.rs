@@ -1,5 +1,7 @@
 #[macro_use]
 extern crate nom;
+extern crate josefine_raft;
+extern crate serde;
 
 use std::io;
 use std::str::FromStr;
@@ -14,6 +16,8 @@ use std::net::TcpStream;
 use std::net::IpAddr;
 use rustyline::error::ReadlineError;
 use rustyline::Editor;
+use josefine_raft::rpc::Message::AddNodeRequest;
+use josefine_raft::rpc::Message;
 
 
 #[derive(Debug)]
@@ -39,8 +43,8 @@ impl FromStr for Operation {
 named!(add_op<CompleteByteSlice, Operation>, do_parse!(
     tag_no_case!("add") >>
     take_till!(nom::is_digit) >>
-    addr: take_till1!(nom::is_space) >>
-    (Operation::Add(str::from_utf8(*addr).unwrap().parse().unwrap()))
+    addr: take_till!(nom::is_space) >>
+    (Operation::Add(str::from_utf8(*addr).expect("Invalid utf8 string").parse().expect("Could not parse ip address")))
 ));
 
 named!(info_op<CompleteByteSlice, Operation>, ws!(do_parse!(
@@ -68,7 +72,7 @@ fn main() {
     let port: u16 = matches.value_of("port").unwrap().parse().unwrap();
     let socket_addr = SocketAddr::new(address, port);
 
-    let connection = TcpStream::connect(socket_addr).expect("Couldn't connect!");
+    let mut connection = TcpStream::connect(socket_addr).expect("Couldn't connect!");
 
     println!("Connected!");
 
@@ -81,7 +85,21 @@ fn main() {
         match readline {
             Ok(line) => {
                 rl.add_history_entry(line.as_ref());
-                println!("Line: {:?}", get_op(CompleteByteSlice(&line.as_bytes())));
+                let op = get_op(CompleteByteSlice(&line.as_bytes()));
+                println!("Line: {:?}", op);
+                match op {
+                    Ok(res) => match res.1 {
+                        Operation::Add(addr) => {
+                            println!("Addr: {:?}", addr);
+                            let msg = Message::AddNodeRequest(addr);
+                            let msg = serde_json::to_vec(&msg).unwrap();
+                            connection.write_all(&msg[..]).unwrap();
+                            connection.flush();
+                        },
+                        _ => {}
+                    },
+                    Err(e) => println!("Error: {}", e)
+                };
             },
             Err(ReadlineError::Interrupted) => {
                 println!("CTRL-C");

@@ -1,5 +1,5 @@
 #![crate_name = "josefine_raft"]
-#![deny(missing_docs)]
+//#![deny(missing_docs)]
 
 //! This implementation of the [Raft](raft.github.io) consensus algorithm forms the basis for safely
 //! replicating state in the distributed commit log. Raft is used to elect a leader that coordinates
@@ -45,7 +45,7 @@ pub mod raft;
 /// Raft can be configured with a variety of options.
 pub mod config;
 mod progress;
-mod rpc;
+pub mod rpc;
 mod log;
 
 /// The Raft server contains a raft state machine and handles input to the state machine, providing

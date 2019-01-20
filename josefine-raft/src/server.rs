@@ -127,11 +127,18 @@ impl RaftServer {
                 match stream {
                     Ok(stream) => {
                         let reader = BufReader::new(&stream);
-                        let msg: Message = serde_json::from_reader(reader).unwrap();
+                        let msg: Message = match serde_json::from_reader(reader) {
+                            Ok(msg) => msg,
+                            Err(e) =>{
+                                info!(log, "Client disconnected."; "address" => format!("{:?}", stream.peer_addr().unwrap()));
+                                continue
+                            },
+                        };
+
                         info!(log, ""; "message" => format!("{:?}", msg));
                         let cmd = match msg {
-                            Message::AddNodeRequest(node) => {
-                                Command::AddNode(node)
+                            Message::AddNodeRequest(socket_addr) => {
+                                Command::AddNode(socket_addr)
                             }
                             Message::AppendRequest(req) => {
                                 Command::AppendEntries {

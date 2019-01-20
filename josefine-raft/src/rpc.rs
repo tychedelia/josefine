@@ -38,13 +38,15 @@ pub struct Ping {
 #[derive(Serialize, Deserialize, Debug)]
 pub enum Message {
     Ping(Ping),
-    AddNodeRequest(Node),
+    AddNodeRequest(SocketAddr),
     AppendRequest(AppendRequest),
     //    AppendResponse(AppendResponse),
     VoteRequest(VoteRequest),
     VoteResponse(VoteResponse),
 //    SnapshotRequest(SnapshotRequest),
 //    SnapshotResponse(SnapshotResponse),
+    InfoRequest(InfoRequest),
+    InfoResponse(InfoResponse)
 }
 
 pub trait Rpc {
@@ -179,10 +181,7 @@ impl Rpc for TpcRpc {
     fn add_self_to_cluster(&self, address: &str) -> Result<(), failure::Error> {
         info!(self.log, "Adding self to cluster"; "addr" => address);
         let mut stream = TcpStream::connect(address)?;
-        let msg = Message::AddNodeRequest(Node {
-            id: self.config.id,
-            addr: SocketAddr::new(self.config.ip, self.config.port),
-        });
+        let msg = Message::AddNodeRequest(SocketAddr::new(self.config.ip, self.config.port));
         let msg = serde_json::to_vec(&msg).expect("Couldn't serialize value");
         stream.write_all(&msg[..])?;
         Ok(())
@@ -243,4 +242,14 @@ pub struct AppendResponse {
     last_log: u64,
 
     success: bool,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct InfoRequest {
+
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct InfoResponse {
+    node_id: NodeId,
 }

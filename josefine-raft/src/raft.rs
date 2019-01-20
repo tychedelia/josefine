@@ -33,7 +33,7 @@ pub enum Command {
     /// Move the state machine forward.
     Tick,
     /// Add a node to the list of known nodes.
-    AddNode(Node),
+    AddNode(SocketAddr),
     /// Request that this instance vote for the provide node.
     VoteRequest {
         /// The term of the candidate.
@@ -228,11 +228,8 @@ pub struct Raft<S: Role, I: Io, R: Rpc> {
 // Base methods for general operations (+ debugging and testing).
 impl<S: Role, I: Io, R: Rpc> Raft<S, I, R> {
     /// Add the provided node to our record of the cluster.
-    pub fn add_node_to_cluster(&mut self, node: Node) {
-        info!(self.log, "Adding node"; "node" => format!("{:?}", node));
-        let node_id = node.id;
-        self.nodes.write().unwrap().insert(node.id, node);
-        self.rpc.ping(node_id);
+    pub fn add_node_to_cluster(&mut self, socket_addr: SocketAddr) {
+        info!(self.log, "Adding node"; "address" => format!("{:?}", socket_addr));
     }
 
     /// Set the current term.

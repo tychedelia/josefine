@@ -89,8 +89,8 @@ impl<I: Io, R: Rpc> Apply<I, R> for Raft<Follower, I, R> {
                 self.rpc.ping(node_id);
                 Ok(RaftHandle::Follower(self))
             }
-            Command::AddNode(node) => {
-                self.add_node_to_cluster(node);
+            Command::AddNode(socket_addr) => {
+                self.add_node_to_cluster(socket_addr);
                 Ok(RaftHandle::Follower(self))
             }
             _ => Ok(RaftHandle::Follower(self))
