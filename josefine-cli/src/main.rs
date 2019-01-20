@@ -7,7 +7,7 @@ use clap::App;
 use clap::Arg;
 use std::str;
 use std::net::SocketAddr;
-use nom::types::CompleteStr;
+use nom::types::CompleteByteSlice;
 use std::io::Write;
 use std::io::Read;
 use std::net::TcpStream;
@@ -36,29 +36,19 @@ impl FromStr for Operation {
     }
 }
 
-named!(not_space, is_not!(" \t\r\n"));
-
-named!(is_space, is_a!(" \t\r\n"));
-
-named!(get_word<&[u8], &str>,
-    map_res!(not_space, str::from_utf8));
-
-named!(get_socket_addr<&[u8], SocketAddr>,
-    map_res!(get_word, FromStr::from_str));
-
-named!(add_op<&[u8], Operation>, do_parse!(
+named!(add_op<CompleteByteSlice, Operation>, do_parse!(
     tag_no_case!("add") >>
     take_till!(nom::is_digit) >>
-    socket_addr: get_socket_addr >>
-    (Operation::Add(socket_addr))
+    addr: take_till1!(nom::is_space) >>
+    (Operation::Add(str::from_utf8(*addr).unwrap().parse().unwrap()))
 ));
 
-named!(info_op<&[u8], Operation>, ws!(do_parse!(
+named!(info_op<CompleteByteSlice, Operation>, ws!(do_parse!(
     tag_no_case!("info") >>
     (Operation::Info)
 )));
 
-named!(get_op<&[u8], Operation>, alt!(add_op | info_op));
+named!(get_op<CompleteByteSlice, Operation>, alt!(info_op | add_op));
 
 
 fn main() {
@@ -82,7 +72,6 @@ fn main() {
 
     println!("Connected!");
 
-    // `()` can be used when no completer is required
     let mut rl = Editor::<()>::new();
     if rl.load_history("history.txt").is_err() {
         println!("No previous history.");
@@ -92,7 +81,7 @@ fn main() {
         match readline {
             Ok(line) => {
                 rl.add_history_entry(line.as_ref());
-                println!("Line: {}", line);
+                println!("Line: {:?}", get_op(CompleteByteSlice(&line.as_bytes())));
             },
             Err(ReadlineError::Interrupted) => {
                 println!("CTRL-C");

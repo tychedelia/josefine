@@ -1,2 +1,22 @@
 ok
 okok
+info
+add 127.0.0.1:8080
+add 127.0.0.1:8080 
+info
+add
+add 1
+add 1234
+add 
+add 1
+add
+add 1 
+add
+add ok
+add 1234
+add ok
+add 10
+add 1000
+info
+add 10
+add 10.0.0.1:8080
