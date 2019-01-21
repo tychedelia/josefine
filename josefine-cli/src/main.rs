@@ -94,7 +94,7 @@ fn main() {
                             let msg = Message::AddNodeRequest(addr);
                             let msg = serde_json::to_vec(&msg).unwrap();
                             connection.write_all(&msg[..]).unwrap();
-                            connection.flush();
+                            connection.flush().unwrap();
                         },
                         _ => {}
                     },
@@ -118,19 +118,13 @@ fn main() {
     rl.save_history("history.txt").unwrap();
 }
 
-fn print_prompt() {
-    print!(">> ");
-    io::stdout().flush().unwrap();
-}
-
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn test() {
-        let (_, operation) = add_op(b"aDd 127.0.0.1:8080\n").unwrap();
+        let (_, operation) = add_op(CompleteByteSlice(b"aDd 127.0.0.1:8080")).unwrap();
         match operation {
             Operation::Add(addr) => {}
             _ => panic!()
