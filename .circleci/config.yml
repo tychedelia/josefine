@@ -21,7 +21,7 @@ jobs:
             cargo clippy
       - run:
           name: Test
-          command: cargo test
+          command: cargo test --all
       - save_cache:
           key: cargo-{{ checksum "Cargo.toml" }}
           paths:
