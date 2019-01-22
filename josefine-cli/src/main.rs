@@ -72,7 +72,6 @@ fn main() {
     let port: u16 = matches.value_of("port").unwrap().parse().unwrap();
     let socket_addr = SocketAddr::new(address, port);
 
-    let mut connection = TcpStream::connect(socket_addr).expect("Couldn't connect!");
 
     println!("Connected!");
 
@@ -93,8 +92,7 @@ fn main() {
                             println!("Addr: {:?}", addr);
                             let msg = Message::AddNodeRequest(addr);
                             let msg = serde_json::to_vec(&msg).unwrap();
-                            connection.write_all(&msg[..]).unwrap();
-                            connection.flush().unwrap();
+                            get_connection(socket_addr).write_all(&msg[..]).unwrap();
                         },
                         _ => {}
                     },
@@ -116,6 +114,10 @@ fn main() {
         }
     }
     rl.save_history("history.txt").unwrap();
+}
+
+fn get_connection(socket_addr: SocketAddr) -> TcpStream {
+   return TcpStream::connect(socket_addr).expect("Couldn't connect!");
 }
 
 #[cfg(test)]

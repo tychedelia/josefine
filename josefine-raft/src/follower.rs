@@ -233,7 +233,7 @@ mod tests {
     #[test]
     fn follower_to_candidate() {
         let mut follower = new_follower();
-        follower.add_node_to_cluster(Node { id: 10, addr: SocketAddr::new("127.0.0.1".parse().unwrap(), 8080) });
+        follower.add_node_to_cluster(SocketAddr::new("127.0.0.1".parse().unwrap(), 8080));
 
         let id = follower.id;
         match follower.apply(Command::Timeout).unwrap() {
