@@ -21,6 +21,7 @@ use std::ops::Index;
 use std::sync::RwLockReadGuard;
 use std::net::SocketAddr;
 use std::sync::mpsc::Sender;
+use crate::io::Io;
 
 /// An id that uniquely identifies this instance of Raft.
 pub type NodeId = u32;
@@ -84,16 +85,6 @@ pub trait Role {
     fn term(&mut self, term: u64);
 }
 
-/// Defines all IO (i.e. persistence) related behavior. Making our implementation generic over
-/// IO is slightly annoying, but allows us, e.g., to implement different backend strategies for
-/// persistence, which makes it easier for testing and helps isolate the "pure logic" of the state
-/// machine from persistence concerns.
-pub trait Io {
-    /// Append the provided entries to the commit log.
-    fn append(&mut self, entries: &mut Vec<Entry>);
-    ///
-    fn heartbeat(&mut self, id: NodeId);
-}
 
 /// An entry in the commit log.
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -104,35 +95,6 @@ pub struct Entry {
     pub index: u64,
     /// The data of the entry in raw bytes.
     pub data: Vec<u8>,
-}
-
-/// Simple IO impl used for mocking + testing.
-pub struct MemoryIo {
-    /// The log as an in memory list of entries.
-    entries: Vec<Entry>
-}
-
-impl Default for MemoryIo {
-    fn default() -> Self {
-        MemoryIo { entries: Vec::new() }
-    }
-}
-
-impl MemoryIo {
-    /// Obtain a new instance of the memory io implementation.
-    pub fn new() -> Self {
-        MemoryIo { entries: Vec::new() }
-    }
-}
-
-impl Io for MemoryIo {
-    fn append(&mut self, entries: &mut Vec<Entry>) {
-        self.entries.append(entries);
-    }
-
-    fn heartbeat(&mut self, _id: NodeId) {
-        unimplemented!()
-    }
 }
 
 /// Contains information about nodes in raft cluster.

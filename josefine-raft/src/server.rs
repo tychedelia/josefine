@@ -20,8 +20,7 @@ use crate::log;
 use crate::config::RaftConfig;
 use crate::raft::Apply;
 use crate::raft::Command;
-use crate::raft::Io;
-use crate::raft::MemoryIo;
+use crate::io::Io;
 use crate::raft::Node;
 use crate::raft::NodeId;
 use crate::raft::RaftHandle;
@@ -29,6 +28,7 @@ use crate::rpc::Message;
 use crate::rpc::TpcRpc;
 use crate::raft::NodeMap;
 use std::net::SocketAddr;
+use crate::io::MemoryIo;
 
 /// A server implementation that wraps the Raft state machine and handles connection with other nodes via a TPC
 /// RPC implementation.

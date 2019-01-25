@@ -9,7 +9,7 @@ use crate::candidate::Candidate;
 use crate::config::{ConfigError, RaftConfig};
 use crate::election::Election;
 use crate::raft::{Apply, RaftHandle};
-use crate::raft::{Command, Io, Node, NodeId, Raft, Role, State};
+use crate::raft::{Command, Node, NodeId, Raft, Role, State};
 use crate::raft::NodeMap;
 use crate::rpc::Rpc;
 use std::rc::Rc;
@@ -24,6 +24,7 @@ use std::sync::RwLock;
 use std::net::SocketAddr;
 use std::sync::mpsc::Sender;
 use std::thread;
+use crate::io::Io;
 
 pub struct Follower {
     pub leader_id: Option<NodeId>,
@@ -215,11 +216,10 @@ mod tests {
     use std::net::IpAddr;
 
     use crate::follower::Follower;
-    use crate::raft::MemoryIo;
+    use crate::io::MemoryIo;
 
     use super::Apply;
     use super::Command;
-    use super::Io;
     use super::Node;
     use super::Raft;
     use super::RaftConfig;

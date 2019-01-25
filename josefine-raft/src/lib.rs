@@ -23,6 +23,7 @@ extern crate failure;
 #[macro_use]
 extern crate failure_derive;
 
+mod io;
 mod follower;
 mod candidate;
 mod leader;

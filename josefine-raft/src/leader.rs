@@ -3,7 +3,7 @@ use std::io::Error;
 use slog::Logger;
 
 use crate::follower::Follower;
-use crate::raft::{Apply, Io, RaftHandle};
+use crate::raft::{Apply, RaftHandle};
 use crate::raft::Command;
 use crate::raft::Raft;
 use crate::raft::Role;
@@ -12,6 +12,7 @@ use crate::progress::ReplicationProgress;
 use std::time::Instant;
 use std::time::Duration;
 use rand::Rng;
+use crate::io::Io;
 
 //
 pub struct Leader {

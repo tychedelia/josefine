@@ -7,7 +7,7 @@ use crate::follower::Follower;
 use crate::leader::Leader;
 use crate::raft::{Apply, RaftHandle};
 use crate::raft::Command;
-use crate::raft::Io;
+use crate::io::Io;
 use crate::raft::Raft;
 use crate::raft::Role;
 use crate::rpc::Rpc;
