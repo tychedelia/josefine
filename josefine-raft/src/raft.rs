@@ -64,6 +64,11 @@ pub enum Command {
         /// The entries to append to our commit log.
         entries: Vec<Entry>,
     },
+    AppendResponse {
+        node_id: NodeId,
+        term: u64,
+        index: u64,
+    },
     /// Heartbeat from another node.
     Heartbeat {
         /// The term of the node sending a heartbeat.
@@ -85,10 +90,17 @@ pub trait Role {
     fn term(&mut self, term: u64);
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum EntryType {
+    Entry,
+    Config,
+}
 
 /// An entry in the commit log.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Entry {
+    /// The type of the entry
+    pub entry_type: EntryType,
     /// The term of the entry.
     pub term: u64,
     /// The index of the entry within the commit log.

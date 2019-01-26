@@ -13,8 +13,9 @@ use std::time::Instant;
 use std::time::Duration;
 use rand::Rng;
 use crate::io::Io;
+use crate::progress::ProgressHandle;
 
-//
+///
 pub struct Leader {
     pub log: Logger,
     pub progress: ReplicationProgress,
@@ -58,6 +59,19 @@ impl<I: Io, R: Rpc> Apply<I, R> for Raft<Leader, I, R> {
             }
             Command::AddNode(node) => {
                 self.add_node_to_cluster(node);
+                Ok(RaftHandle::Leader(self))
+            }
+            Command::AppendResponse { node_id, term, index } => {
+                if let Some(progress) = self.role.progress.get_mut(node_id) {
+                    match progress {
+                        ProgressHandle::Replicate(mut progress) => {
+                            progress.increment(index);
+                        }
+                        _ => panic!()
+                    }
+                }
+
+                self.state.commit_index = self.role.progress.committed_index();
                 Ok(RaftHandle::Leader(self))
             }
             Command::AppendEntries { term, leader_id, .. } => {

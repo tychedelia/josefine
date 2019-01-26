@@ -32,8 +32,16 @@ impl ReplicationProgress {
         self.progress.insert(node_id, ProgressHandle::Probe(Progress::new(node_id)));
     }
 
-    pub fn quorum_index(&self) {
+    pub fn committed_index(&self) -> u64 {
+        let mut indices = Vec::new();
+        for (_, progress) in self.progress {
+            if let ProgressHandle::Replicate(progress) = progress {
+                indices.push(progress.index);
+            }
+        }
 
+        indices.sort_by(|a, b| b.cmp(a));
+        indices[indices.len() / 2]
     }
 }
 
@@ -62,12 +70,12 @@ pub struct Progress<T: ProgressState> {
 }
 
 impl<T: ProgressState> Progress<T> {
-    fn reset(&mut self) {
+    pub fn reset(&mut self) {
         self.active = false;
         self.state.reset();
     }
 
-    fn increment(&mut self, index: u64) -> bool {
+    pub fn increment(&mut self, index: u64) -> bool {
         let updated = if self.index < index {
             self.index = index;
             true
