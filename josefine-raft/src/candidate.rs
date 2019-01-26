@@ -39,10 +39,31 @@ impl Role for Candidate {
 
 impl<I: Io, R: Rpc> Apply<I, R> for Raft<Candidate, I, R> {
     fn apply(mut self, command: Command) -> Result<RaftHandle<I, R>, Error> {
-//        trace!("Applying command {:?} to {}", "", command, self.id);
+        trace!(self.role.log, "Applying command"; "command" => format!("{:?}", command));
 
         match command {
             Command::Tick => {
+                if self.needs_election() {
+                    return match self.role.election.election_status() {
+                        ElectionStatus::Elected => {
+                            error!(self.role.log, "This should never happen.");
+                            Ok(RaftHandle::Leader(Raft::from(self)))
+                        },
+                        ElectionStatus::Voting => {
+                            trace!(self.role.log, "Election ended with missing votes");
+                            self.state.voted_for = None;
+                            let raft: Raft<Follower, I, R> = Raft::from(self);
+                            Ok(raft.apply(Command::Timeout)?)
+                        },
+                        ElectionStatus::Defeated => {
+                            trace!(self.role.log, "Defeated in election.");
+                            self.state.voted_for = None;
+                            let raft: Raft<Follower, I, R> = Raft::from(self);
+                            Ok(raft.apply(Command::Timeout)?)
+                        },
+                    }
+                }
+
                 Ok(RaftHandle::Candidate(self))
             }
             Command::VoteRequest { candidate_id, term: _, .. } => {
@@ -58,12 +79,21 @@ impl<I: Io, R: Rpc> Apply<I, R> for Raft<Candidate, I, R> {
                 }
             }
             Command::AppendEntries { mut entries, term, .. } => {
+                // While waiting for votes, a candidate may receive an
+                // AppendEntries RPC from another server claiming to be
+                // leader. If the leader’s term (included in its RPC) is at least
+                // as large as the candidate’s current term, then the candidate
+                // recognizes the leader as legitimate and returns to follower
+                // state.
                 if term >= self.state.current_term {
                     info!(self.role.log, "Received higher term, transitioning to follower");
                     let mut raft: Raft<Follower, I, R> = Raft::from(self);
                     raft.io.append(&mut entries);
                     return Ok(RaftHandle::Follower(raft));
                 }
+
+                // TODO: If the term in the RPC is smaller than the candidate’s
+                // current term, then the candidate rejects the RPC and continues in candidate state.
 
                 Ok(RaftHandle::Candidate(self))
             }

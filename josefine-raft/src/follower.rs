@@ -39,6 +39,8 @@ impl Role for Follower {
 
 impl<I: Io, R: Rpc> Apply<I, R> for Raft<Follower, I, R> {
     fn apply(mut self, command: Command) -> Result<RaftHandle<I, R>, io::Error> {
+        trace!(self.role.log, "Applying command"; "command" => format!("{:?}", command));
+
         match command {
             Command::Start => {
                 for addr in &self.config.nodes {
@@ -51,7 +53,7 @@ impl<I: Io, R: Rpc> Apply<I, R> for Raft<Follower, I, R> {
                 Ok(RaftHandle::Follower(self))
             }
             Command::Tick => {
-                if self.has_timed_out() {
+                if self.needs_election() {
                     return self.apply(Command::Timeout);
                 }
 
@@ -81,6 +83,7 @@ impl<I: Io, R: Rpc> Apply<I, R> for Raft<Follower, I, R> {
             }
             Command::Timeout => {
                 if self.state.voted_for.is_none() {
+                    self.set_election_timeout(); // start a new election
                     let raft: Raft<Candidate, I, R> = Raft::from(self);
                     return raft.seek_election();
                 }
@@ -165,13 +168,6 @@ impl<I: Io, R: Rpc> Raft<Follower, I, R> {
 
     fn init(&mut self) {
         self.set_election_timeout();
-    }
-
-    fn has_timed_out(&self) -> bool {
-        match (self.state.election_time, self.state.election_timeout) {
-            (Some(time), Some(timeout)) => time.elapsed() > timeout,
-            _ => false,
-        }
     }
 
     fn get_randomized_timeout(&self) -> Duration {

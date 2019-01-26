@@ -61,6 +61,7 @@ pub enum Command {
         term: u64,
         /// The id of the node sending entries.
         leader_id: NodeId,
+
         /// The entries to append to our commit log.
         entries: Vec<Entry>,
     },
@@ -204,6 +205,14 @@ impl<S: Role, I: Io, R: Rpc> Raft<S, I, R> {
     /// Add the provided node to our record of the cluster.
     pub fn add_node_to_cluster(&mut self, socket_addr: SocketAddr) {
         info!(self.log, "Adding node"; "address" => format!("{:?}", socket_addr));
+    }
+
+    /// Checks the status of the election timer.
+    pub fn needs_election(&self) -> bool {
+        match (self.state.election_time, self.state.election_timeout) {
+            (Some(time), Some(timeout)) => time.elapsed() > timeout,
+            _ => false,
+        }
     }
 
     /// Set the current term.

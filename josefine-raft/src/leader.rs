@@ -47,6 +47,8 @@ impl Role for Leader {
 
 impl<I: Io, R: Rpc> Apply<I, R> for Raft<Leader, I, R> {
     fn apply(mut self, command: Command) -> Result<RaftHandle<I, R>, Error> {
+        trace!(self.role.log, "Applying command"; "command" => format!("{:?}", command));
+
         match command {
             Command::Tick => {
                 if self.needs_heartbeat() {
@@ -62,9 +64,9 @@ impl<I: Io, R: Rpc> Apply<I, R> for Raft<Leader, I, R> {
                 Ok(RaftHandle::Leader(self))
             }
             Command::AppendResponse { node_id, term, index } => {
-                if let Some(progress) = self.role.progress.get_mut(node_id) {
-                    match progress {
-                        ProgressHandle::Replicate(mut progress) => {
+                if let Some(mut progress) = self.role.progress.get_mut(node_id) {
+                    match &mut progress {
+                        ProgressHandle::Replicate(progress) => {
                             progress.increment(index);
                         }
                         _ => panic!()
@@ -74,7 +76,7 @@ impl<I: Io, R: Rpc> Apply<I, R> for Raft<Leader, I, R> {
                 self.state.commit_index = self.role.progress.committed_index();
                 Ok(RaftHandle::Leader(self))
             }
-            Command::AppendEntries { term, leader_id, .. } => {
+            Command::AppendEntries { term, leader_id, entries } => {
                 if term > self.state.current_term {
                     self.term(term);
                     return Ok(RaftHandle::Follower(Raft::from(self)));
