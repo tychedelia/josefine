@@ -43,13 +43,6 @@ impl<I: Io, R: Rpc> Apply<I, R> for Raft<Follower, I, R> {
 
         match command {
             Command::Start => {
-                for addr in &self.config.nodes {
-                    if let Err(err) = self.rpc.add_self_to_cluster(addr) {
-                        error!(self.log, "Could not add node to cluster");
-                        self.retry(Command::Start, Duration::from_millis(100));
-                    };
-                }
-
                 Ok(RaftHandle::Follower(self))
             }
             Command::Tick => {

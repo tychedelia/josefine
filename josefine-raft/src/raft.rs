@@ -111,7 +111,7 @@ pub struct Entry {
 }
 
 /// Contains information about nodes in raft cluster.
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub struct Node {
     /// The id of the node.
     pub id: NodeId,

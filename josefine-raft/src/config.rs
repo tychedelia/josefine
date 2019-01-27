@@ -8,6 +8,7 @@ use std::time::Duration;
 use crate::raft::NodeId;
 use crate::config;
 use std::net::SocketAddr;
+use crate::raft::Node;
 
 #[serde(default)]
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -20,7 +21,7 @@ pub struct RaftConfig {
     /// The port to listen for request on in TCP implementations.
     pub port: u16,
     /// A list of addresses to query for cluster membership.
-    pub nodes: Vec<String>,
+    pub nodes: Vec<Node>,
     /// The version of the protocol spoken by this instance.
     pub protocol_version: u32,
     /// The default timeout for a heartbeat.

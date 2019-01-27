@@ -1,5 +1,7 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::error::Error;
+use std::io;
 use std::io::BufReader;
 use std::io::Write;
 use std::iter;
@@ -23,8 +25,6 @@ use crate::raft::Node;
 use crate::raft::NodeId;
 use crate::raft::NodeMap;
 use crate::raft::State;
-use std::error::Error;
-use std::io;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Ping {
@@ -43,10 +43,10 @@ pub enum Message {
     //    AppendResponse(AppendResponse),
     VoteRequest(VoteRequest),
     VoteResponse(VoteResponse),
-//    SnapshotRequest(SnapshotRequest),
+    //    SnapshotRequest(SnapshotRequest),
 //    SnapshotResponse(SnapshotResponse),
     InfoRequest(InfoRequest),
-    InfoResponse(InfoResponse)
+    InfoResponse(InfoResponse),
 }
 
 pub trait Rpc {
@@ -95,6 +95,10 @@ pub struct TpcRpc {
 }
 
 impl TpcRpc {
+    fn msg_as_bytes(msg: &Message) -> io::Result<Vec<u8>> {
+        Ok(serde_json::to_vec(msg)?)
+    }
+
     fn get_stream(&self, node_id: NodeId) -> Result<TcpStream, failure::Error> {
         let node = &self.nodes.read().unwrap()[&node_id];
         TcpStream::connect(node.addr)
@@ -131,7 +135,7 @@ impl Rpc for TpcRpc {
         };
 
         let msg = Message::AppendRequest(req);
-        let msg = serde_json::to_vec(&msg).expect("Couldn't serialize json");
+        let msg = Self::msg_as_bytes(&msg).expect("Couldn't serialize message");
 
         for (id, _) in self.nodes.read().unwrap().iter() {
             if id == &self.config.id {
@@ -141,7 +145,7 @@ impl Rpc for TpcRpc {
             self.get_stream(*id)
                 .and_then(|mut stream| stream.write_all(&msg[..])
                     .map_err(|error| error.into()))
-                .map_err( RpcError::Connection)?;
+                .map_err(RpcError::Connection)?;
         }
 
 
@@ -164,7 +168,7 @@ impl Rpc for TpcRpc {
             message: "ping!".to_string(),
         };
         let msg = Message::Ping(ping);
-        let msg = serde_json::to_vec(&msg).expect("Couldn't serialize value");
+        let msg = Self::msg_as_bytes(&msg).expect("Couldn't serialize value");
         if let Ok(mut stream) = self.get_stream(node_id) {
             if let Err(_err) = stream.write_all(&msg[..]) {
                 error!(self.log, "Could not write to node"; "node_id" => format!("{}", node_id));
@@ -182,7 +186,7 @@ impl Rpc for TpcRpc {
         info!(self.log, "Adding self to cluster"; "addr" => address);
         let mut stream = TcpStream::connect(address)?;
         let msg = Message::AddNodeRequest(SocketAddr::new(self.config.ip, self.config.port));
-        let msg = serde_json::to_vec(&msg).expect("Couldn't serialize value");
+        let msg = Self::msg_as_bytes(&msg).expect("Couldn't serialize value");
         stream.write_all(&msg[..])?;
         Ok(())
     }
@@ -245,9 +249,7 @@ pub struct AppendResponse {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct InfoRequest {
-
-}
+pub struct InfoRequest {}
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct InfoResponse {
