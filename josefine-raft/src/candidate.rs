@@ -88,7 +88,7 @@ impl<I: Io, R: Rpc> Apply<I, R> for Raft<Candidate, I, R> {
                 if term >= self.state.current_term {
                     info!(self.role.log, "Received higher term, transitioning to follower");
                     let mut raft: Raft<Follower, I, R> = Raft::from(self);
-                    raft.io.append(&mut entries);
+                    raft.io.append(entries);
                     return Ok(RaftHandle::Follower(raft));
                 }
 

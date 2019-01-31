@@ -100,8 +100,6 @@ impl<I: Io, R: Rpc> Apply<I, R> for Raft<Leader, I, R> {
 
 impl<I: Io, R: Rpc> From<Raft<Leader, I, R>> for Raft<Follower, I, R> {
     fn from(val: Raft<Leader, I, R>) -> Raft<Follower, I, R> {
-//        info!("{} transitioning from leader to follower", val.id);
-
         Raft {
             id: val.id,
             state: val.state,

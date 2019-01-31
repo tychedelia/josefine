@@ -40,7 +40,7 @@ pub enum Message {
     Ping(Ping),
     AddNodeRequest(SocketAddr),
     AppendRequest(AppendRequest),
-    //    AppendResponse(AppendResponse),
+    AppendResponse(AppendResponse),
     VoteRequest(VoteRequest),
     VoteResponse(VoteResponse),
     //    SnapshotRequest(SnapshotRequest),
@@ -53,6 +53,7 @@ pub trait Rpc {
     fn heartbeat(&self, node_id: NodeId, term: u64, index: u64, entries: &[Entry]) -> Result<(), RpcError>;
     fn respond_vote(&self, state: &State, candidate_id: NodeId, granted: bool);
     fn request_vote(&self, state: &State, node_id: NodeId);
+    fn respond_append(&self, node_id: NodeId, term: u64, index: u64) -> Result<(), RpcError>;
     fn ping(&self, node_id: NodeId);
     fn get_header(&self) -> Header;
     fn add_self_to_cluster(&self, address: &str) -> Result<(), failure::Error>;
@@ -74,22 +75,15 @@ impl Default for NoopRpc {
 }
 
 impl Rpc for NoopRpc {
-    fn heartbeat(&self, _node_id: NodeId, _term: u64, _index: u64, _entries: &[Entry]) -> Result<(), RpcError> {
-        Ok(())
-    }
-
+    fn heartbeat(&self, _node_id: NodeId, _term: u64, _index: u64, _entries: &[Entry]) -> Result<(), RpcError> { Ok(()) }
     fn respond_vote(&self, _state: &State, _candidate_id: u32, _granted: bool) {}
     fn request_vote(&self, _state: &State, _node_id: u32) {}
-
+    fn respond_append(&self, node_id: NodeId, term: u64, index: u64) -> Result<(), RpcError> { Ok(()) }
     fn ping(&self, _node_id: u32) {}
-
     fn get_header(&self) -> Header {
         unimplemented!()
     }
-
-    fn add_self_to_cluster(&self, _address: &str) -> Result<(), failure::Error> {
-        unimplemented!()
-    }
+    fn add_self_to_cluster(&self, _address: &str) -> Result<(), failure::Error> { Ok(()) }
 }
 
 pub struct TpcRpc {
@@ -124,7 +118,7 @@ impl TpcRpc {
 
 #[derive(Fail, Debug)]
 pub enum RpcError {
-    #[fail(display = "A connection error occured.")]
+    #[fail(display = "A connection error occurred.")]
     Connection(#[fail(cause)] failure::Error)
 }
 
@@ -148,7 +142,6 @@ impl Rpc for TpcRpc {
                 .map_err(|error| error.into()))
             .map_err(RpcError::Connection)?;
 
-
         Ok(())
     }
 
@@ -159,6 +152,25 @@ impl Rpc for TpcRpc {
 
     fn request_vote(&self, _state: &State, _node_id: u32) {
         unimplemented!()
+    }
+
+    fn respond_append(&self, node_id: NodeId, term: u64, index: u64) -> Result<(), RpcError> {
+        let res = AppendResponse {
+            header: self.get_header(),
+            term,
+            last_log: index,
+            success: true
+        };
+
+        let msg = Message::AppendResponse(res);
+        let msg = Self::msg_as_bytes(&msg).expect("Couldn't serialize message");
+
+        self.get_stream(node_id)
+            .and_then(|mut stream| stream.write_all(&msg[..])
+                .map_err(|error| error.into()))
+            .map_err(RpcError::Connection)?;
+
+        Ok(())
     }
 
     fn ping(&self, node_id: u32) {
@@ -178,6 +190,7 @@ impl Rpc for TpcRpc {
 
     fn get_header(&self) -> Header {
         Header {
+            node_id: self.config.id,
             version: self.config.protocol_version
         }
     }
@@ -195,7 +208,8 @@ impl Rpc for TpcRpc {
 #[allow(dead_code)]
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Header {
-    version: u32,
+    pub node_id: NodeId,
+    pub version: u32,
 }
 
 #[allow(dead_code)]
@@ -240,12 +254,12 @@ pub struct AppendRequest {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct AppendResponse {
-    header: Header,
+    pub header: Header,
 
-    term: u64,
-    last_log: u64,
+    pub term: u64,
+    pub last_log: u64,
 
-    success: bool,
+    pub success: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

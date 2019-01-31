@@ -165,6 +165,13 @@ impl RaftServer {
                                     entries: vec![],
                                 }
                             }
+                            Message::AppendResponse(res) => {
+                                Command::AppendResponse {
+                                    node_id: res.header.node_id,
+                                    term: res.term,
+                                    index: res.last_log,
+                                }
+                            }
                             Message::VoteRequest(req) => {
                                 Command::VoteRequest {
                                     term: req.term,

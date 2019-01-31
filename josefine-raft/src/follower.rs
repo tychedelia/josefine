@@ -52,11 +52,21 @@ impl<I: Io, R: Rpc> Apply<I, R> for Raft<Follower, I, R> {
 
                 Ok(RaftHandle::Follower(self))
             }
-            Command::AppendEntries { mut entries, leader_id, .. } => {
+            Command::AppendEntries { mut entries, leader_id, term } => {
                 self.state.election_time = Some(Instant::now());
                 self.role.leader_id = Some(leader_id);
                 self.state.voted_for = Some(leader_id);
-                self.io.append(&mut entries);
+
+                if !entries.is_empty() {
+                    // TODO(jcm): what to do here
+                    if entries.first().unwrap().index != self.io.last_index() + 1 {
+                        error!(self.role.log, "Wrong index");
+                    }
+
+                    let index = self.io.append(entries)?;
+                    self.rpc.respond_append(leader_id, term, index);
+                }
+
                 Ok(RaftHandle::Follower(self))
             }
             Command::Heartbeat {leader_id, .. } => {
