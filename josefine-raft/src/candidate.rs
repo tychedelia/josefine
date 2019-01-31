@@ -21,7 +21,7 @@ pub struct Candidate {
 }
 
 impl<I: Io, R: Rpc> Raft<Candidate, I, R> {
-    pub(crate) fn seek_election(mut self) -> Result<RaftHandle<I, R>, Error> {
+    pub(crate) fn seek_election(mut self) -> Result<RaftHandle<I, R>, failure::Error> {
         info!(self.role.log, "Seeking election");
         self.state.voted_for = Some(self.id);
         self.state.current_term += 1;
@@ -38,7 +38,7 @@ impl Role for Candidate {
 }
 
 impl<I: Io, R: Rpc> Apply<I, R> for Raft<Candidate, I, R> {
-    fn apply(mut self, command: Command) -> Result<RaftHandle<I, R>, Error> {
+    fn apply(mut self, command: Command) -> Result<RaftHandle<I, R>, failure::Error> {
         trace!(self.role.log, "Applying command"; "command" => format!("{:?}", command));
 
         match command {
@@ -101,7 +101,7 @@ impl<I: Io, R: Rpc> Apply<I, R> for Raft<Candidate, I, R> {
                 if term >= self.state.current_term {
                     info!(self.role.log, "Received higher term, transitioning to follower");
                     let mut raft: Raft<Follower, I, R> = Raft::from(self);
-                    raft.io.heartbeat(leader_id);
+//                    raft.io.heartbeat(leader_id);
                     return Ok(RaftHandle::Follower(raft));
                 }
 

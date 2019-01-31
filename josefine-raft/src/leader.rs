@@ -30,7 +30,7 @@ impl<I: Io, R: Rpc> Raft<Leader, I, R> {
     fn heartbeat(&self) -> Result<(), RpcError> {
         for node_id in self.nodes.read().unwrap().keys() {
             if let ProgressHandle::Replicate(progress) = self.role.progress.get(*node_id).unwrap() {
-                let entries = self.io.entries_from(progress.index as usize);
+                let entries = self.io.entries_from(progress.index);
 
                 self.rpc.heartbeat(*node_id, self.state.current_term, self.state.commit_index, &vec!())?;
             }
@@ -55,7 +55,7 @@ impl Role for Leader {
 }
 
 impl<I: Io, R: Rpc> Apply<I, R> for Raft<Leader, I, R> {
-    fn apply(mut self, command: Command) -> Result<RaftHandle<I, R>, Error> {
+    fn apply(mut self, command: Command) -> Result<RaftHandle<I, R>, failure::Error> {
         trace!(self.role.log, "Applying command"; "command" => format!("{:?}", command));
 
         match command {

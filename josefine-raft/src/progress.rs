@@ -1,6 +1,7 @@
 use crate::raft::NodeId;
 use std::collections::HashMap;
 use crate::raft::NodeMap;
+use crate::io::LogIndex;
 
 pub struct ReplicationProgress {
     progress: HashMap<NodeId, ProgressHandle>,
@@ -32,7 +33,7 @@ impl ReplicationProgress {
         self.progress.insert(node_id, ProgressHandle::Probe(Progress::new(node_id)));
     }
 
-    pub fn committed_index(&self) -> u64 {
+    pub fn committed_index(&self) -> LogIndex {
         let mut indices = Vec::new();
         for progress in self.progress.values() {
             if let ProgressHandle::Replicate(progress) = progress {
@@ -65,7 +66,7 @@ pub struct Progress<T: ProgressState> {
     node_id: NodeId,
     state: T,
     active: bool,
-    pub index: u64,
+    pub index: LogIndex,
     next: u64,
 }
 
@@ -75,7 +76,7 @@ impl<T: ProgressState> Progress<T> {
         self.state.reset();
     }
 
-    pub fn increment(&mut self, index: u64) -> bool {
+    pub fn increment(&mut self, index: LogIndex) -> bool {
         let updated = if self.index < index {
             self.index = index;
             true

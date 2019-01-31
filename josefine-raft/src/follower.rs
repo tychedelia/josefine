@@ -1,30 +1,32 @@
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::io;
+use std::net::SocketAddr;
+use std::rc::Rc;
+use std::sync::Arc;
+use std::sync::mpsc::Sender;
+use std::sync::Mutex;
+use std::sync::RwLock;
+use std::thread;
+use std::time::Duration;
+use std::time::Instant;
 
+use rand::Rng;
 use slog;
 use slog::Drain;
 use slog::Logger;
+use threadpool::ThreadPool;
 
 use crate::candidate::Candidate;
 use crate::config::{ConfigError, RaftConfig};
 use crate::election::Election;
+use crate::io::Io;
 use crate::raft::{Apply, RaftHandle};
 use crate::raft::{Command, Node, NodeId, Raft, Role, State};
 use crate::raft::NodeMap;
 use crate::rpc::Rpc;
-use std::rc::Rc;
-use std::cell::RefCell;
-use std::sync::Arc;
-use std::sync::Mutex;
-use std::time::Duration;
-use rand::Rng;
-use threadpool::ThreadPool;
-use std::time::Instant;
-use std::sync::RwLock;
-use std::net::SocketAddr;
-use std::sync::mpsc::Sender;
-use std::thread;
-use crate::io::Io;
+use crate::raft::Entry;
+use crate::raft::EntryType;
 
 pub struct Follower {
     pub leader_id: Option<NodeId>,
@@ -38,7 +40,7 @@ impl Role for Follower {
 }
 
 impl<I: Io, R: Rpc> Apply<I, R> for Raft<Follower, I, R> {
-    fn apply(mut self, command: Command) -> Result<RaftHandle<I, R>, io::Error> {
+    fn apply(mut self, command: Command) -> Result<RaftHandle<I, R>, failure::Error> {
         trace!(self.role.log, "Applying command"; "command" => format!("{:?}", command));
 
         match command {
@@ -58,28 +60,22 @@ impl<I: Io, R: Rpc> Apply<I, R> for Raft<Follower, I, R> {
                 self.state.voted_for = Some(leader_id);
 
                 if !entries.is_empty() {
-                    // TODO(jcm): what to do here
-                    if entries.first().unwrap().index != self.io.last_index() + 1 {
-                        error!(self.role.log, "Wrong index");
-                    }
-
                     let index = self.io.append(entries)?;
                     self.rpc.respond_append(leader_id, term, index);
                 }
 
                 Ok(RaftHandle::Follower(self))
             }
-            Command::Heartbeat {leader_id, .. } => {
+            Command::Heartbeat { leader_id, .. } => {
                 self.state.election_time = Some(Instant::now());
                 self.role.leader_id = Some(leader_id);
-                self.io.heartbeat(leader_id);
+//                self.io.heartbeat(leader_id);
                 Ok(RaftHandle::Follower(self))
             }
             Command::VoteRequest { candidate_id, last_index, last_term, .. } => {
                 if self.state.current_term > last_term || self.state.commit_index > last_index {
-                    self.rpc.respond_vote(&self.state, candidate_id,false);
-                }
-                else {
+                    self.rpc.respond_vote(&self.state, candidate_id, false);
+                } else {
                     self.rpc.respond_vote(&self.state, candidate_id, true);
                 }
                 Ok(RaftHandle::Follower(self))
@@ -207,10 +203,17 @@ impl<I: Io, R: Rpc> From<Raft<Follower, I, R>> for Raft<Candidate, I, R> {
 
 #[cfg(test)]
 mod tests {
+    use std::cell::RefCell;
     use std::net::IpAddr;
+    use std::net::SocketAddr;
+    use std::rc::Rc;
+    use std::sync::mpsc;
+    use std::thread;
+    use std::time::Duration;
 
     use crate::follower::Follower;
     use crate::io::MemoryIo;
+    use crate::rpc::NoopRpc;
 
     use super::Apply;
     use super::Command;
@@ -218,13 +221,6 @@ mod tests {
     use super::Raft;
     use super::RaftConfig;
     use super::RaftHandle;
-    use std::rc::Rc;
-    use std::cell::RefCell;
-    use crate::rpc::NoopRpc;
-    use std::net::SocketAddr;
-    use std::sync::mpsc;
-    use std::thread;
-    use std::time::Duration;
 
     #[test]
     fn follower_to_leader_single_node_cluster() {

@@ -195,7 +195,6 @@ impl RaftServer {
 #[cfg(test)]
 mod tests {
     use crate::server::RaftServer;
-    use slog::Logger;
     use crate::config::RaftConfig;
     use crate::log;
     use crate::raft::RaftHandle;

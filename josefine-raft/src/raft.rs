@@ -22,12 +22,14 @@ use std::sync::RwLockReadGuard;
 use std::net::SocketAddr;
 use std::sync::mpsc::Sender;
 use crate::io::Io;
+use crate::io::LogIndex;
 
 /// An id that uniquely identifies this instance of Raft.
 pub type NodeId = u32;
+pub type Term = u64;
 
 /// Commands that can be applied to the state machine.
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum Command {
     /// Called once at beginning to bootstrap the state machine.
     Start,
@@ -93,8 +95,9 @@ pub trait Role {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum EntryType {
-    Entry,
-    Config,
+    Entry { data: Vec<u8> },
+    Config { },
+    Command { command: Command },
 }
 
 /// An entry in the commit log.
@@ -106,8 +109,6 @@ pub struct Entry {
     pub term: u64,
     /// The index of the entry within the commit log.
     pub index: u64,
-    /// The data of the entry in raw bytes.
-    pub data: Vec<u8>,
 }
 
 /// Contains information about nodes in raft cluster.
@@ -246,7 +247,7 @@ impl<I: Io, R: Rpc> RaftHandle<I, R> {
 }
 
 impl<I: Io, R: Rpc> Apply<I, R> for RaftHandle<I, R> {
-    fn apply(self, command: Command) -> Result<RaftHandle<I, R>, Error> {
+    fn apply(self, command: Command) -> Result<RaftHandle<I, R>, failure::Error> {
         match self {
             RaftHandle::Follower(raft) => { raft.apply(command) }
             RaftHandle::Candidate(raft) => { raft.apply(command) }
@@ -261,6 +262,6 @@ pub trait Apply<I: Io, R: Rpc> {
     /// Apply a command to the raft state machine, which may result in a new raft state. Errors
     /// should occur for only truly exceptional conditions, and are provided to allow the wrapping
     /// server containing this state machine to shut down gracefully.
-    fn apply(self, command: Command) -> Result<RaftHandle<I, R>, Error>;
+    fn apply(self, command: Command) -> Result<RaftHandle<I, R>, failure::Error>;
 }
 
