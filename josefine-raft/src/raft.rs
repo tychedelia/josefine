@@ -13,7 +13,6 @@ use crate::config::RaftConfig;
 use crate::follower::Follower;
 use crate::leader::Leader;
 use crate::rpc::Rpc;
-use threadpool::ThreadPool;
 use std::time::Duration;
 use std::time::Instant;
 use std::sync::RwLock;

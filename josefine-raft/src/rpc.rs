@@ -16,7 +16,6 @@ use std::thread;
 
 use slog::Drain;
 use slog::Logger;
-use threadpool::ThreadPool;
 
 use crate::config::RaftConfig;
 use crate::raft::Command;
@@ -91,7 +90,6 @@ pub struct TpcRpc {
     tx: Sender<Command>,
     nodes: NodeMap,
     log: Logger,
-    pool: ThreadPool,
 }
 
 impl TpcRpc {
@@ -111,7 +109,6 @@ impl TpcRpc {
             tx,
             nodes,
             log,
-            pool: ThreadPool::new(5),
         }
     }
 }

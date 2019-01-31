@@ -119,7 +119,7 @@ mod tests {
                 index: 2,
             }];
 
-        io.append(entries);
+        io.append(entries).unwrap();
 
         let entry = io.entry(1).unwrap();
         match &entry.entry_type {

@@ -15,7 +15,6 @@ use rand::Rng;
 use slog;
 use slog::Drain;
 use slog::Logger;
-use threadpool::ThreadPool;
 
 use crate::candidate::Candidate;
 use crate::config::{ConfigError, RaftConfig};
@@ -61,7 +60,7 @@ impl<I: Io, R: Rpc> Apply<I, R> for Raft<Follower, I, R> {
 
                 if !entries.is_empty() {
                     let index = self.io.append(entries)?;
-                    self.rpc.respond_append(leader_id, term, index);
+                    self.rpc.respond_append(leader_id, term, index)?;
                 }
 
                 Ok(RaftHandle::Follower(self))
