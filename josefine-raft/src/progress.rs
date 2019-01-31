@@ -34,7 +34,7 @@ impl ReplicationProgress {
 
     pub fn committed_index(&self) -> u64 {
         let mut indices = Vec::new();
-        for (_, progress) in &self.progress {
+        for progress in self.progress.values() {
             if let ProgressHandle::Replicate(progress) = progress {
                 indices.push(progress.index);
             }
@@ -65,7 +65,7 @@ pub struct Progress<T: ProgressState> {
     node_id: NodeId,
     state: T,
     active: bool,
-    index: u64,
+    pub index: u64,
     next: u64,
 }
 

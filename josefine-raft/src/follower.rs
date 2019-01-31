@@ -150,7 +150,7 @@ impl<I: Io, R: Rpc> Raft<Follower, I, R> {
         let tx = self.tx.clone();
         thread::spawn(move || {
             thread::sleep(duration);
-            tx.send(command);
+            tx.send(command).unwrap();
         });
     }
 

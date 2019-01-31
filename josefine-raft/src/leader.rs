@@ -14,6 +14,7 @@ use std::time::Duration;
 use rand::Rng;
 use crate::io::Io;
 use crate::progress::ProgressHandle;
+use crate::rpc::RpcError;
 
 ///
 pub struct Leader {
@@ -26,8 +27,16 @@ pub struct Leader {
 }
 
 impl<I: Io, R: Rpc> Raft<Leader, I, R> {
-    fn heartbeat(&self) {
-        self.rpc.heartbeat(self.state.current_term, self.state.commit_index, vec!());
+    fn heartbeat(&self) -> Result<(), RpcError> {
+        for node_id in self.nodes.read().unwrap().keys() {
+            if let ProgressHandle::Replicate(progress) = self.role.progress.get(*node_id).unwrap() {
+                let entries = self.io.entries_from(progress.index as usize);
+
+                self.rpc.heartbeat(*node_id, self.state.current_term, self.state.commit_index, &vec!())?;
+            }
+        }
+
+        Ok(())
     }
 
     fn needs_heartbeat(&self) -> bool {
@@ -52,7 +61,7 @@ impl<I: Io, R: Rpc> Apply<I, R> for Raft<Leader, I, R> {
         match command {
             Command::Tick => {
                 if self.needs_heartbeat() {
-                    if let Err(err) = self.rpc.heartbeat(self.state.current_term, self.state.commit_index, vec![]) {
+                    if let Err(err) = self.heartbeat() {
                         panic!("Could not heartbeat")
                     }
                     self.reset_heartbeat_timer();

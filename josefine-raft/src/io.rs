@@ -1,6 +1,8 @@
+use std::ops::Index;
+use std::ops::Range;
+
 use crate::raft::Entry;
 use crate::raft::NodeId;
-
 
 /// Defines all IO (i.e. persistence) related behavior. Making our implementation generic over
 /// IO is slightly annoying, but allows us, e.g., to implement different backend strategies for
@@ -11,6 +13,8 @@ pub trait Io {
     fn append(&mut self, entries: &mut Vec<Entry>);
     ///
     fn heartbeat(&mut self, id: NodeId);
+    ///
+    fn entries_from(&self, index: usize) -> &[Entry];
 }
 
 /// Simple IO impl used for mocking + testing.
@@ -39,5 +43,9 @@ impl Io for MemoryIo {
 
     fn heartbeat(&mut self, _id: NodeId) {
         unimplemented!()
+    }
+
+    fn entries_from(&self, index: usize) -> &[Entry] {
+        &self.entries[index..]
     }
 }

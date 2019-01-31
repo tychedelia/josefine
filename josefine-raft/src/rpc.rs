@@ -50,7 +50,7 @@ pub enum Message {
 }
 
 pub trait Rpc {
-    fn heartbeat(&self, term: u64, index: u64, entries: Vec<Entry>) -> Result<(), RpcError>;
+    fn heartbeat(&self, node_id: NodeId, term: u64, index: u64, entries: &[Entry]) -> Result<(), RpcError>;
     fn respond_vote(&self, state: &State, candidate_id: NodeId, granted: bool);
     fn request_vote(&self, state: &State, node_id: NodeId);
     fn ping(&self, node_id: NodeId);
@@ -67,8 +67,14 @@ impl NoopRpc {
     }
 }
 
+impl Default for NoopRpc {
+    fn default() -> Self {
+        NoopRpc {}
+    }
+}
+
 impl Rpc for NoopRpc {
-    fn heartbeat(&self, _term: u64, _index: u64, _entries: Vec<Entry>) -> Result<(), RpcError> {
+    fn heartbeat(&self, _node_id: NodeId, _term: u64, _index: u64, _entries: &[Entry]) -> Result<(), RpcError> {
         Ok(())
     }
 
@@ -123,30 +129,24 @@ pub enum RpcError {
 }
 
 impl Rpc for TpcRpc {
-    fn heartbeat(&self, term: u64, index: u64, entries: Vec<Entry>) -> Result<(), RpcError> {
+    fn heartbeat(&self, node_id: NodeId, term: u64, index: u64, entries: &[Entry]) -> Result<(), RpcError> {
         let req = AppendRequest {
             header: self.get_header(),
             term,
             leader: self.config.id,
             prev_entry: 0,
             prev_term: 0,
-            entries,
+            entries: entries.to_vec(),
             leader_index: index,
         };
 
         let msg = Message::AppendRequest(req);
         let msg = Self::msg_as_bytes(&msg).expect("Couldn't serialize message");
 
-        for (id, _) in self.nodes.read().unwrap().iter() {
-            if id == &self.config.id {
-                continue;
-            }
-
-            self.get_stream(*id)
-                .and_then(|mut stream| stream.write_all(&msg[..])
-                    .map_err(|error| error.into()))
-                .map_err(RpcError::Connection)?;
-        }
+        self.get_stream(node_id)
+            .and_then(|mut stream| stream.write_all(&msg[..])
+                .map_err(|error| error.into()))
+            .map_err(RpcError::Connection)?;
 
 
         Ok(())
