@@ -80,6 +80,7 @@ impl<I: Io, R: Rpc> Apply<I, R> for Raft<Follower, I, R> {
                     let raft: Raft<Candidate, I, R> = Raft::from(self);
                     return raft.seek_election();
                 }
+
                 Ok(RaftHandle::Follower(self))
             }
             Command::Ping(node_id) => {
@@ -105,12 +106,6 @@ impl<I: Io, R: Rpc> Raft<Follower, I, R> {
     /// entries for the commit log.
     /// * `logger` - An optional logger implementation.
     /// * `nodes` - An optional map of nodes present in the cluster.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// let raft = Raft::new(io, rpc, logger, nodes);
-    /// ```
     ///
     pub fn new(config: RaftConfig, tx: Sender<Command>, io: I, rpc: R, logger: Option<Logger>, nodes: Option<NodeMap>)
                -> Result<Raft<Follower, I, R>, ConfigError> {
@@ -218,21 +213,8 @@ mod tests {
     use crate::rpc::NoopRpc;
     use std::net::SocketAddr;
     use std::sync::mpsc;
-
-    #[test]
-    fn follower_to_candidate() {
-        let mut follower = new_follower();
-        follower.add_node_to_cluster(SocketAddr::new("127.0.0.1".parse().unwrap(), 8080));
-
-        let id = follower.id;
-        match follower.apply(Command::Timeout).unwrap() {
-            RaftHandle::Follower(_) => panic!(),
-            RaftHandle::Candidate(candidate) => {
-                assert_eq!(id, candidate.id)
-            }
-            RaftHandle::Leader(_) => panic!(),
-        }
-    }
+    use std::thread;
+    use std::time::Duration;
 
     #[test]
     fn follower_to_leader_single_node_cluster() {

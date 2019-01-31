@@ -23,7 +23,7 @@ extern crate failure;
 #[macro_use]
 extern crate failure_derive;
 
-mod io;
+pub mod io;
 mod follower;
 mod candidate;
 mod leader;
@@ -36,11 +36,37 @@ mod election;
 /// state machine.
 ///
 /// # Example
-/// Raft can only be constructed in an initialized follower state.
 ///
-///```
-///let raft = Raft::new(config, io, rpc, Some(logger), Some(nodes));
-///```
+/// ```
+/// #[macro_use]
+/// extern crate slog;
+/// extern crate slog_async;
+/// extern crate slog_term;
+///
+/// use slog::Drain;
+/// use slog::Logger;
+/// use josefine_raft::server::RaftServer;
+/// use josefine_raft::config::RaftConfig;
+/// use josefine_raft::raft::RaftHandle;
+/// use josefine_raft::io::MemoryIo;
+/// use josefine_raft::rpc::NoopRpc;
+/// use std::sync::mpsc;
+/// use std::sync::Arc;
+/// use std::sync::RwLock;
+/// use std::collections::HashMap;
+///
+/// fn main() {
+///     let decorator = slog_term::TermDecorator::new().build();
+///     let drain = slog_term::FullFormat::new(decorator).build().fuse();
+///     let drain = slog_async::Async::new(drain).build().fuse();
+///
+///     let logger = Logger::root(drain, o!());
+///     let config = RaftConfig::default();
+///     let (tx, rx) = mpsc::channel();
+///     let raft = RaftHandle::new(config, tx, MemoryIo::new(), NoopRpc::new(), logger, Arc::new(RwLock::new(HashMap::new())));
+/// }
+/// ```
+///
 pub mod raft;
 
 /// Raft can be configured with a variety of options.

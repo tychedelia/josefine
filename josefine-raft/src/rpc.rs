@@ -69,7 +69,7 @@ impl NoopRpc {
 
 impl Rpc for NoopRpc {
     fn heartbeat(&self, _term: u64, _index: u64, _entries: Vec<Entry>) -> Result<(), RpcError> {
-        unimplemented!()
+        Ok(())
     }
 
     fn respond_vote(&self, _state: &State, _candidate_id: u32, _granted: bool) {}

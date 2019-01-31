@@ -5,11 +5,11 @@ use std::net::Ipv4Addr;
 use std::net::TcpListener;
 use std::str;
 use std::sync::Arc;
+use std::sync::RwLock;
 use std::sync::mpsc::channel;
 use std::sync::mpsc::Receiver;
 use std::sync::mpsc::RecvTimeoutError;
 use std::sync::mpsc::Sender;
-use std::sync::RwLock;
 use std::thread;
 use std::time::Duration;
 use std::time::Instant;
@@ -55,7 +55,25 @@ impl RaftServer {
     /// # Example
     ///
     /// ```
-    /// let server = RaftServer::new(Config::default(), logger);
+    /// #[macro_use]
+    /// extern crate slog;
+    /// extern crate slog_async;
+    /// extern crate slog_term;
+    ///
+    /// use josefine_raft::server::RaftServer;
+    /// use josefine_raft::config::RaftConfig;
+    /// use slog::Drain;
+    /// use slog::Logger;
+    ///
+    /// fn main() {
+    ///     let decorator = slog_term::TermDecorator::new().build();
+    ///     let drain = slog_term::FullFormat::new(decorator).build().fuse();
+    ///     let drain = slog_async::Async::new(drain).build().fuse();
+    ///
+    ///     let logger = Logger::root(drain, o!());
+    ///
+    ///     let server = RaftServer::new(RaftConfig::default(), logger);
+    /// }
     /// ```
     pub fn new(config: RaftConfig, logger: Logger) -> RaftServer {
         let log = logger.new(o!());
@@ -89,7 +107,7 @@ impl RaftServer {
         loop {
             if let Some(run_for) = run_for {
                 if now.elapsed() > run_for {
-                    break
+                    break;
                 }
             }
 
@@ -129,10 +147,10 @@ impl RaftServer {
                         let reader = BufReader::new(&stream);
                         let msg: Message = match serde_json::from_reader(reader) {
                             Ok(msg) => msg,
-                            Err(e) =>{
+                            Err(e) => {
                                 info!(log, "Client disconnected."; "address" => format!("{:?}", stream.peer_addr().unwrap()));
-                                continue
-                            },
+                                continue;
+                            }
                         };
 
                         info!(log, ""; "message" => format!("{:?}", msg));
@@ -179,7 +197,6 @@ mod tests {
 
     #[test]
     fn it_runs() {
-
         let t = thread::spawn(|| {
             let election_timeout_max = 1000; // TODO: Expose constants better
 
@@ -193,7 +210,7 @@ mod tests {
         match server {
             RaftHandle::Follower(_) => panic!(),
             RaftHandle::Candidate(_) => panic!(),
-            RaftHandle::Leader(_) => {},
+            RaftHandle::Leader(_) => {}
         }
     }
 }
