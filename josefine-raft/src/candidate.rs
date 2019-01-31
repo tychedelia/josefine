@@ -78,7 +78,7 @@ impl<I: Io, R: Rpc> Apply<I, R> for Raft<Candidate, I, R> {
                     ElectionStatus::Defeated => Ok(RaftHandle::Follower(Raft::from(self))),
                 }
             }
-            Command::AppendEntries { mut entries, term, .. } => {
+            Command::AppendEntries { entries, term, .. } => {
                 // While waiting for votes, a candidate may receive an
                 // AppendEntries RPC from another server claiming to be
                 // leader. If the leader’s term (included in its RPC) is at least
@@ -97,10 +97,10 @@ impl<I: Io, R: Rpc> Apply<I, R> for Raft<Candidate, I, R> {
 
                 Ok(RaftHandle::Candidate(self))
             }
-            Command::Heartbeat { term, leader_id, .. } => {
+            Command::Heartbeat { term, leader_id: _, .. } => {
                 if term >= self.state.current_term {
                     info!(self.role.log, "Received higher term, transitioning to follower");
-                    let mut raft: Raft<Follower, I, R> = Raft::from(self);
+                    let raft: Raft<Follower, I, R> = Raft::from(self);
 //                    raft.io.heartbeat(leader_id);
                     return Ok(RaftHandle::Follower(raft));
                 }

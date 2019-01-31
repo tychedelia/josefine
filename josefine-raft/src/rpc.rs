@@ -77,7 +77,7 @@ impl Rpc for NoopRpc {
     fn heartbeat(&self, _node_id: NodeId, _term: u64, _index: u64, _entries: &[Entry]) -> Result<(), RpcError> { Ok(()) }
     fn respond_vote(&self, _state: &State, _candidate_id: u32, _granted: bool) {}
     fn request_vote(&self, _state: &State, _node_id: u32) {}
-    fn respond_append(&self, node_id: NodeId, term: u64, index: u64) -> Result<(), RpcError> { Ok(()) }
+    fn respond_append(&self, _node_id: NodeId, _term: u64, _index: u64) -> Result<(), RpcError> { Ok(()) }
     fn ping(&self, _node_id: u32) {}
     fn get_header(&self) -> Header {
         unimplemented!()

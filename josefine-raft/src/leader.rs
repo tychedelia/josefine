@@ -30,7 +30,7 @@ impl<I: Io, R: Rpc> Raft<Leader, I, R> {
     fn heartbeat(&self) -> Result<(), RpcError> {
         for node_id in self.nodes.read().unwrap().keys() {
             if let ProgressHandle::Replicate(progress) = self.role.progress.get(*node_id).unwrap() {
-                let entries = self.io.entries_from(progress.index);
+                let _entries = self.io.entries_from(progress.index);
 
                 self.rpc.heartbeat(*node_id, self.state.current_term, self.state.commit_index, &vec!())?;
             }
@@ -61,7 +61,7 @@ impl<I: Io, R: Rpc> Apply<I, R> for Raft<Leader, I, R> {
         match command {
             Command::Tick => {
                 if self.needs_heartbeat() {
-                    if let Err(err) = self.heartbeat() {
+                    if let Err(_err) = self.heartbeat() {
                         panic!("Could not heartbeat")
                     }
                     self.reset_heartbeat_timer();
@@ -72,7 +72,7 @@ impl<I: Io, R: Rpc> Apply<I, R> for Raft<Leader, I, R> {
                 self.add_node_to_cluster(node);
                 Ok(RaftHandle::Leader(self))
             }
-            Command::AppendResponse { node_id, term, index } => {
+            Command::AppendResponse { node_id, term: _, index } => {
                 if let Some(mut progress) = self.role.progress.get_mut(node_id) {
                     match &mut progress {
                         ProgressHandle::Replicate(progress) => {
@@ -85,7 +85,7 @@ impl<I: Io, R: Rpc> Apply<I, R> for Raft<Leader, I, R> {
                 self.state.commit_index = self.role.progress.committed_index();
                 Ok(RaftHandle::Leader(self))
             }
-            Command::AppendEntries { term, leader_id, entries } => {
+            Command::AppendEntries { term, leader_id: _, entries: _ } => {
                 if term > self.state.current_term {
                     self.term(term);
                     return Ok(RaftHandle::Follower(Raft::from(self)));

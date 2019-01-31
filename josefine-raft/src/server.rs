@@ -147,7 +147,7 @@ impl RaftServer {
                         let reader = BufReader::new(&stream);
                         let msg: Message = match serde_json::from_reader(reader) {
                             Ok(msg) => msg,
-                            Err(e) => {
+                            Err(_e) => {
                                 info!(log, "Client disconnected."; "address" => format!("{:?}", stream.peer_addr().unwrap()));
                                 continue;
                             }

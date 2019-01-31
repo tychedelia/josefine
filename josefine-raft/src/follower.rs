@@ -53,7 +53,7 @@ impl<I: Io, R: Rpc> Apply<I, R> for Raft<Follower, I, R> {
 
                 Ok(RaftHandle::Follower(self))
             }
-            Command::AppendEntries { mut entries, leader_id, term } => {
+            Command::AppendEntries { entries, leader_id, term } => {
                 self.state.election_time = Some(Instant::now());
                 self.role.leader_id = Some(leader_id);
                 self.state.voted_for = Some(leader_id);
@@ -245,7 +245,7 @@ mod tests {
 
     fn new_follower() -> Raft<Follower, MemoryIo, NoopRpc> {
         let config = RaftConfig::default();
-        let (tx, rx) = mpsc::channel();
+        let (tx, _rx) = mpsc::channel();
         Raft::new(config, tx, MemoryIo::new(), NoopRpc::new(), None, None).unwrap()
     }
 }
