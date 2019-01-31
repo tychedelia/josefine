@@ -61,7 +61,7 @@ impl Io for MemoryIo {
         self.entries.get(index)
     }
 
-    pub fn last_index(&self) -> u64 {
+    fn last_index(&self) -> u64 {
         self.entries.last()
             .map(|x| x.index)
             .unwrap_or(0)

@@ -3,7 +3,6 @@ extern crate nom;
 extern crate josefine_raft;
 extern crate serde;
 
-use std::io;
 use std::str::FromStr;
 use clap::App;
 use clap::Arg;
@@ -11,12 +10,10 @@ use std::str;
 use std::net::SocketAddr;
 use nom::types::CompleteByteSlice;
 use std::io::Write;
-use std::io::Read;
 use std::net::TcpStream;
 use std::net::IpAddr;
 use rustyline::error::ReadlineError;
 use rustyline::Editor;
-use josefine_raft::rpc::Message::AddNodeRequest;
 use josefine_raft::rpc::Message;
 
 
@@ -25,7 +22,6 @@ enum Operation {
     Info,
     Get,
     Add(SocketAddr),
-    None,
 }
 
 impl FromStr for Operation {
@@ -128,7 +124,9 @@ mod tests {
     fn test() {
         let (_, operation) = add_op(CompleteByteSlice(b"aDd 127.0.0.1:8080")).unwrap();
         match operation {
-            Operation::Add(addr) => {}
+            Operation::Add(addr) => {
+                assert_eq!(addr.to_string(), "127.0.0.1:8080")
+            }
             _ => panic!()
         }
     }
