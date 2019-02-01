@@ -39,18 +39,18 @@ pub enum Command {
     /// Request that this instance vote for the provide node.
     VoteRequest {
         /// The term of the candidate.
-        term: u64,
+        term: Term,
         /// The id of the candidate requesting the vote.
         candidate_id: NodeId,
         ///
-        last_term: u64,
+        last_term: Term,
         ///
-        last_index: u64,
+        last_index: LogIndex,
     },
     /// Respond to a vote from another node.
     VoteResponse {
         /// The term of the voter.
-        term: u64,
+        term: Term,
         /// The id of the voter responding to the vote.
         candidate_id: NodeId,
         /// Whether the vote was granted to the candidate.
@@ -59,7 +59,7 @@ pub enum Command {
     /// Request from another node to append entries to our log.
     AppendEntries {
         /// The term of the node requesting entries be appended to our commit log.
-        term: u64,
+        term: Term,
         /// The id of the node sending entries.
         leader_id: NodeId,
 
@@ -68,13 +68,13 @@ pub enum Command {
     },
     AppendResponse {
         node_id: NodeId,
-        term: u64,
-        index: u64,
+        term: Term,
+        index: LogIndex,
     },
     /// Heartbeat from another node.
     Heartbeat {
         /// The term of the node sending a heartbeat.
-        term: u64,
+        term: Term,
         /// The id of the node sending a heartbeat.
         leader_id: NodeId,
     },
@@ -105,9 +105,9 @@ pub struct Entry {
     /// The type of the entry
     pub entry_type: EntryType,
     /// The term of the entry.
-    pub term: u64,
+    pub term: Term,
     /// The index of the entry within the commit log.
-    pub index: u64,
+    pub index: LogIndex,
 }
 
 /// Contains information about nodes in raft cluster.
@@ -135,7 +135,7 @@ pub struct State {
     pub voted_for: Option<NodeId>,
 
     /// The current commit index of the replicated log.
-    pub commit_index: u64,
+    pub commit_index: LogIndex,
     ///
     pub last_applied: u64,
 
