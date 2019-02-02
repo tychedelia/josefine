@@ -2,3 +2,10 @@
 
 # josefine
 Kafka/Raft implementation in Rust.
+
+# TODO:
+
+### Raft:
+- [ ] Replication
+- [ ] Config changes
+- [ ] Compaction
