@@ -87,6 +87,7 @@ impl<I: Io, R: Rpc> Apply<I, R> for Raft<Leader, I, R> {
             }
             Command::AppendEntries { term, leader_id: _, entries: _ } => {
                 if term > self.state.current_term {
+                    // TODO:
                     self.term(term);
                     return Ok(RaftHandle::Follower(Raft::from(self)));
                 }

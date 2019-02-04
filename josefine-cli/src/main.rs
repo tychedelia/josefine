@@ -15,12 +15,14 @@ use std::net::IpAddr;
 use rustyline::error::ReadlineError;
 use rustyline::Editor;
 use josefine_raft::rpc::Message;
+use josefine_raft::rpc::AppendRequest;
 
 
 #[derive(Debug)]
 enum Operation {
     Info,
     Get,
+    Entry(Vec<u8>),
     Add(SocketAddr),
 }
 
@@ -48,7 +50,14 @@ named!(info_op<CompleteByteSlice, Operation>, ws!(do_parse!(
     (Operation::Info)
 )));
 
-named!(get_op<CompleteByteSlice, Operation>, alt!(info_op | add_op));
+named!(entry_op<CompleteByteSlice, Operation>, do_parse!(
+    tag_no_case!("entry") >>
+    take_while!(nom::is_space) >>
+    data: apply!(nom::rest,) >>
+    (Operation::Entry(data.to_vec()))
+));
+
+named!(get_op<CompleteByteSlice, Operation>, alt!(info_op | add_op | entry_op));
 
 
 fn main() {
@@ -90,6 +99,9 @@ fn main() {
                             let msg = serde_json::to_vec(&msg).unwrap();
                             get_connection(socket_addr).write_all(&msg[..]).unwrap();
                         },
+                        Operation::Entry(data) => {
+                            println!("Entry: {:?}", str::from_utf8(&data));
+                        }
                         _ => {}
                     },
                     Err(e) => println!("Error: {}", e)

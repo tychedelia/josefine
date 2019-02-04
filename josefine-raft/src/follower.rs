@@ -68,7 +68,8 @@ impl<I: Io, R: Rpc> Apply<I, R> for Raft<Follower, I, R> {
             Command::Heartbeat { leader_id, .. } => {
                 self.state.election_time = Some(Instant::now());
                 self.role.leader_id = Some(leader_id);
-//                self.io.heartbeat(leader_id);
+                // TODO:
+                // self.io.heartbeat(leader_id);
                 Ok(RaftHandle::Follower(self))
             }
             Command::VoteRequest { candidate_id, last_index, last_term, .. } => {
