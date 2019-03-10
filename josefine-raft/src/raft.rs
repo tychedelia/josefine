@@ -246,7 +246,7 @@ impl<I: Io, R: Rpc> RaftHandle<I, R> {
 }
 
 impl<I: Io, R: Rpc> Apply<I, R> for RaftHandle<I, R> {
-    fn apply(self, command: Command) -> Result<RaftHandle<I, R>, failure::Error> {
+    fn apply(self, command: Command) -> Result<(ApplyResult, RaftHandle<I, R>), failure::Error> {
         match self {
             RaftHandle::Follower(raft) => { raft.apply(command) }
             RaftHandle::Candidate(raft) => { raft.apply(command) }
@@ -255,12 +255,16 @@ impl<I: Io, R: Rpc> Apply<I, R> for RaftHandle<I, R> {
     }
 }
 
+pub enum ApplyResult {
+    None
+}
+
 /// Applying a command is the basic way the state machine is moved forward. Each role implements
 /// trait to handle how it responds (or does not respond) to particular commands.
 pub trait Apply<I: Io, R: Rpc> {
     /// Apply a command to the raft state machine, which may result in a new raft state. Errors
     /// should occur for only truly exceptional conditions, and are provided to allow the wrapping
     /// server containing this state machine to shut down gracefully.
-    fn apply(self, command: Command) -> Result<RaftHandle<I, R>, failure::Error>;
+    fn apply(self, command: Command) -> Result<(ApplyResult, RaftHandle<I, R>), failure::Error>;
 }
 

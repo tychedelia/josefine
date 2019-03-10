@@ -14,6 +14,7 @@ use crate::rpc::Rpc;
 use crate::progress::ReplicationProgress;
 use std::time::Instant;
 use std::time::Duration;
+use crate::raft::ApplyResult;
 
 pub struct Candidate {
     pub election: Election,
@@ -21,7 +22,7 @@ pub struct Candidate {
 }
 
 impl<I: Io, R: Rpc> Raft<Candidate, I, R> {
-    pub(crate) fn seek_election(mut self) -> Result<RaftHandle<I, R>, failure::Error> {
+    pub(crate) fn seek_election(mut self) -> Result<(ApplyResult, RaftHandle<I, R>), failure::Error> {
         info!(self.role.log, "Seeking election");
         self.state.voted_for = Some(self.id);
         self.state.current_term += 1;
@@ -38,7 +39,7 @@ impl Role for Candidate {
 }
 
 impl<I: Io, R: Rpc> Apply<I, R> for Raft<Candidate, I, R> {
-    fn apply(mut self, command: Command) -> Result<RaftHandle<I, R>, failure::Error> {
+    fn apply(mut self, command: Command) -> Result<(ApplyResult, RaftHandle<I, R>), failure::Error> {
         trace!(self.role.log, "Applying command"; "command" => format!("{:?}", command));
 
         match command {
@@ -47,7 +48,7 @@ impl<I: Io, R: Rpc> Apply<I, R> for Raft<Candidate, I, R> {
                     return match self.role.election.election_status() {
                         ElectionStatus::Elected => {
                             error!(self.role.log, "This should never happen.");
-                            Ok(RaftHandle::Leader(Raft::from(self)))
+                            Ok((ApplyResult::None, RaftHandle::Leader(Raft::from(self))))
                         },
                         ElectionStatus::Voting => {
                             trace!(self.role.log, "Election ended with missing votes");
@@ -64,18 +65,18 @@ impl<I: Io, R: Rpc> Apply<I, R> for Raft<Candidate, I, R> {
                     }
                 }
 
-                Ok(RaftHandle::Candidate(self))
+                Ok((ApplyResult::None, RaftHandle::Candidate(self)))
             }
             Command::VoteRequest { candidate_id, term: _, .. } => {
                 self.rpc.respond_vote(&self.state, candidate_id, false);
-                Ok(RaftHandle::Candidate(self))
+                Ok((ApplyResult::None, RaftHandle::Candidate(self)))
             }
             Command::VoteResponse { granted, candidate_id, .. } => {
                 self.role.election.vote(candidate_id, granted);
                 match self.role.election.election_status() {
-                    ElectionStatus::Elected => Ok(RaftHandle::Leader(Raft::from(self))),
-                    ElectionStatus::Voting => Ok(RaftHandle::Candidate(self)),
-                    ElectionStatus::Defeated => Ok(RaftHandle::Follower(Raft::from(self))),
+                    ElectionStatus::Elected => Ok((ApplyResult::None, RaftHandle::Leader(Raft::from(self)))),
+                    ElectionStatus::Voting => Ok((ApplyResult::None, RaftHandle::Candidate(self))),
+                    ElectionStatus::Defeated => Ok((ApplyResult::None, RaftHandle::Follower(Raft::from(self)))),
                 }
             }
             Command::AppendEntries { entries, term, .. } => {
@@ -89,25 +90,25 @@ impl<I: Io, R: Rpc> Apply<I, R> for Raft<Candidate, I, R> {
                     info!(self.role.log, "Received higher term, transitioning to follower");
                     let mut raft: Raft<Follower, I, R> = Raft::from(self);
                     raft.io.append(entries)?;
-                    return Ok(RaftHandle::Follower(raft));
+                    return Ok((ApplyResult::None, RaftHandle::Follower(raft)));
                 }
 
                 // TODO: If the term in the RPC is smaller than the candidate’s
                 // current term, then the candidate rejects the RPC and continues in candidate state.
 
-                Ok(RaftHandle::Candidate(self))
+                Ok((ApplyResult::None, RaftHandle::Candidate(self)))
             }
             Command::Heartbeat { term, leader_id: _, .. } => {
                 if term >= self.state.current_term {
                     info!(self.role.log, "Received higher term, transitioning to follower");
                     let raft: Raft<Follower, I, R> = Raft::from(self);
 //                    raft.io.heartbeat(leader_id);
-                    return Ok(RaftHandle::Follower(raft));
+                    return Ok((ApplyResult::None, RaftHandle::Follower(raft)));
                 }
 
-                Ok(RaftHandle::Candidate(self))
+                Ok((ApplyResult::None, RaftHandle::Candidate(self)))
             }
-            _ => Ok(RaftHandle::Candidate(self))
+            _ => Ok((ApplyResult::None, RaftHandle::Candidate(self)))
         }
     }
 }

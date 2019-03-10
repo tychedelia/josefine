@@ -15,6 +15,7 @@ use rand::Rng;
 use crate::io::Io;
 use crate::progress::ProgressHandle;
 use crate::rpc::RpcError;
+use crate::raft::ApplyResult;
 
 ///
 pub struct Leader {
@@ -55,7 +56,7 @@ impl Role for Leader {
 }
 
 impl<I: Io, R: Rpc> Apply<I, R> for Raft<Leader, I, R> {
-    fn apply(mut self, command: Command) -> Result<RaftHandle<I, R>, failure::Error> {
+    fn apply(mut self, command: Command) -> Result<(ApplyResult, RaftHandle<I, R>), failure::Error> {
         trace!(self.role.log, "Applying command"; "command" => format!("{:?}", command));
 
         match command {
@@ -66,11 +67,11 @@ impl<I: Io, R: Rpc> Apply<I, R> for Raft<Leader, I, R> {
                     }
                     self.reset_heartbeat_timer();
                 }
-                Ok(RaftHandle::Leader(self))
+                Ok((ApplyResult::None, RaftHandle::Leader(self)))
             }
             Command::AddNode(node) => {
                 self.add_node_to_cluster(node);
-                Ok(RaftHandle::Leader(self))
+                Ok((ApplyResult::None, RaftHandle::Leader(self)))
             }
             Command::AppendResponse { node_id, term: _, index } => {
                 if let Some(mut progress) = self.role.progress.get_mut(node_id) {
@@ -83,18 +84,18 @@ impl<I: Io, R: Rpc> Apply<I, R> for Raft<Leader, I, R> {
                 }
 
                 self.state.commit_index = self.role.progress.committed_index();
-                Ok(RaftHandle::Leader(self))
+                Ok((ApplyResult::None, RaftHandle::Leader(self)))
             }
             Command::AppendEntries { term, leader_id: _, entries: _ } => {
                 if term > self.state.current_term {
                     // TODO:
                     self.term(term);
-                    return Ok(RaftHandle::Follower(Raft::from(self)));
+                    return Ok((ApplyResult::None, RaftHandle::Follower(Raft::from(self))));
                 }
 
-                Ok(RaftHandle::Leader(self))
+                Ok((ApplyResult::None, RaftHandle::Leader(self)))
             }
-            _ => Ok(RaftHandle::Leader(self))
+            _ => Ok((ApplyResult::None, RaftHandle::Leader(self)))
         }
     }
 }

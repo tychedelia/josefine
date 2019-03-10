@@ -26,6 +26,7 @@ use crate::raft::NodeMap;
 use crate::rpc::Rpc;
 use crate::raft::Entry;
 use crate::raft::EntryType;
+use crate::raft::ApplyResult;
 
 pub struct Follower {
     pub leader_id: Option<NodeId>,
@@ -39,19 +40,19 @@ impl Role for Follower {
 }
 
 impl<I: Io, R: Rpc> Apply<I, R> for Raft<Follower, I, R> {
-    fn apply(mut self, command: Command) -> Result<RaftHandle<I, R>, failure::Error> {
+    fn apply(mut self, command: Command) -> Result<(ApplyResult, RaftHandle<I, R>), failure::Error> {
         trace!(self.role.log, "Applying command"; "command" => format!("{:?}", command));
 
         match command {
             Command::Start => {
-                Ok(RaftHandle::Follower(self))
+                Ok((ApplyResult::None, RaftHandle::Follower(self)))
             }
             Command::Tick => {
                 if self.needs_election() {
                     return self.apply(Command::Timeout);
                 }
 
-                Ok(RaftHandle::Follower(self))
+                Ok((ApplyResult::None, RaftHandle::Follower(self)))
             }
             Command::AppendEntries { entries, leader_id, term } => {
                 self.state.election_time = Some(Instant::now());
@@ -63,14 +64,14 @@ impl<I: Io, R: Rpc> Apply<I, R> for Raft<Follower, I, R> {
                     self.rpc.respond_append(leader_id, term, index)?;
                 }
 
-                Ok(RaftHandle::Follower(self))
+                Ok((ApplyResult::None, RaftHandle::Follower(self)))
             }
             Command::Heartbeat { leader_id, .. } => {
                 self.state.election_time = Some(Instant::now());
                 self.role.leader_id = Some(leader_id);
                 // TODO:
                 // self.io.heartbeat(leader_id);
-                Ok(RaftHandle::Follower(self))
+                Ok((ApplyResult::None, RaftHandle::Follower(self)))
             }
             Command::VoteRequest { candidate_id, last_index, last_term, .. } => {
                 if self.state.current_term > last_term || self.state.commit_index > last_index {
@@ -78,7 +79,7 @@ impl<I: Io, R: Rpc> Apply<I, R> for Raft<Follower, I, R> {
                 } else {
                     self.rpc.respond_vote(&self.state, candidate_id, true);
                 }
-                Ok(RaftHandle::Follower(self))
+                Ok((ApplyResult::None, RaftHandle::Follower(self)))
             }
             Command::Timeout => {
                 if self.state.voted_for.is_none() {
@@ -87,17 +88,19 @@ impl<I: Io, R: Rpc> Apply<I, R> for Raft<Follower, I, R> {
                     return raft.seek_election();
                 }
 
-                Ok(RaftHandle::Follower(self))
+                Ok((ApplyResult::None, RaftHandle::Follower(self)))
+
             }
             Command::Ping(node_id) => {
                 self.rpc.ping(node_id);
-                Ok(RaftHandle::Follower(self))
+                Ok((ApplyResult::None, RaftHandle::Follower(self)))
             }
             Command::AddNode(socket_addr) => {
                 self.add_node_to_cluster(socket_addr);
-                Ok(RaftHandle::Follower(self))
+                Ok((ApplyResult::None, RaftHandle::Follower(self)))
             }
-            _ => Ok(RaftHandle::Follower(self))
+            _ => Ok((ApplyResult::None, RaftHandle::Follower(self)))
+
         }
     }
 }
@@ -227,9 +230,9 @@ mod tests {
         let follower = new_follower();
         let id = follower.id;
         match follower.apply(Command::Timeout).unwrap() {
-            RaftHandle::Follower(_) => panic!(),
-            RaftHandle::Candidate(_) => panic!(),
-            RaftHandle::Leader(leader) => assert_eq!(id, leader.id),
+            (_, RaftHandle::Follower(_)) => panic!(),
+            (_, RaftHandle::Candidate(_)) => panic!(),
+            (_, RaftHandle::Leader(leader)) => assert_eq!(id, leader.id),
         }
     }
 
@@ -238,9 +241,9 @@ mod tests {
         let follower = new_follower();
         let id = follower.id;
         match follower.apply(Command::Noop).unwrap() {
-            RaftHandle::Follower(follower) => assert_eq!(id, follower.id),
-            RaftHandle::Candidate(_) => panic!(),
-            RaftHandle::Leader(_) => panic!(),
+            (_, RaftHandle::Follower(follower)) => assert_eq!(id, follower.id),
+            (_, RaftHandle::Candidate(_)) => panic!(),
+            (_, RaftHandle::Leader(_)) => panic!(),
         }
     }
 

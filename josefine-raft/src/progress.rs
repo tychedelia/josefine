@@ -62,6 +62,10 @@ pub trait ProgressState {
     fn reset(&mut self);
 }
 
+/// okokok
+/// ok
+/// ok
+/// ok
 pub struct Progress<T: ProgressState> {
     node_id: NodeId,
     state: T,
