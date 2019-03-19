@@ -100,8 +100,7 @@ impl RaftServer {
 
         let mut timeout = Duration::from_millis(100);
         let mut t = Instant::now();
-        let mut r = self.raft.apply(Command::Start).unwrap();
-        let mut raft = r.1;
+        let mut raft = self.raft.apply(Command::Start).unwrap();
 
         let now = Instant::now();
 
@@ -114,8 +113,7 @@ impl RaftServer {
 
             match self.rx.recv_timeout(timeout) {
                 Ok(cmd) => {
-                    let (_, r) = raft.apply(cmd).unwrap();
-                    raft = r;
+                    raft = raft.apply(cmd).unwrap();
                 }
                 Err(RecvTimeoutError::Timeout) => (),
                 Err(RecvTimeoutError::Disconnected) => return raft,
@@ -125,8 +123,7 @@ impl RaftServer {
             t = Instant::now();
             if d >= timeout {
                 timeout = Duration::from_millis(100);
-                let (_, r) = raft.apply(Command::Tick).unwrap();
-                raft = r;
+                raft = raft.apply(Command::Tick).unwrap();
             } else {
                 timeout -= d;
             }
