@@ -29,6 +29,9 @@ use crate::rpc::TpcRpc;
 use crate::raft::NodeMap;
 use std::net::SocketAddr;
 use crate::io::MemoryIo;
+use hyper::{Server, rt, Response, Request, Body};
+use tokio::prelude::future::Future;
+use hyper::service::service_fn_ok;
 
 /// A server implementation that wraps the Raft state machine and handles connection with other nodes via a TPC
 /// RPC implementation.
@@ -97,6 +100,7 @@ impl RaftServer {
     /// Start the server and the state machine. Raft is driven every 100 milliseconds.
     pub fn start(self, run_for: Option<Duration>) -> RaftHandle<MemoryIo, TpcRpc> {
         self.listen();
+        self.serve();
 
         let mut timeout = Duration::from_millis(100);
         let mut t = Instant::now();
@@ -132,9 +136,23 @@ impl RaftServer {
         raft
     }
 
+    fn serve(&self) {
+        let address = ([127, 0, 0, 1], 3000).into();
+        info!(self.log, "serving"; "address" => &address);
+        let server = Server::bind(&address)
+            .serve(|| {
+                service_fn_ok(move |req: Request<Body>| {
+                    Response::new(Body::from("Hello World!"))
+                })
+            })
+            .map_err(|e| eprintln!("server error: {}", e));
+
+        thread::spawn(move || { rt::run(server); });
+    }
+
     fn listen(&self) {
         let address = format!("{}:{}", self.config.ip, self.config.port);
-        info!(self.log, "Listening"; "address" => &address);
+        info!(self.log, "listening"; "address" => &address);
 
         let listener = TcpListener::bind(&address).unwrap();
         let tx = self.inboxSender.clone();
@@ -154,35 +172,35 @@ impl RaftServer {
                         };
 
                         info!(log, ""; "message" => format!("{:?}", msg));
-                        let cmd = match msg {
+                        let step = match msg {
                             Message::AddNodeRequest(socket_addr) => {
-                                Command::AddNode(socket_addr)
+                                ApplyStep(Command::AddNode(socket_addr), None)
                             }
                             Message::AppendRequest(req) => {
-                                Command::AppendEntries {
+                                ApplyStep(Command::AppendEntries {
                                     term: req.term,
                                     leader_id: 0,
                                     entries: vec![],
-                                }
+                                }, None)
                             }
                             Message::AppendResponse(res) => {
-                                Command::AppendResponse {
+                                ApplyStep(Command::AppendResponse {
                                     node_id: res.header.node_id,
                                     term: res.term,
                                     index: res.last_log,
-                                }
+                                }, None)
                             }
                             Message::VoteRequest(req) => {
-                                Command::VoteRequest {
+                                ApplyStep(Command::VoteRequest {
                                     term: req.term,
                                     candidate_id: req.candidate_id,
                                     last_term: req.last_term,
                                     last_index: req.last_index,
-                                }
+                                }, None)
                             }
-                            _ => Command::Noop,
+                            _ => ApplyStep(Command::Noop, None),
                         };
-                        tx.send(ApplyStep(cmd, None)).expect("Channel should be open");
+                        tx.send(step).expect("Channel should be open");
                     }
                     Err(e) => { panic!(e) }
                 }

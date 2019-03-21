@@ -15,4 +15,5 @@ rand = "0.6"
 threadpool = "1.0"
 failure = "0.1.5"
 failure_derive = "0.1.5"
-
+hyper = "0.12.25"
+tokio = "0.1.17"
