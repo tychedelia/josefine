@@ -18,7 +18,7 @@ use slog::Drain;
 use slog::Logger;
 
 use crate::config::RaftConfig;
-use crate::raft::Command;
+use crate::raft::{Command, ApplyStep};
 use crate::raft::Entry;
 use crate::raft::Node;
 use crate::raft::NodeId;
@@ -87,7 +87,7 @@ impl Rpc for NoopRpc {
 
 pub struct TpcRpc {
     config: RaftConfig,
-    tx: Sender<Command>,
+    tx: Sender<ApplyStep>,
     nodes: NodeMap,
     log: Logger,
 }
@@ -103,7 +103,7 @@ impl TpcRpc {
             .map_err(|e| e.into())
     }
 
-    pub fn new(config: RaftConfig, tx: Sender<Command>, nodes: NodeMap, log: Logger) -> TpcRpc {
+    pub fn new(config: RaftConfig, tx: Sender<ApplyStep>, nodes: NodeMap, log: Logger) -> TpcRpc {
         TpcRpc {
             config,
             tx,

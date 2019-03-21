@@ -178,7 +178,7 @@ pub struct Raft<S: Role, I: Io, R: Rpc> {
     pub log: Logger,
 
     ///
-    pub tx: Sender<Command>,
+    pub tx: Sender<ApplyStep>,
 
     /// Configuration for this instance.
     pub config: RaftConfig,
@@ -239,21 +239,27 @@ pub enum RaftHandle<I: Io, R: Rpc> {
 
 impl<I: Io, R: Rpc> RaftHandle<I, R> {
     /// Obtain a new instance of raft initialized in the default follower state.
-    pub fn new(config: RaftConfig, tx: Sender<Command>, io: I, rpc: R, logger: Logger, nodes: NodeMap) -> RaftHandle<I, R> {
+    pub fn new(config: RaftConfig, tx: Sender<ApplyStep>, io: I, rpc: R, logger: Logger, nodes: NodeMap) -> RaftHandle<I, R> {
         let raft = Raft::new(config, tx, io, rpc, Some(logger), Some(nodes));
         RaftHandle::Follower(raft.unwrap())
     }
 }
 
 impl<I: Io, R: Rpc> Apply<I, R> for RaftHandle<I, R> {
-    fn apply(self, command: Command) -> Result<RaftHandle<I, R>, failure::Error> {
+    fn apply(self, step: ApplyStep) -> Result<RaftHandle<I, R>, failure::Error> {
         match self {
-            RaftHandle::Follower(raft) => { raft.apply(command) }
-            RaftHandle::Candidate(raft) => { raft.apply(command) }
-            RaftHandle::Leader(raft) => { raft.apply(command) }
+            RaftHandle::Follower(raft) => { raft.apply(step) }
+            RaftHandle::Candidate(raft) => { raft.apply(step) }
+            RaftHandle::Leader(raft) => { raft.apply(step) }
         }
     }
 }
+
+pub enum ApplyResult {
+
+}
+
+pub struct ApplyStep(pub Command, pub Option<Sender<ApplyResult>>);
 
 /// Applying a command is the basic way the state machine is moved forward. Each role implements
 /// trait to handle how it responds (or does not respond) to particular commands.
@@ -261,6 +267,6 @@ pub trait Apply<I: Io, R: Rpc> {
     /// Apply a command to the raft state machine, which may result in a new raft state. Errors
     /// should occur for only truly exceptional conditions, and are provided to allow the wrapping
     /// server containing this state machine to shut down gracefully.
-    fn apply(self, command: Command) -> Result<RaftHandle<I, R>, failure::Error>;
+    fn apply(self, step: ApplyStep) -> Result<RaftHandle<I, R>, failure::Error>;
 }
 

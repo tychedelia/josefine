@@ -3,7 +3,7 @@ use std::io::Error;
 use slog::Logger;
 
 use crate::follower::Follower;
-use crate::raft::{Apply, RaftHandle};
+use crate::raft::{Apply, RaftHandle, ApplyResult, ApplyStep};
 use crate::raft::Command;
 use crate::raft::Raft;
 use crate::raft::Role;
@@ -15,6 +15,7 @@ use rand::Rng;
 use crate::io::Io;
 use crate::progress::ProgressHandle;
 use crate::rpc::RpcError;
+use std::sync::mpsc::Sender;
 
 ///
 pub struct Leader {
@@ -55,9 +56,9 @@ impl Role for Leader {
 }
 
 impl<I: Io, R: Rpc> Apply<I, R> for Raft<Leader, I, R> {
-    fn apply(mut self, command: Command) -> Result<RaftHandle<I, R>, failure::Error> {
+    fn apply(mut self, step: ApplyStep) -> Result<RaftHandle<I, R>, failure::Error> {
+        let ApplyStep(command, cb) = step;
         trace!(self.role.log, "Applying command"; "command" => format!("{:?}", command));
-
         match command {
             Command::Tick => {
                 if self.needs_heartbeat() {

@@ -18,7 +18,7 @@ use slog::*;
 
 use crate::log;
 use crate::config::RaftConfig;
-use crate::raft::Apply;
+use crate::raft::{Apply, ApplyStep};
 use crate::raft::Command;
 use crate::io::Io;
 use crate::raft::Node;
@@ -38,8 +38,8 @@ pub struct RaftServer {
     pub(crate) raft: RaftHandle<MemoryIo, TpcRpc>,
     config: RaftConfig,
     log: Logger,
-    tx: Sender<Command>,
-    rx: Receiver<Command>,
+    inboxSender: Sender<ApplyStep>,
+    inbox: Receiver<ApplyStep>,
 }
 
 impl RaftServer {
@@ -77,7 +77,7 @@ impl RaftServer {
     /// ```
     pub fn new(config: RaftConfig, logger: Logger) -> RaftServer {
         let log = logger.new(o!());
-        let (tx, rx) = channel::<Command>();
+        let (tx, rx) = channel::<ApplyStep>();
 
         let nodes = Arc::new(RwLock::new(HashMap::new()));
 
@@ -89,8 +89,8 @@ impl RaftServer {
             raft,
             config,
             log,
-            tx,
-            rx,
+            inboxSender: tx,
+            inbox: rx,
         }
     }
 
@@ -100,7 +100,7 @@ impl RaftServer {
 
         let mut timeout = Duration::from_millis(100);
         let mut t = Instant::now();
-        let mut raft = self.raft.apply(Command::Start).unwrap();
+        let mut raft = self.raft.apply(ApplyStep(Command::Start, None)).unwrap();
 
         let now = Instant::now();
 
@@ -111,9 +111,9 @@ impl RaftServer {
                 }
             }
 
-            match self.rx.recv_timeout(timeout) {
-                Ok(cmd) => {
-                    raft = raft.apply(cmd).unwrap();
+            match self.inbox.recv_timeout(timeout) {
+                Ok(step) => {
+                    raft = raft.apply(step).unwrap();
                 }
                 Err(RecvTimeoutError::Timeout) => (),
                 Err(RecvTimeoutError::Disconnected) => return raft,
@@ -123,7 +123,7 @@ impl RaftServer {
             t = Instant::now();
             if d >= timeout {
                 timeout = Duration::from_millis(100);
-                raft = raft.apply(Command::Tick).unwrap();
+                raft = raft.apply(ApplyStep(Command::Tick, None)).unwrap();
             } else {
                 timeout -= d;
             }
@@ -137,7 +137,7 @@ impl RaftServer {
         info!(self.log, "Listening"; "address" => &address);
 
         let listener = TcpListener::bind(&address).unwrap();
-        let tx = self.tx.clone();
+        let tx = self.inboxSender.clone();
         let log = self.log.new(o!());
 
         thread::spawn(move || {
@@ -182,7 +182,7 @@ impl RaftServer {
                             }
                             _ => Command::Noop,
                         };
-                        tx.send(cmd).expect("Channel should be open");
+                        tx.send(ApplyStep(cmd, None)).expect("Channel should be open");
                     }
                     Err(e) => { panic!(e) }
                 }

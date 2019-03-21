@@ -5,7 +5,7 @@ use slog::Logger;
 use crate::election::{Election, ElectionStatus};
 use crate::follower::Follower;
 use crate::leader::Leader;
-use crate::raft::{Apply, RaftHandle};
+use crate::raft::{Apply, RaftHandle, ApplyResult, ApplyStep};
 use crate::raft::Command;
 use crate::io::Io;
 use crate::raft::Raft;
@@ -14,6 +14,7 @@ use crate::rpc::Rpc;
 use crate::progress::ReplicationProgress;
 use std::time::Instant;
 use std::time::Duration;
+use std::sync::mpsc::Sender;
 
 pub struct Candidate {
     pub election: Election,
@@ -27,7 +28,7 @@ impl<I: Io, R: Rpc> Raft<Candidate, I, R> {
         self.state.current_term += 1;
         let from = self.id;
         let term = self.state.current_term;
-        self.apply(Command::VoteResponse { candidate_id: from, term, granted: true })
+        self.apply(ApplyStep(Command::VoteResponse { candidate_id: from, term, granted: true }, None))
     }
 }
 
@@ -38,9 +39,9 @@ impl Role for Candidate {
 }
 
 impl<I: Io, R: Rpc> Apply<I, R> for Raft<Candidate, I, R> {
-    fn apply(mut self, command: Command) -> Result<RaftHandle<I, R>, failure::Error> {
+    fn apply(mut self, step: ApplyStep) -> Result<RaftHandle<I, R>, failure::Error> {
+        let ApplyStep(command, cb) = step;
         trace!(self.role.log, "Applying command"; "command" => format!("{:?}", command));
-
         match command {
             Command::Tick => {
                 if self.needs_election() {
@@ -53,13 +54,13 @@ impl<I: Io, R: Rpc> Apply<I, R> for Raft<Candidate, I, R> {
                             trace!(self.role.log, "Election ended with missing votes");
                             self.state.voted_for = None;
                             let raft: Raft<Follower, I, R> = Raft::from(self);
-                            Ok(raft.apply(Command::Timeout)?)
+                            Ok(raft.apply(ApplyStep(Command::Timeout, cb))?)
                         },
                         ElectionStatus::Defeated => {
                             trace!(self.role.log, "Defeated in election.");
                             self.state.voted_for = None;
                             let raft: Raft<Follower, I, R> = Raft::from(self);
-                            Ok(raft.apply(Command::Timeout)?)
+                            Ok(raft.apply(ApplyStep(Command::Timeout, cb))?)
                         },
                     }
                 }

@@ -20,7 +20,7 @@ use crate::candidate::Candidate;
 use crate::config::{ConfigError, RaftConfig};
 use crate::election::Election;
 use crate::io::Io;
-use crate::raft::{Apply, RaftHandle};
+use crate::raft::{Apply, RaftHandle, ApplyResult, ApplyStep};
 use crate::raft::{Command, Node, NodeId, Raft, Role, State};
 use crate::raft::NodeMap;
 use crate::rpc::Rpc;
@@ -39,16 +39,16 @@ impl Role for Follower {
 }
 
 impl<I: Io, R: Rpc> Apply<I, R> for Raft<Follower, I, R> {
-    fn apply(mut self, command: Command) -> Result<RaftHandle<I, R>, failure::Error> {
+    fn apply(mut self, step: ApplyStep) -> Result<RaftHandle<I, R>, failure::Error> {
+        let ApplyStep(command, cb) = step;
         trace!(self.role.log, "Applying command"; "command" => format!("{:?}", command));
-
         match command {
             Command::Start => {
                 Ok(RaftHandle::Follower(self))
             }
             Command::Tick => {
                 if self.needs_election() {
-                    return self.apply(Command::Timeout);
+                    return self.apply(ApplyStep(Command::Timeout, cb));
                 }
 
                 Ok(RaftHandle::Follower(self))
@@ -113,7 +113,7 @@ impl<I: Io, R: Rpc> Raft<Follower, I, R> {
     /// * `logger` - An optional logger implementation.
     /// * `nodes` - An optional map of nodes present in the cluster.
     ///
-    pub fn new(config: RaftConfig, tx: Sender<Command>, io: I, rpc: R, logger: Option<Logger>, nodes: Option<NodeMap>)
+    pub fn new(config: RaftConfig, tx: Sender<ApplyStep>, io: I, rpc: R, logger: Option<Logger>, nodes: Option<NodeMap>)
                -> Result<Raft<Follower, I, R>, ConfigError> {
         config.validate()?;
 
@@ -156,7 +156,7 @@ impl<I: Io, R: Rpc> Raft<Follower, I, R> {
         let tx = self.tx.clone();
         thread::spawn(move || {
             thread::sleep(duration);
-            tx.send(command).unwrap();
+            tx.send(ApplyStep(command, None)).unwrap();
         });
     }
 
@@ -221,12 +221,13 @@ mod tests {
     use super::Raft;
     use super::RaftConfig;
     use super::RaftHandle;
+    use crate::raft::ApplyStep;
 
     #[test]
     fn follower_to_leader_single_node_cluster() {
         let follower = new_follower();
         let id = follower.id;
-        match follower.apply(Command::Timeout).unwrap() {
+        match follower.apply(ApplyStep(Command::Timeout, None)).unwrap() {
             RaftHandle::Follower(_) => panic!(),
             RaftHandle::Candidate(_) => panic!(),
             RaftHandle::Leader(leader) => assert_eq!(id, leader.id),
@@ -237,7 +238,7 @@ mod tests {
     fn follower_noop() {
         let follower = new_follower();
         let id = follower.id;
-        match follower.apply(Command::Noop).unwrap() {
+        match follower.apply(ApplyStep(Command::Noop, None)).unwrap() {
             RaftHandle::Follower(follower) => assert_eq!(id, follower.id),
             RaftHandle::Candidate(_) => panic!(),
             RaftHandle::Leader(_) => panic!(),
