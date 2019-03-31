@@ -57,7 +57,7 @@ impl Role for Leader {
 
 impl<I: Io, R: Rpc> Apply<I, R> for Raft<Leader, I, R> {
     fn apply(mut self, step: ApplyStep) -> Result<RaftHandle<I, R>, failure::Error> {
-        let ApplyStep(command, cb) = step;
+        let ApplyStep(command, _cb) = step;
         trace!(self.role.log, "Applying command"; "command" => format!("{:?}", command));
         match command {
             Command::Tick => {

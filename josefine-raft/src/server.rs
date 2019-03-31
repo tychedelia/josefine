@@ -118,7 +118,7 @@ impl RaftServer {
             }
 
             match self.inbox.recv_timeout(timeout) {
-                Ok(step) => {
+                Ok(_step) => {
 
                 }
                 Err(RecvTimeoutError::Timeout) => (),
@@ -144,8 +144,8 @@ impl RaftServer {
 
         let server = Server::bind(&address)
             .serve(|| {
-                service_fn_ok(move |req: Request<Body>| {
-                    let mut response = Response::new(Body::empty());
+                service_fn_ok(move |_req: Request<Body>| {
+                    let response = Response::new(Body::empty());
 
 //                    let bytes = req.into_body().map(|chunk| {
 //                        let msg: Message  = serde_json::from_slice(chunk
