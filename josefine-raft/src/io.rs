@@ -12,7 +12,7 @@ pub type LogIndex = u64;
 /// IO is slightly annoying, but allows us, e.g., to implement different backend strategies for
 /// persistence, which makes it easier for testing and helps isolate the "pure logic" of the state
 /// machine from persistence concerns.
-pub trait Io {
+pub trait Io: Send + 'static {
     /// Append the provided entries to the commit log.
     fn append(&mut self, entries: Vec<Entry>) -> Result<LogIndex, failure::Error>;
     ///

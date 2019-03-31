@@ -14,6 +14,8 @@ use crate::raft::Node;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 /// The configuration for this Raft instance.
 pub struct RaftConfig {
+    /// Limit run-time for testing
+    pub run_for: Option<Duration>,
     /// The id used for this instance. Should be unique.
     pub id: NodeId,
     /// The ip address to listen for requests on in TCP implmentations.
@@ -84,6 +86,7 @@ impl Default for RaftConfig {
         };
 
         RaftConfig {
+            run_for: None,
             id,
             ip,
             port: 6669,
@@ -146,6 +149,7 @@ mod tests {
     #[test]
     fn validation() {
         let config = RaftConfig {
+            run_for: None,
             id: 0,
             ip: IpAddr::from([0, 0, 0, 0]),
             port: 0,

@@ -48,7 +48,7 @@ pub enum Message {
     InfoResponse(InfoResponse),
 }
 
-pub trait Rpc {
+pub trait Rpc: Send + 'static {
     fn heartbeat(&self, node_id: NodeId, term: u64, index: u64, entries: &[Entry]) -> Result<(), RpcError>;
     fn respond_vote(&self, state: &State, candidate_id: NodeId, granted: bool);
     fn request_vote(&self, state: &State, node_id: NodeId);

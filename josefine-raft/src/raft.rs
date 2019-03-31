@@ -25,7 +25,9 @@ use tokio::prelude::Future;
 use tokio::sync::oneshot::channel;
 use tokio::sync::oneshot;
 use std::sync::mpsc;
-use std::mem;
+use std::{mem, thread};
+use std::sync::mpsc::RecvTimeoutError;
+use std::thread::JoinHandle;
 
 /// An id that uniquely identifies this instance of Raft.
 pub type NodeId = u32;
@@ -99,7 +101,7 @@ pub trait Role {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum EntryType {
     Entry { data: Vec<u8> },
-    Config { },
+    Config {},
     Command { command: Command },
 }
 
@@ -123,8 +125,7 @@ pub struct Node {
     pub addr: SocketAddr,
 }
 
-impl Node {
-}
+impl Node {}
 
 /// Volatile and persistent state that is common to all roles.
 // NB: These could just be fields on the common Raft struct, but copying them is annoying.
@@ -259,12 +260,9 @@ impl<I: Io, R: Rpc> Apply<I, R> for RaftHandle<I, R> {
     }
 }
 
-pub enum ApplyResult {
-
-}
+pub enum ApplyResult {}
 
 pub struct ApplyStep(pub Command, pub Option<oneshot::Sender<ApplyResult>>);
-
 
 
 /// Applying a command is the basic way the state machine is moved forward. Each role implements
@@ -277,28 +275,59 @@ pub trait Apply<I: Io, R: Rpc> {
 }
 
 pub struct RaftContainer<I: Io, R: Rpc> {
-    raft: Option<RaftHandle<I, R>>
+    tx: mpsc::Sender<ApplyStep>,
+    pub join_handle: JoinHandle<RaftHandle<I, R>>,
 }
 
-impl <I: Io, R: Rpc> RaftContainer<I, R> {
+impl<I: Io, R: Rpc> RaftContainer<I, R> {
     pub fn new(config: RaftConfig, tx: mpsc::Sender<ApplyStep>, io: I, rpc: R, logger: Logger, nodes: NodeMap) -> RaftContainer<I, R> {
-        let raft = RaftHandle::new(config, tx, io, rpc, logger, nodes);
+        let (tx, rx) = mpsc::channel::<ApplyStep>();
+
+        let mut raft = RaftHandle::new(config.clone(), tx.clone(), io, rpc, logger, nodes.clone());
+        raft = raft.apply(ApplyStep(Command::Start, None)).unwrap();
+
+        let join_handle = thread::spawn(move || {
+            let mut timeout = Duration::from_millis(100);
+            let mut t = Instant::now();
+
+            let run_for = config.run_for;
+            let now = Instant::now();
+
+            loop {
+                if let Some(run_for) = run_for {
+                    if now.elapsed() > run_for {
+                        break;
+                    }
+                }
+
+                match rx.recv_timeout(timeout) {
+                    Ok(step) => {}
+                    Err(RecvTimeoutError::Timeout) => (),
+                    Err(RecvTimeoutError::Disconnected) => return raft,
+                }
+
+                let d = t.elapsed();
+                t = Instant::now();
+                if d >= timeout {
+                    timeout = Duration::from_millis(100);
+                    raft = raft.apply(ApplyStep(Command::Tick, None)).unwrap();
+                } else {
+                    timeout -= d;
+                }
+            }
+
+            raft
+        });
+
         RaftContainer {
-            raft: Some(raft)
+            tx,
+            join_handle,
         }
     }
 
-    pub fn apply(&mut self, command: Command) -> impl Future<Item = ApplyResult, Error = failure::Error> {
+    pub fn apply(&mut self, command: Command) -> impl Future<Item=ApplyResult, Error=failure::Error> {
         let (tx, rx) = channel::<ApplyResult>();
-
-        let raft = mem::replace(&mut self.raft, None);
-        let raft = raft.unwrap().apply(ApplyStep(command, Some(tx))).unwrap();
-        mem::replace(&mut self.raft, Some(raft));
-
+        self.tx.send(ApplyStep(command, Some(tx)));
         rx.map_err(|err| err.into())
-    }
-
-    pub fn inner(self) -> RaftHandle<I, R> {
-        return self.raft.unwrap()
     }
 }
