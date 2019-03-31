@@ -1,6 +1,5 @@
 #![crate_name = "josefine_raft"]
 //#![deny(missing_docs)]
-#![feature(refcell_replace_swap)]
 
 //! This implementation of the [Raft](raft.github.io) consensus algorithm forms the basis for safely
 //! replicating state in the distributed commit log. Raft is used to elect a leader that coordinates

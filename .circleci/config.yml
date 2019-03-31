@@ -8,9 +8,8 @@ jobs:
       - restore_cache:
           key: cargo-{{ checksum "Cargo.toml" }}
       - run:
-          name: Nightly Build
+          name: Stable Build
           command: |
-            rustup default nightly
             rustc --version --verbose
             cargo --version --verbose
             cargo build
