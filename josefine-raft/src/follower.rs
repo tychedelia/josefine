@@ -4,7 +4,6 @@ use std::io;
 use std::net::SocketAddr;
 use std::rc::Rc;
 use std::sync::Arc;
-use std::sync::mpsc::Sender;
 use std::sync::Mutex;
 use std::sync::RwLock;
 use std::thread;
@@ -15,6 +14,8 @@ use rand::Rng;
 use slog;
 use slog::Drain;
 use slog::Logger;
+use tokio::sync::oneshot;
+use std::sync::mpsc;
 
 use crate::candidate::Candidate;
 use crate::config::{ConfigError, RaftConfig};
@@ -113,7 +114,7 @@ impl<I: Io, R: Rpc> Raft<Follower, I, R> {
     /// * `logger` - An optional logger implementation.
     /// * `nodes` - An optional map of nodes present in the cluster.
     ///
-    pub fn new(config: RaftConfig, tx: Sender<ApplyStep>, io: I, rpc: R, logger: Option<Logger>, nodes: Option<NodeMap>)
+    pub fn new(config: RaftConfig, tx: mpsc::Sender<ApplyStep>, io: I, rpc: R, logger: Option<Logger>, nodes: Option<NodeMap>)
                -> Result<Raft<Follower, I, R>, ConfigError> {
         config.validate()?;
 

@@ -18,13 +18,13 @@ use slog::*;
 
 use crate::log;
 use crate::config::RaftConfig;
-use crate::raft::{Apply, ApplyStep};
+use crate::raft::{Apply, ApplyStep, RaftContainer};
 use crate::raft::Command;
 use crate::io::Io;
 use crate::raft::Node;
 use crate::raft::NodeId;
 use crate::raft::RaftHandle;
-use crate::rpc::Message;
+use crate::rpc::{Message, InfoRequest};
 use crate::rpc::TpcRpc;
 use crate::raft::NodeMap;
 use std::net::SocketAddr;
@@ -32,16 +32,18 @@ use crate::io::MemoryIo;
 use hyper::{Server, rt, Response, Request, Body};
 use tokio::prelude::future::Future;
 use hyper::service::service_fn_ok;
+use tokio::prelude::stream::Stream;
+use crate::rpc::Message::Ping;
 
 /// A server implementation that wraps the Raft state machine and handles connection with other nodes via a TPC
 /// RPC implementation.
 ///
 /// The server handles wiring up the state machine and driving it forward at a fixed interval.
 pub struct RaftServer {
-    pub(crate) raft: RaftHandle<MemoryIo, TpcRpc>,
+    pub(crate) raft: RaftContainer<MemoryIo, TpcRpc>,
     config: RaftConfig,
     log: Logger,
-    inboxSender: Sender<ApplyStep>,
+    inbox_sender: Sender<ApplyStep>,
     inbox: Receiver<ApplyStep>,
 }
 
@@ -86,25 +88,25 @@ impl RaftServer {
 
         let io = MemoryIo::new();
         let rpc = TpcRpc::new(config.clone(), tx.clone(), nodes.clone(), log.new(o!()));
-        let raft = RaftHandle::new(config.clone(), tx.clone(), io, rpc, logger, nodes.clone());
+        let raft = RaftContainer::new(config.clone(), tx.clone(), io, rpc, logger, nodes.clone());
 
         RaftServer {
             raft,
             config,
             log,
-            inboxSender: tx,
+            inbox_sender: tx,
             inbox: rx,
         }
     }
 
     /// Start the server and the state machine. Raft is driven every 100 milliseconds.
-    pub fn start(self, run_for: Option<Duration>) -> RaftHandle<MemoryIo, TpcRpc> {
+    pub fn start(mut self, run_for: Option<Duration>) -> RaftContainer<MemoryIo, TpcRpc> {
         self.listen();
         self.serve();
 
         let mut timeout = Duration::from_millis(100);
         let mut t = Instant::now();
-        let mut raft = self.raft.apply(ApplyStep(Command::Start, None)).unwrap();
+        self.raft.apply(Command::Start);
 
         let now = Instant::now();
 
@@ -117,32 +119,47 @@ impl RaftServer {
 
             match self.inbox.recv_timeout(timeout) {
                 Ok(step) => {
-                    raft = raft.apply(step).unwrap();
+
                 }
                 Err(RecvTimeoutError::Timeout) => (),
-                Err(RecvTimeoutError::Disconnected) => return raft,
+                Err(RecvTimeoutError::Disconnected) => return self.raft,
             }
 
             let d = t.elapsed();
             t = Instant::now();
             if d >= timeout {
                 timeout = Duration::from_millis(100);
-                raft = raft.apply(ApplyStep(Command::Tick, None)).unwrap();
+                self.raft.apply(Command::Tick);
             } else {
                 timeout -= d;
             }
         }
 
-        raft
+        self.raft
     }
 
     fn serve(&self) {
         let address = ([127, 0, 0, 1], 3000).into();
         info!(self.log, "serving"; "address" => &address);
+
         let server = Server::bind(&address)
             .serve(|| {
                 service_fn_ok(move |req: Request<Body>| {
-                    Response::new(Body::from("Hello World!"))
+                    let mut response = Response::new(Body::empty());
+
+//                    let bytes = req.into_body().map(|chunk| {
+//                        let msg: Message  = serde_json::from_slice(chunk
+//                            .iter()
+//                            .map(|byte| byte.to_ascii_uppercase())
+//                            .collect::<Vec<u8>>()
+//                            .as_slice())
+//                            .unwrap();
+//
+//                        serde_json::to_vec(&msg).unwrap()
+//                    });
+
+//                    *response.body_mut() = Body::wrap_stream(bytes);
+                    response
                 })
             })
             .map_err(|e| eprintln!("server error: {}", e));
@@ -155,7 +172,7 @@ impl RaftServer {
         info!(self.log, "listening"; "address" => &address);
 
         let listener = TcpListener::bind(&address).unwrap();
-        let tx = self.inboxSender.clone();
+        let tx = self.inbox_sender.clone();
         let log = self.log.new(o!());
 
         thread::spawn(move || {
@@ -231,7 +248,7 @@ mod tests {
         });
 
         let server = t.join().unwrap();
-        match server {
+        match server.inner() {
             RaftHandle::Follower(_) => panic!(),
             RaftHandle::Candidate(_) => panic!(),
             RaftHandle::Leader(_) => {}

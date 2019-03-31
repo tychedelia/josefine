@@ -19,9 +19,13 @@ use std::sync::RwLock;
 use std::ops::Index;
 use std::sync::RwLockReadGuard;
 use std::net::SocketAddr;
-use std::sync::mpsc::Sender;
 use crate::io::Io;
 use crate::io::LogIndex;
+use tokio::prelude::Future;
+use tokio::sync::oneshot::channel;
+use tokio::sync::oneshot;
+use std::sync::mpsc;
+use std::mem;
 
 /// An id that uniquely identifies this instance of Raft.
 pub type NodeId = u32;
@@ -178,7 +182,7 @@ pub struct Raft<S: Role, I: Io, R: Rpc> {
     pub log: Logger,
 
     ///
-    pub tx: Sender<ApplyStep>,
+    pub tx: mpsc::Sender<ApplyStep>,
 
     /// Configuration for this instance.
     pub config: RaftConfig,
@@ -239,7 +243,7 @@ pub enum RaftHandle<I: Io, R: Rpc> {
 
 impl<I: Io, R: Rpc> RaftHandle<I, R> {
     /// Obtain a new instance of raft initialized in the default follower state.
-    pub fn new(config: RaftConfig, tx: Sender<ApplyStep>, io: I, rpc: R, logger: Logger, nodes: NodeMap) -> RaftHandle<I, R> {
+    pub fn new(config: RaftConfig, tx: mpsc::Sender<ApplyStep>, io: I, rpc: R, logger: Logger, nodes: NodeMap) -> RaftHandle<I, R> {
         let raft = Raft::new(config, tx, io, rpc, Some(logger), Some(nodes));
         RaftHandle::Follower(raft.unwrap())
     }
@@ -259,7 +263,9 @@ pub enum ApplyResult {
 
 }
 
-pub struct ApplyStep(pub Command, pub Option<Sender<ApplyResult>>);
+pub struct ApplyStep(pub Command, pub Option<oneshot::Sender<ApplyResult>>);
+
+
 
 /// Applying a command is the basic way the state machine is moved forward. Each role implements
 /// trait to handle how it responds (or does not respond) to particular commands.
@@ -270,3 +276,29 @@ pub trait Apply<I: Io, R: Rpc> {
     fn apply(self, step: ApplyStep) -> Result<RaftHandle<I, R>, failure::Error>;
 }
 
+pub struct RaftContainer<I: Io, R: Rpc> {
+    raft: Option<RaftHandle<I, R>>
+}
+
+impl <I: Io, R: Rpc> RaftContainer<I, R> {
+    pub fn new(config: RaftConfig, tx: mpsc::Sender<ApplyStep>, io: I, rpc: R, logger: Logger, nodes: NodeMap) -> RaftContainer<I, R> {
+        let raft = RaftHandle::new(config, tx, io, rpc, logger, nodes);
+        RaftContainer {
+            raft: Some(raft)
+        }
+    }
+
+    pub fn apply(&mut self, command: Command) -> impl Future<Item = ApplyResult, Error = failure::Error> {
+        let (tx, rx) = channel::<ApplyResult>();
+
+        let raft = mem::replace(&mut self.raft, None);
+        let raft = raft.unwrap().apply(ApplyStep(command, Some(tx))).unwrap();
+        mem::replace(&mut self.raft, Some(raft));
+
+        rx.map_err(|err| err.into())
+    }
+
+    pub fn inner(self) -> RaftHandle<I, R> {
+        return self.raft.unwrap()
+    }
+}
