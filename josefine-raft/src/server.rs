@@ -49,38 +49,6 @@ pub struct RaftServer {
 }
 
 impl RaftServer {
-    /// Creates a new server that wraps the Raft state machine and handles driving the state machine
-    /// forward on the basis of some external input.
-    ///
-    /// # Arguments
-    ///
-    /// * `config` - The configuration for this raft instance.
-    /// * `logger` - The root logger to use for the application.
-    ///
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// #[macro_use]
-    /// extern crate slog;
-    /// extern crate slog_async;
-    /// extern crate slog_term;
-    ///
-    /// use josefine_raft::server::RaftServer;
-    /// use josefine_raft::config::RaftConfig;
-    /// use slog::Drain;
-    /// use slog::Logger;
-    ///
-    /// fn main() {
-    ///     let decorator = slog_term::TermDecorator::new().build();
-    ///     let drain = slog_term::FullFormat::new(decorator).build().fuse();
-    ///     let drain = slog_async::Async::new(drain).build().fuse();
-    ///
-    ///     let logger = Logger::root(drain, o!());
-    ///
-    ///     let server = RaftServer::new(RaftConfig::default(), logger);
-    /// }
-    /// ```
     pub fn new(config: RaftConfig, log: Logger, tx: Sender<ApplyStep>) -> RaftServer {
         RaftServer {
             config,
