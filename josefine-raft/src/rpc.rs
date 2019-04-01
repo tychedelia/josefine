@@ -18,7 +18,7 @@ use slog::Drain;
 use slog::Logger;
 
 use crate::config::RaftConfig;
-use crate::raft::{Command, ApplyStep};
+use crate::raft::{ApplyStep, Command};
 use crate::raft::Entry;
 use crate::raft::Node;
 use crate::raft::NodeId;

@@ -1,7 +1,8 @@
-use crate::raft::NodeId;
 use std::collections::HashMap;
-use crate::raft::NodeMap;
+
 use crate::io::LogIndex;
+use crate::raft::NodeId;
+use crate::raft::NodeMap;
 
 pub struct ReplicationProgress {
     progress: HashMap<NodeId, ProgressHandle>,

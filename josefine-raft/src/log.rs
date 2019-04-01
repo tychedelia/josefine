@@ -1,5 +1,5 @@
-use slog::Logger;
 use slog::Drain;
+use slog::Logger;
 
 pub fn get_root_logger() -> Logger {
     let decorator = slog_term::TermDecorator::new().build();

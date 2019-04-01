@@ -2,13 +2,13 @@ use std::error::Error;
 use std::fmt;
 use std::fmt::Formatter;
 use std::net::{IpAddr, Ipv4Addr};
+use std::net::SocketAddr;
 use std::net::ToSocketAddrs;
 use std::time::Duration;
 
-use crate::raft::NodeId;
 use crate::config;
-use std::net::SocketAddr;
 use crate::raft::Node;
+use crate::raft::NodeId;
 
 #[serde(default)]
 #[derive(Clone, Debug, Serialize, Deserialize)]

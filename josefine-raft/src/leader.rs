@@ -1,21 +1,21 @@
 use std::io::Error;
+use std::sync::mpsc::Sender;
+use std::time::Duration;
+use std::time::Instant;
 
+use rand::Rng;
 use slog::Logger;
 
 use crate::follower::Follower;
-use crate::raft::{Apply, RaftHandle, ApplyResult, ApplyStep};
+use crate::io::Io;
+use crate::progress::ProgressHandle;
+use crate::progress::ReplicationProgress;
+use crate::raft::{Apply, ApplyResult, ApplyStep, RaftHandle};
 use crate::raft::Command;
 use crate::raft::Raft;
 use crate::raft::Role;
 use crate::rpc::Rpc;
-use crate::progress::ReplicationProgress;
-use std::time::Instant;
-use std::time::Duration;
-use rand::Rng;
-use crate::io::Io;
-use crate::progress::ProgressHandle;
 use crate::rpc::RpcError;
-use std::sync::mpsc::Sender;
 
 ///
 pub struct Leader {

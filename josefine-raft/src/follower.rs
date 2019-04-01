@@ -4,6 +4,7 @@ use std::io;
 use std::net::SocketAddr;
 use std::rc::Rc;
 use std::sync::Arc;
+use std::sync::mpsc;
 use std::sync::Mutex;
 use std::sync::RwLock;
 use std::thread;
@@ -15,18 +16,17 @@ use slog;
 use slog::Drain;
 use slog::Logger;
 use tokio::sync::oneshot;
-use std::sync::mpsc;
 
 use crate::candidate::Candidate;
 use crate::config::{ConfigError, RaftConfig};
 use crate::election::Election;
 use crate::io::Io;
-use crate::raft::{Apply, RaftHandle, ApplyResult, ApplyStep};
+use crate::raft::{Apply, ApplyResult, ApplyStep, RaftHandle};
 use crate::raft::{Command, Node, NodeId, Raft, Role, State};
-use crate::raft::NodeMap;
-use crate::rpc::Rpc;
 use crate::raft::Entry;
 use crate::raft::EntryType;
+use crate::raft::NodeMap;
+use crate::rpc::Rpc;
 
 pub struct Follower {
     pub leader_id: Option<NodeId>,
@@ -214,6 +214,7 @@ mod tests {
 
     use crate::follower::Follower;
     use crate::io::MemoryIo;
+    use crate::raft::ApplyStep;
     use crate::rpc::NoopRpc;
 
     use super::Apply;
@@ -222,7 +223,6 @@ mod tests {
     use super::Raft;
     use super::RaftConfig;
     use super::RaftHandle;
-    use crate::raft::ApplyStep;
 
     #[test]
     fn follower_to_leader_single_node_cluster() {

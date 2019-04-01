@@ -28,12 +28,8 @@ fn main() {
 
     let config_path = matches.value_of("config").unwrap();
     let config = get_config(config_path);
-    let logger = get_logger();
-
-    info!(logger, "Using configuration values"; "config" => format!("{:?}", config));
-
-    let server = RaftServer::new(config, logger);
-    server.start();
+    let server = josefine_raft::Josefine::with_config(config);
+    server.wait();
 }
 
 fn get_config(config_path: &str) -> RaftConfig {

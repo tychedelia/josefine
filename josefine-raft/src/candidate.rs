@@ -1,20 +1,20 @@
 use std::io::Error;
+use std::sync::mpsc::Sender;
+use std::time::Duration;
+use std::time::Instant;
 
 use slog::Logger;
 
 use crate::election::{Election, ElectionStatus};
 use crate::follower::Follower;
-use crate::leader::Leader;
-use crate::raft::{Apply, RaftHandle, ApplyResult, ApplyStep};
-use crate::raft::Command;
 use crate::io::Io;
+use crate::leader::Leader;
+use crate::progress::ReplicationProgress;
+use crate::raft::{Apply, ApplyResult, ApplyStep, RaftHandle};
+use crate::raft::Command;
 use crate::raft::Raft;
 use crate::raft::Role;
 use crate::rpc::Rpc;
-use crate::progress::ReplicationProgress;
-use std::time::Instant;
-use std::time::Duration;
-use std::sync::mpsc::Sender;
 
 pub struct Candidate {
     pub election: Election,

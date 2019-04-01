@@ -1,33 +1,33 @@
+use std::{mem, thread};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::io::Error;
 use std::net::IpAddr;
+use std::net::SocketAddr;
+use std::ops::Index;
 use std::rc::Rc;
 use std::sync::Arc;
+use std::sync::mpsc;
+use std::sync::mpsc::RecvTimeoutError;
 use std::sync::Mutex;
+use std::sync::RwLock;
+use std::sync::RwLockReadGuard;
+use std::thread::JoinHandle;
+use std::time::Duration;
+use std::time::Instant;
 
 use slog::Logger;
+use tokio::prelude::Future;
+use tokio::sync::oneshot;
+use tokio::sync::oneshot::channel;
 
 use crate::candidate::Candidate;
 use crate::config::RaftConfig;
 use crate::follower::Follower;
-use crate::leader::Leader;
-use crate::rpc::Rpc;
-use std::time::Duration;
-use std::time::Instant;
-use std::sync::RwLock;
-use std::ops::Index;
-use std::sync::RwLockReadGuard;
-use std::net::SocketAddr;
-use crate::io::Io;
+use crate::io::{Io, MemoryIo};
 use crate::io::LogIndex;
-use tokio::prelude::Future;
-use tokio::sync::oneshot::channel;
-use tokio::sync::oneshot;
-use std::sync::mpsc;
-use std::{mem, thread};
-use std::sync::mpsc::RecvTimeoutError;
-use std::thread::JoinHandle;
+use crate::leader::Leader;
+use crate::rpc::{Rpc, TpcRpc};
 
 /// An id that uniquely identifies this instance of Raft.
 pub type NodeId = u32;
@@ -301,7 +301,9 @@ impl<I: Io, R: Rpc> RaftContainer<I, R> {
                 }
 
                 match rx.recv_timeout(timeout) {
-                    Ok(step) => {}
+                    Ok(step) => {
+                        raft = raft.apply(step).unwrap();
+                    }
                     Err(RecvTimeoutError::Timeout) => (),
                     Err(RecvTimeoutError::Disconnected) => return raft,
                 }
@@ -325,9 +327,14 @@ impl<I: Io, R: Rpc> RaftContainer<I, R> {
         }
     }
 
+    pub fn wait(self) -> RaftHandle<I, R> {
+        self.join_handle.join().unwrap()
+    }
+
     pub fn apply(&mut self, command: Command) -> impl Future<Item=ApplyResult, Error=failure::Error> {
         let (tx, rx) = channel::<ApplyResult>();
         self.tx.send(ApplyStep(command, Some(tx)));
         rx.map_err(|err| err.into())
     }
 }
+

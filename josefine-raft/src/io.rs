@@ -1,9 +1,9 @@
+use std::io;
 use std::ops::Index;
 use std::ops::Range;
 
 use crate::raft::Entry;
 use crate::raft::NodeId;
-use std::io;
 use crate::raft::Term;
 
 pub type LogIndex = u64;
@@ -99,9 +99,10 @@ impl Io for MemoryIo {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::raft::EntryType;
     use crate::raft::Command;
+    use crate::raft::EntryType;
+
+    use super::*;
 
     #[test]
     fn append() {
