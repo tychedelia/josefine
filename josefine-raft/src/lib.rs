@@ -99,7 +99,7 @@ impl JosefineBuilder {
     }
 
     pub fn build(self) -> Josefine {
-        let (tx, rx) = channel::<ApplyStep>();
+        let (tx, _rx) = channel::<ApplyStep>();
         let nodes = Arc::new(RwLock::new(HashMap::new()));
         let io = MemoryIo::new();
         let rpc = TpcRpc::new(self.config.clone(), tx.clone(), nodes.clone(), self.log.new(o!()));

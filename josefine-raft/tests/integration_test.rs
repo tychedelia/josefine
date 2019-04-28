@@ -56,7 +56,7 @@ fn three_node_cluster() {
         .collect();
 
     for node in nodes {
-        let raft = node.wait();
+        let _raft = node.wait();
 
     }
 }

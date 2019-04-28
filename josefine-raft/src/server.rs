@@ -133,9 +133,9 @@ mod tests {
     fn it_runs() {
         let election_timeout_max = 1000; // TODO: Expose constants better
         let config = RaftConfig { run_for:  Some(Duration::from_millis(election_timeout_max)), ..RaftConfig::default() };
-        let (tx, rx) = channel::<ApplyStep>();
+        let (tx, _rx) = channel::<ApplyStep>();
         let server = RaftServer::new(config, log::get_root_logger(), tx);
 
-        let t = server.listen();
+        let _t = server.listen();
     }
 }

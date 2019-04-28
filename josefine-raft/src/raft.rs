@@ -287,7 +287,7 @@ pub struct RaftContainer<I: Io, R: Rpc> {
 }
 
 impl<I: Io, R: Rpc> RaftContainer<I, R> {
-    pub fn new(config: RaftConfig, tx: mpsc::Sender<ApplyStep>, io: I, rpc: R, logger: Logger, nodes: NodeMap) -> RaftContainer<I, R> {
+    pub fn new(config: RaftConfig, _tx: mpsc::Sender<ApplyStep>, io: I, rpc: R, logger: Logger, nodes: NodeMap) -> RaftContainer<I, R> {
         let (tx, rx) = mpsc::channel::<ApplyStep>();
         let log = logger.new(o!());
 
