@@ -10,7 +10,7 @@ use crate::follower::Follower;
 use crate::io::Io;
 use crate::progress::ProgressHandle;
 use crate::progress::ReplicationProgress;
-use crate::raft::{Apply, ApplyResult, ApplyStep, RaftHandle};
+use crate::raft::{Apply, ApplyResult, ApplyStep, RaftHandle, RaftRole};
 use crate::raft::Command;
 use crate::raft::Raft;
 use crate::raft::Role;
@@ -53,6 +53,9 @@ impl Role for Leader {
     fn term(&mut self, _term: u64) {
     }
 
+    fn role(&self) -> RaftRole {
+        RaftRole::Leader
+    }
 }
 
 impl<I: Io, R: Rpc> Apply<I, R> for Raft<Leader, I, R> {

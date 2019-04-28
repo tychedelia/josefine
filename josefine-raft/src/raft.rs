@@ -96,6 +96,7 @@ pub enum Command {
 pub trait Role {
     /// Set the term for the node, reseting the current election.
     fn term(&mut self, term: u64);
+    fn role(&self) -> RaftRole;
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -229,6 +230,12 @@ impl<S: Role, I: Io, R: Rpc> Raft<S, I, R> {
     }
 }
 
+pub enum RaftRole {
+    Follower,
+    Candidate,
+    Leader,
+}
+
 /// Since applying command to the state machine can potentially result in any state transition,
 /// the result that we get back needs to be general to the possible return types -- easiest
 /// way here is just to store the differently sized structs per state in an enum, which will be
@@ -282,9 +289,17 @@ pub struct RaftContainer<I: Io, R: Rpc> {
 impl<I: Io, R: Rpc> RaftContainer<I, R> {
     pub fn new(config: RaftConfig, tx: mpsc::Sender<ApplyStep>, io: I, rpc: R, logger: Logger, nodes: NodeMap) -> RaftContainer<I, R> {
         let (tx, rx) = mpsc::channel::<ApplyStep>();
+        let log = logger.new(o!());
 
-        let mut raft = RaftHandle::new(config.clone(), tx.clone(), io, rpc, logger, nodes.clone());
+
+        let mut raft = RaftHandle::new(config.clone(), tx.clone(), io, rpc, log, nodes.clone());
         raft = raft.apply(ApplyStep(Command::Start, None)).unwrap();
+
+        for node in &config.nodes {
+            raft = raft.apply(ApplyStep(Command::AddNode(node.addr), None)).unwrap();
+        }
+
+        info!(logger, "nodemap"; "id" => config.id, "nodes" => format!("{:?}", nodes.read().unwrap()));
 
         let join_handle = thread::spawn(move || {
             let mut timeout = Duration::from_millis(100);

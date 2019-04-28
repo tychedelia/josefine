@@ -28,7 +28,9 @@ fn main() {
 
     let config_path = matches.value_of("config").unwrap();
     let config = get_config(config_path);
-    let server = josefine_raft::Josefine::with_config(config);
+    let server = josefine_raft::JosefineBuilder::new()
+        .with_config(config)
+        .build();
     server.wait();
 }
 

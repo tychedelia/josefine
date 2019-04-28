@@ -28,9 +28,10 @@ use std::sync::{Arc, RwLock};
 use std::sync::mpsc::channel;
 
 use crate::config::RaftConfig;
-use crate::io::MemoryIo;
-use crate::raft::{ApplyStep, RaftContainer};
-use crate::rpc::TpcRpc;
+use crate::io::{MemoryIo, Io};
+use crate::raft::{ApplyStep, RaftContainer, RaftRole};
+use crate::rpc::{TpcRpc, Rpc};
+use slog::Logger;
 
 mod io;
 mod follower;
@@ -66,15 +67,45 @@ mod tests {
 
 pub type Josefine = RaftContainer<MemoryIo, TpcRpc>;
 
-impl Josefine {
-    pub fn with_config(config: RaftConfig) -> Josefine {
-        let log = log::get_root_logger();
+
+pub struct JosefineBuilder {
+    config: RaftConfig,
+    log: Logger,
+    role_change_cb: Option<Box<FnOnce(RaftRole)>>,
+}
+
+
+impl JosefineBuilder {
+    pub fn new() -> JosefineBuilder {
+        JosefineBuilder {
+            config: RaftConfig::default(),
+            role_change_cb: None,
+            log: log::get_root_logger(),
+        }
+    }
+
+    pub fn with_config(self, config: RaftConfig) -> Self {
+        JosefineBuilder {
+            config,
+            ..self
+        }
+    }
+
+    pub fn role_change_cb<CB: 'static + FnOnce(RaftRole)>(self, cb: CB) -> Self {
+        JosefineBuilder {
+            role_change_cb: Some(Box::new(cb)),
+            ..self
+        }
+    }
+
+    pub fn build(self) -> Josefine {
         let (tx, rx) = channel::<ApplyStep>();
-
         let nodes = Arc::new(RwLock::new(HashMap::new()));
-
         let io = MemoryIo::new();
-        let rpc = TpcRpc::new(config.clone(), tx.clone(), nodes.clone(), log.new(o!()));
-        RaftContainer::new(config.clone(), tx.clone(), io, rpc, log, nodes.clone())
+        let rpc = TpcRpc::new(self.config.clone(), tx.clone(), nodes.clone(), self.log.new(o!()));
+
+        RaftContainer::new(self.config.clone(), tx.clone(), io, rpc, self.log, nodes.clone())
     }
 }
+
+

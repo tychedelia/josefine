@@ -24,6 +24,7 @@ use crate::raft::Node;
 use crate::raft::NodeId;
 use crate::raft::NodeMap;
 use crate::raft::State;
+use tokio::prelude::Future;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Ping {
@@ -260,9 +261,12 @@ pub struct AppendResponse {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct InfoRequest {}
+pub struct InfoRequest {
+    pub header: Header
+}
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct InfoResponse {
-    node_id: NodeId,
+    pub header: Header,
+    pub node_id: NodeId,
 }

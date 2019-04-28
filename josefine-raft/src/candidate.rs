@@ -10,7 +10,7 @@ use crate::follower::Follower;
 use crate::io::Io;
 use crate::leader::Leader;
 use crate::progress::ReplicationProgress;
-use crate::raft::{Apply, ApplyResult, ApplyStep, RaftHandle};
+use crate::raft::{Apply, ApplyResult, ApplyStep, RaftHandle, RaftRole};
 use crate::raft::Command;
 use crate::raft::Raft;
 use crate::raft::Role;
@@ -35,6 +35,10 @@ impl<I: Io, R: Rpc> Raft<Candidate, I, R> {
 impl Role for Candidate {
     fn term(&mut self, _term: u64) {
         self.election.reset();
+    }
+
+    fn role(&self) -> RaftRole {
+        RaftRole::Candidate
     }
 }
 

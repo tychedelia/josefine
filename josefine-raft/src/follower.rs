@@ -21,7 +21,7 @@ use crate::candidate::Candidate;
 use crate::config::{ConfigError, RaftConfig};
 use crate::election::Election;
 use crate::io::Io;
-use crate::raft::{Apply, ApplyResult, ApplyStep, RaftHandle};
+use crate::raft::{Apply, ApplyResult, ApplyStep, RaftHandle, RaftRole};
 use crate::raft::{Command, Node, NodeId, Raft, Role, State};
 use crate::raft::Entry;
 use crate::raft::EntryType;
@@ -36,6 +36,10 @@ pub struct Follower {
 impl Role for Follower {
     fn term(&mut self, _term: u64) {
         self.leader_id = None;
+    }
+
+    fn role(&self) -> RaftRole {
+        RaftRole::Follower
     }
 }
 
