@@ -16,6 +16,7 @@ use std::thread;
 
 use slog::Drain;
 use slog::Logger;
+use tokio::prelude::Future;
 
 use crate::config::RaftConfig;
 use crate::raft::{ApplyStep, Command};
@@ -24,7 +25,6 @@ use crate::raft::Node;
 use crate::raft::NodeId;
 use crate::raft::NodeMap;
 use crate::raft::State;
-use tokio::prelude::Future;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Ping {

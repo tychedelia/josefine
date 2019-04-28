@@ -27,11 +27,12 @@ use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use std::sync::mpsc::channel;
 
-use crate::config::RaftConfig;
-use crate::io::{MemoryIo, Io};
-use crate::raft::{ApplyStep, RaftContainer, RaftRole};
-use crate::rpc::{TpcRpc, Rpc};
 use slog::Logger;
+
+use crate::config::RaftConfig;
+use crate::io::{Io, MemoryIo};
+use crate::raft::{ApplyStep, RaftContainer, RaftRole};
+use crate::rpc::{Rpc, TpcRpc};
 
 mod io;
 mod follower;
