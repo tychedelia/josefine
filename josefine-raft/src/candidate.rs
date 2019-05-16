@@ -7,22 +7,20 @@ use slog::Logger;
 
 use crate::election::{Election, ElectionStatus};
 use crate::follower::Follower;
-use crate::io::Io;
 use crate::leader::Leader;
 use crate::progress::ReplicationProgress;
 use crate::raft::{Apply, ApplyResult, ApplyStep, RaftHandle, RaftRole};
 use crate::raft::Command;
 use crate::raft::Raft;
 use crate::raft::Role;
-use crate::rpc::Rpc;
 
 pub struct Candidate {
     pub election: Election,
     pub log: Logger,
 }
 
-impl<I: Io, R: Rpc> Raft<Candidate, I, R> {
-    pub(crate) fn seek_election(mut self) -> Result<RaftHandle<I, R>, failure::Error> {
+impl Raft<Candidate> {
+    pub(crate) fn seek_election(mut self) -> Result<RaftHandle, failure::Error> {
         info!(self.role.log, "Seeking election");
         self.state.voted_for = Some(self.id);
         self.state.current_term += 1;
@@ -42,8 +40,8 @@ impl Role for Candidate {
     }
 }
 
-impl<I: Io, R: Rpc> Apply<I, R> for Raft<Candidate, I, R> {
-    fn apply(mut self, step: ApplyStep) -> Result<RaftHandle<I, R>, failure::Error> {
+impl Apply for Raft<Candidate> {
+    fn apply(mut self, step: ApplyStep) -> Result<RaftHandle, failure::Error> {
         let ApplyStep(command, cb) = step;
         trace!(self.role.log, "Applying command"; "command" => format!("{:?}", command));
         match command {
@@ -57,13 +55,13 @@ impl<I: Io, R: Rpc> Apply<I, R> for Raft<Candidate, I, R> {
                         ElectionStatus::Voting => {
                             trace!(self.role.log, "Election ended with missing votes");
                             self.state.voted_for = None;
-                            let raft: Raft<Follower, I, R> = Raft::from(self);
+                            let raft: Raft<Follower> = Raft::from(self);
                             Ok(raft.apply(ApplyStep(Command::Timeout, cb))?)
                         },
                         ElectionStatus::Defeated => {
                             trace!(self.role.log, "Defeated in election.");
                             self.state.voted_for = None;
-                            let raft: Raft<Follower, I, R> = Raft::from(self);
+                            let raft: Raft<Follower> = Raft::from(self);
                             Ok(raft.apply(ApplyStep(Command::Timeout, cb))?)
                         },
                     }
@@ -72,7 +70,7 @@ impl<I: Io, R: Rpc> Apply<I, R> for Raft<Candidate, I, R> {
                 Ok(RaftHandle::Candidate(self))
             }
             Command::VoteRequest { candidate_id, term: _, .. } => {
-                self.rpc.respond_vote(&self.state, candidate_id, false);
+//                self.rpc.respond_vote(&self.state, candidate_id, false);
                 Ok(RaftHandle::Candidate(self))
             }
             Command::VoteResponse { granted, candidate_id, .. } => {
@@ -92,8 +90,8 @@ impl<I: Io, R: Rpc> Apply<I, R> for Raft<Candidate, I, R> {
                 // state.
                 if term >= self.state.current_term {
                     info!(self.role.log, "Received higher term, transitioning to follower");
-                    let mut raft: Raft<Follower, I, R> = Raft::from(self);
-                    raft.io.append(entries)?;
+                    let mut raft: Raft<Follower> = Raft::from(self);
+//                    raft.io.append(entries)?;
                     return Ok(RaftHandle::Follower(raft));
                 }
 
@@ -105,7 +103,7 @@ impl<I: Io, R: Rpc> Apply<I, R> for Raft<Candidate, I, R> {
             Command::Heartbeat { term, leader_id: _, .. } => {
                 if term >= self.state.current_term {
                     info!(self.role.log, "Received higher term, transitioning to follower");
-                    let raft: Raft<Follower, I, R> = Raft::from(self);
+                    let raft: Raft<Follower> = Raft::from(self);
 //                    raft.io.heartbeat(leader_id);
                     return Ok(RaftHandle::Follower(raft));
                 }
@@ -117,15 +115,13 @@ impl<I: Io, R: Rpc> Apply<I, R> for Raft<Candidate, I, R> {
     }
 }
 
-impl<I: Io, R: Rpc> From<Raft<Candidate, I, R>> for Raft<Follower, I, R> {
-    fn from(val: Raft<Candidate, I, R>) -> Raft<Follower, I, R> {
+impl From<Raft<Candidate>> for Raft<Follower> {
+    fn from(val: Raft<Candidate>) -> Raft<Follower> {
         Raft {
             id: val.id,
             state: val.state,
             nodes: val.nodes,
             tx: val.tx,
-            io: val.io,
-            rpc: val.rpc,
             role: Follower { leader_id: None, log: val.log.new(o!("role" => "follower")) },
             log: val.log,
             config: val.config,
@@ -133,16 +129,14 @@ impl<I: Io, R: Rpc> From<Raft<Candidate, I, R>> for Raft<Follower, I, R> {
     }
 }
 
-impl<I: Io, R: Rpc> From<Raft<Candidate, I, R>> for Raft<Leader, I, R> {
-    fn from(val: Raft<Candidate, I, R>) -> Raft<Leader, I, R> {
+impl From<Raft<Candidate>> for Raft<Leader> {
+    fn from(val: Raft<Candidate>) -> Raft<Leader> {
         info!(val.role.log, "Becoming the leader");
         Raft {
             id: val.id,
             state: val.state,
             tx: val.tx,
             nodes: val.nodes.clone(),
-            io: val.io,
-            rpc: val.rpc,
             role: Leader {
                 log: val.log.new(o!("role" => "leader", "nodes" => format!("{:?}", val.nodes.read().unwrap()))),
                 progress: ReplicationProgress::new(val.nodes.clone()),

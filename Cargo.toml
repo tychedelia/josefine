@@ -10,8 +10,7 @@ name = "josefine"
 [workspace]
 members = [
     "josefine-core",
-    "josefine-raft",
-    "josefine-cli"
+    "josefine-raft"
 ]
 
 [dependencies]

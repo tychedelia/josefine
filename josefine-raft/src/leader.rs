@@ -7,15 +7,12 @@ use rand::Rng;
 use slog::Logger;
 
 use crate::follower::Follower;
-use crate::io::Io;
 use crate::progress::ProgressHandle;
 use crate::progress::ReplicationProgress;
 use crate::raft::{Apply, ApplyResult, ApplyStep, RaftHandle, RaftRole};
 use crate::raft::Command;
 use crate::raft::Raft;
 use crate::raft::Role;
-use crate::rpc::Rpc;
-use crate::rpc::RpcError;
 
 ///
 pub struct Leader {
@@ -27,16 +24,8 @@ pub struct Leader {
     pub heartbeat_timeout: Duration,
 }
 
-impl<I: Io, R: Rpc> Raft<Leader, I, R> {
-    fn heartbeat(&self) -> Result<(), RpcError> {
-        for node_id in self.nodes.read().unwrap().keys() {
-            if let ProgressHandle::Replicate(progress) = self.role.progress.get(*node_id).unwrap() {
-                let _entries = self.io.entries_from(progress.index);
-
-                self.rpc.heartbeat(*node_id, self.state.current_term, self.state.commit_index, &vec!())?;
-            }
-        }
-
+impl Raft<Leader> {
+    fn heartbeat(&self) -> Result<(), failure::Error> {
         Ok(())
     }
 
@@ -58,8 +47,8 @@ impl Role for Leader {
     }
 }
 
-impl<I: Io, R: Rpc> Apply<I, R> for Raft<Leader, I, R> {
-    fn apply(mut self, step: ApplyStep) -> Result<RaftHandle<I, R>, failure::Error> {
+impl Apply for Raft<Leader> {
+    fn apply(mut self, step: ApplyStep) -> Result<RaftHandle, failure::Error> {
         let ApplyStep(command, _cb) = step;
         trace!(self.role.log, "Applying command"; "command" => format!("{:?}", command));
         match command {
@@ -103,15 +92,13 @@ impl<I: Io, R: Rpc> Apply<I, R> for Raft<Leader, I, R> {
     }
 }
 
-impl<I: Io, R: Rpc> From<Raft<Leader, I, R>> for Raft<Follower, I, R> {
-    fn from(val: Raft<Leader, I, R>) -> Raft<Follower, I, R> {
+impl From<Raft<Leader>> for Raft<Follower> {
+    fn from(val: Raft<Leader>) -> Raft<Follower> {
         Raft {
             id: val.id,
             state: val.state,
             tx: val.tx,
             nodes: val.nodes,
-            io: val.io,
-            rpc: val.rpc,
             role: Follower { leader_id: None, log: val.log.new(o!("role" => "follower"))  },
             log: val.log,
             config: val.config

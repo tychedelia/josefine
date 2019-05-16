@@ -9,7 +9,6 @@ use clap::App;
 use clap::Arg;
 
 use josefine_raft::config::RaftConfig;
-use josefine_raft::server::RaftServer;
 use slog::Drain;
 use slog::Logger;
 
@@ -28,10 +27,7 @@ fn main() {
 
     let config_path = matches.value_of("config").unwrap();
     let config = get_config(config_path);
-    let server = josefine_raft::JosefineBuilder::new()
-        .with_config(config)
-        .build();
-    server.wait();
+
 }
 
 fn get_config(config_path: &str) -> RaftConfig {

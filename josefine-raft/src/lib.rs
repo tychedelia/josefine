@@ -30,11 +30,9 @@ use std::sync::mpsc::channel;
 use slog::Logger;
 
 use crate::config::RaftConfig;
-use crate::io::{Io, MemoryIo};
-use crate::raft::{ApplyStep, RaftContainer, RaftRole};
-use crate::rpc::{Rpc, TpcRpc};
+use crate::raft::{ApplyStep, RaftContainer, RaftRole, RaftHandle};
 
-mod io;
+mod actor;
 mod follower;
 mod candidate;
 mod leader;
@@ -50,13 +48,8 @@ pub mod raft;
 /// Raft can be configured with a variety of options.
 pub mod config;
 mod progress;
-pub mod rpc;
 mod log;
 
-/// The Raft server contains a raft state machine and handles input to the state machine, providing
-/// an RPC implementation to handle communication with other nodes and an IO implementation that
-/// handles persisting entries to the commit log.
-pub mod server;
 
 #[cfg(test)]
 mod tests {
@@ -66,13 +59,9 @@ mod tests {
     }
 }
 
-pub type Josefine = RaftContainer<MemoryIo, TpcRpc>;
-
-
 pub struct JosefineBuilder {
     config: RaftConfig,
     log: Logger,
-    role_change_cb: Option<Box<FnOnce(RaftRole)>>,
 }
 
 
@@ -80,7 +69,6 @@ impl JosefineBuilder {
     pub fn new() -> JosefineBuilder {
         JosefineBuilder {
             config: RaftConfig::default(),
-            role_change_cb: None,
             log: log::get_root_logger(),
         }
     }
@@ -92,20 +80,8 @@ impl JosefineBuilder {
         }
     }
 
-    pub fn role_change_cb<CB: 'static + FnOnce(RaftRole)>(self, cb: CB) -> Self {
-        JosefineBuilder {
-            role_change_cb: Some(Box::new(cb)),
-            ..self
-        }
-    }
-
-    pub fn build(self) -> Josefine {
-        let (tx, _rx) = channel::<ApplyStep>();
-        let nodes = Arc::new(RwLock::new(HashMap::new()));
-        let io = MemoryIo::new();
-        let rpc = TpcRpc::new(self.config.clone(), tx.clone(), nodes.clone(), self.log.new(o!()));
-
-        RaftContainer::new(self.config.clone(), tx.clone(), io, rpc, self.log, nodes.clone())
+    pub fn build(self) -> RaftHandle {
+        unimplemented!()
     }
 }
 

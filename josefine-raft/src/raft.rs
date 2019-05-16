@@ -24,14 +24,13 @@ use tokio::sync::oneshot::channel;
 use crate::candidate::Candidate;
 use crate::config::RaftConfig;
 use crate::follower::Follower;
-use crate::io::{Io, MemoryIo};
-use crate::io::LogIndex;
 use crate::leader::Leader;
-use crate::rpc::{Rpc, TpcRpc};
 
 /// An id that uniquely identifies this instance of Raft.
 pub type NodeId = u32;
 pub type Term = u64;
+
+pub type LogIndex = u64;
 
 /// Commands that can be applied to the state machine.
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -177,7 +176,7 @@ impl Default for State {
 pub type NodeMap = Arc<RwLock<HashMap<NodeId, Node>>>;
 
 /// The primary struct representing the state machine. Contains fields common all roles.
-pub struct Raft<S: Role, I: Io, R: Rpc> {
+pub struct Raft<S: Role> {
     /// The identifier for this node.
     pub id: NodeId,
     /// The logger implementation for this node.
@@ -196,18 +195,12 @@ pub struct Raft<S: Role, I: Io, R: Rpc> {
     /// state may be contained in that role.
     pub state: State,
 
-    /// The IO implementation used for persisting state.
-    pub io: I,
-
-    /// The RPC implementation used for communicating with other nodes.
-    pub rpc: R,
-
     /// An instance containing role specific state and behavior.
     pub role: S,
 }
 
 // Base methods for general operations (+ debugging and testing).
-impl<S: Role, I: Io, R: Rpc> Raft<S, I, R> {
+impl<S: Role> Raft<S> {
     /// Add the provided node to our record of the cluster.
     pub fn add_node_to_cluster(&mut self, socket_addr: SocketAddr) {
         info!(self.log, "Adding node"; "address" => format!("{:?}", socket_addr));
@@ -240,25 +233,25 @@ pub enum RaftRole {
 /// the result that we get back needs to be general to the possible return types -- easiest
 /// way here is just to store the differently sized structs per state in an enum, which will be
 /// sized to the largest variant.
-pub enum RaftHandle<I: Io, R: Rpc> {
+pub enum RaftHandle {
     /// An instance of the state machine in the follower role.
-    Follower(Raft<Follower, I, R>),
+    Follower(Raft<Follower>),
     /// An instance of the state machine in the candidate role.
-    Candidate(Raft<Candidate, I, R>),
+    Candidate(Raft<Candidate>),
     /// An instance of the state machine in the leader role.
-    Leader(Raft<Leader, I, R>),
+    Leader(Raft<Leader>),
 }
 
-impl<I: Io, R: Rpc> RaftHandle<I, R> {
+impl RaftHandle {
     /// Obtain a new instance of raft initialized in the default follower state.
-    pub fn new(config: RaftConfig, tx: mpsc::Sender<ApplyStep>, io: I, rpc: R, logger: Logger, nodes: NodeMap) -> RaftHandle<I, R> {
-        let raft = Raft::new(config, tx, io, rpc, Some(logger), Some(nodes));
+    pub fn new(config: RaftConfig, tx: mpsc::Sender<ApplyStep>, logger: Logger, nodes: NodeMap) -> RaftHandle {
+        let raft = Raft::new(config, tx, Some(logger), Some(nodes));
         RaftHandle::Follower(raft.unwrap())
     }
 }
 
-impl<I: Io, R: Rpc> Apply<I, R> for RaftHandle<I, R> {
-    fn apply(self, step: ApplyStep) -> Result<RaftHandle<I, R>, failure::Error> {
+impl Apply for RaftHandle {
+    fn apply(self, step: ApplyStep) -> Result<RaftHandle, failure::Error> {
         match self {
             RaftHandle::Follower(raft) => { raft.apply(step) }
             RaftHandle::Candidate(raft) => { raft.apply(step) }
@@ -274,25 +267,25 @@ pub struct ApplyStep(pub Command, pub Option<oneshot::Sender<ApplyResult>>);
 
 /// Applying a command is the basic way the state machine is moved forward. Each role implements
 /// trait to handle how it responds (or does not respond) to particular commands.
-pub trait Apply<I: Io, R: Rpc> {
+pub trait Apply {
     /// Apply a command to the raft state machine, which may result in a new raft state. Errors
     /// should occur for only truly exceptional conditions, and are provided to allow the wrapping
     /// server containing this state machine to shut down gracefully.
-    fn apply(self, step: ApplyStep) -> Result<RaftHandle<I, R>, failure::Error>;
+    fn apply(self, step: ApplyStep) -> Result<RaftHandle, failure::Error>;
 }
 
-pub struct RaftContainer<I: Io, R: Rpc> {
+pub struct RaftContainer {
     tx: mpsc::Sender<ApplyStep>,
-    pub join_handle: JoinHandle<RaftHandle<I, R>>,
+    pub join_handle: JoinHandle<RaftHandle>,
 }
 
-impl<I: Io, R: Rpc> RaftContainer<I, R> {
-    pub fn new(config: RaftConfig, _tx: mpsc::Sender<ApplyStep>, io: I, rpc: R, logger: Logger, nodes: NodeMap) -> RaftContainer<I, R> {
+impl RaftContainer {
+    pub fn new(config: RaftConfig, _tx: mpsc::Sender<ApplyStep>, logger: Logger, nodes: NodeMap) -> RaftContainer {
         let (tx, rx) = mpsc::channel::<ApplyStep>();
         let log = logger.new(o!());
 
 
-        let mut raft = RaftHandle::new(config.clone(), tx.clone(), io, rpc, log, nodes.clone());
+        let mut raft = RaftHandle::new(config.clone(), tx.clone(), log, nodes.clone());
         raft = raft.apply(ApplyStep(Command::Start, None)).unwrap();
 
         for node in &config.nodes {
@@ -342,7 +335,7 @@ impl<I: Io, R: Rpc> RaftContainer<I, R> {
         }
     }
 
-    pub fn wait(self) -> RaftHandle<I, R> {
+    pub fn wait(self) -> RaftHandle {
         self.join_handle.join().unwrap()
     }
 

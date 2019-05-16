@@ -20,13 +20,11 @@ use tokio::sync::oneshot;
 use crate::candidate::Candidate;
 use crate::config::{ConfigError, RaftConfig};
 use crate::election::Election;
-use crate::io::Io;
 use crate::raft::{Apply, ApplyResult, ApplyStep, RaftHandle, RaftRole};
 use crate::raft::{Command, Node, NodeId, Raft, Role, State};
 use crate::raft::Entry;
 use crate::raft::EntryType;
 use crate::raft::NodeMap;
-use crate::rpc::Rpc;
 
 pub struct Follower {
     pub leader_id: Option<NodeId>,
@@ -43,8 +41,8 @@ impl Role for Follower {
     }
 }
 
-impl<I: Io, R: Rpc> Apply<I, R> for Raft<Follower, I, R> {
-    fn apply(mut self, step: ApplyStep) -> Result<RaftHandle<I, R>, failure::Error> {
+impl Apply for Raft<Follower> {
+    fn apply(mut self, step: ApplyStep) -> Result<RaftHandle, failure::Error> {
         let ApplyStep(command, cb) = step;
         trace!(self.role.log, "Applying command"; "command" => format!("{:?}", command));
         match command {
@@ -64,8 +62,8 @@ impl<I: Io, R: Rpc> Apply<I, R> for Raft<Follower, I, R> {
                 self.state.voted_for = Some(leader_id);
 
                 if !entries.is_empty() {
-                    let index = self.io.append(entries)?;
-                    self.rpc.respond_append(leader_id, term, index)?;
+//                    let index = self.io.append(entries)?;
+//                    self.rpc.respond_append(leader_id, term, index)?;
                 }
 
                 Ok(RaftHandle::Follower(self))
@@ -79,23 +77,23 @@ impl<I: Io, R: Rpc> Apply<I, R> for Raft<Follower, I, R> {
             }
             Command::VoteRequest { candidate_id, last_index, last_term, .. } => {
                 if self.state.current_term > last_term || self.state.commit_index > last_index {
-                    self.rpc.respond_vote(&self.state, candidate_id, false);
+//                    self.rpc.respond_vote(&self.state, candidate_id, false);
                 } else {
-                    self.rpc.respond_vote(&self.state, candidate_id, true);
+//                    self.rpc.respond_vote(&self.state, candidate_id, true);
                 }
                 Ok(RaftHandle::Follower(self))
             }
             Command::Timeout => {
                 if self.state.voted_for.is_none() {
                     self.set_election_timeout(); // start a new election
-                    let raft: Raft<Candidate, I, R> = Raft::from(self);
+                    let raft: Raft<Candidate> = Raft::from(self);
                     return raft.seek_election();
                 }
 
                 Ok(RaftHandle::Follower(self))
             }
             Command::Ping(node_id) => {
-                self.rpc.ping(node_id);
+//                self.rpc.ping(node_id);
                 Ok(RaftHandle::Follower(self))
             }
             Command::AddNode(socket_addr) => {
@@ -107,7 +105,7 @@ impl<I: Io, R: Rpc> Apply<I, R> for Raft<Follower, I, R> {
     }
 }
 
-impl<I: Io, R: Rpc> Raft<Follower, I, R> {
+impl Raft<Follower> {
     /// Creates an initialized instance of Raft in the follower with the provided configuration.
     ///
     /// # Arguments
@@ -118,8 +116,8 @@ impl<I: Io, R: Rpc> Raft<Follower, I, R> {
     /// * `logger` - An optional logger implementation.
     /// * `nodes` - An optional map of nodes present in the cluster.
     ///
-    pub fn new(config: RaftConfig, tx: mpsc::Sender<ApplyStep>, io: I, rpc: R, logger: Option<Logger>, nodes: Option<NodeMap>)
-               -> Result<Raft<Follower, I, R>, ConfigError> {
+    pub fn new(config: RaftConfig, tx: mpsc::Sender<ApplyStep>, logger: Option<Logger>, nodes: Option<NodeMap>)
+               -> Result<Raft<Follower>, ConfigError> {
         config.validate()?;
 
         let log = match logger {
@@ -142,8 +140,6 @@ impl<I: Io, R: Rpc> Raft<Follower, I, R> {
             config,
             state: State::default(),
             nodes,
-            io,
-            rpc,
             role: Follower {
                 leader_id: None,
                 log: log.new(o!("role" => "follower")),
@@ -189,15 +185,13 @@ fn get_logger() -> Logger {
     Logger::root(drain, o!())
 }
 
-impl<I: Io, R: Rpc> From<Raft<Follower, I, R>> for Raft<Candidate, I, R> {
-    fn from(val: Raft<Follower, I, R>) -> Raft<Candidate, I, R> {
+impl From<Raft<Follower>> for Raft<Candidate> {
+    fn from(val: Raft<Follower>) -> Raft<Candidate> {
         let election = Election::new(val.nodes.clone());
         Raft {
             id: val.id,
             state: val.state,
             nodes: val.nodes,
-            io: val.io,
-            rpc: val.rpc,
             role: Candidate { election, log: val.log.new(o!("role" => "candidate")) },
             log: val.log,
             tx: val.tx,
@@ -217,9 +211,7 @@ mod tests {
     use std::time::Duration;
 
     use crate::follower::Follower;
-    use crate::io::MemoryIo;
     use crate::raft::ApplyStep;
-    use crate::rpc::NoopRpc;
 
     use super::Apply;
     use super::Command;
@@ -250,9 +242,9 @@ mod tests {
         }
     }
 
-    fn new_follower() -> Raft<Follower, MemoryIo, NoopRpc> {
+    fn new_follower() -> Raft<Follower> {
         let config = RaftConfig::default();
         let (tx, _rx) = mpsc::channel();
-        Raft::new(config, tx, MemoryIo::new(), NoopRpc::new(), None, None).unwrap()
+        Raft::new(config, tx, None, None).unwrap()
     }
 }
