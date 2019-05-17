@@ -90,7 +90,7 @@ impl Default for RaftConfig {
             id,
             ip,
             port: 6669,
-            nodes: vec![],
+            nodes: vec![Node { id: 0, addr: "127.0.0.1:8080".parse().unwrap() }],
             protocol_version: 0,
             heartbeat_timeout: Duration::from_millis(1000),
             election_timeout: Duration::from_millis(1000),

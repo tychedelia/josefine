@@ -20,12 +20,13 @@ use tokio::sync::oneshot;
 use crate::candidate::Candidate;
 use crate::config::{ConfigError, RaftConfig};
 use crate::election::Election;
-use crate::raft::{Apply, RaftHandle, RaftRole};
+use crate::raft::{Apply, RaftHandle, RaftRole, NodeMap};
 use crate::raft::{Command, Node, NodeId, Raft, Role, State};
 use crate::raft::Entry;
 use crate::raft::EntryType;
 use actix::Recipient;
-use crate::node::RpcMessage;
+use crate::rpc::RpcMessage;
+use tokio::prelude::future::Future;
 
 pub struct Follower {
     pub leader_id: Option<NodeId>,
@@ -77,9 +78,13 @@ impl Apply for Raft<Follower> {
             }
             Command::VoteRequest { candidate_id, last_index, last_term, .. } => {
                 if self.state.current_term > last_term || self.state.commit_index > last_index {
-//                    self.rpc.respond_vote(&self.state, candidate_id, false);
+                    self.nodes[&candidate_id]
+                        .send(RpcMessage::RespondVote(self.state.current_term, false))
+                        .wait();
                 } else {
-//                    self.rpc.respond_vote(&self.state, candidate_id, true);
+                    self.nodes[&candidate_id]
+                        .send(RpcMessage::RespondVote(self.state.current_term, true))
+                        .wait();
                 }
                 Ok(RaftHandle::Follower(self))
             }
@@ -97,7 +102,6 @@ impl Apply for Raft<Follower> {
                 Ok(RaftHandle::Follower(self))
             }
             Command::AddNode(socket_addr) => {
-                self.add_node_to_cluster(socket_addr);
                 Ok(RaftHandle::Follower(self))
             }
             _ => Ok(RaftHandle::Follower(self))
@@ -116,7 +120,7 @@ impl Raft<Follower> {
     /// * `logger` - An optional logger implementation.
     /// * `nodes` - An optional map of nodes present in the cluster.
     ///
-    pub fn new(config: RaftConfig, logger: Option<Logger>, nodes: HashMap<NodeId, Recipient<RpcMessage>>) -> Result<Raft<Follower>, ConfigError> {
+    pub fn new(config: RaftConfig, logger: Option<Logger>, nodes: NodeMap) -> Result<Raft<Follower>, ConfigError> {
         config.validate()?;
 
         let log = match logger {
@@ -129,7 +133,7 @@ impl Raft<Follower> {
             id: config.id,
             config,
             state: State::default(),
-            nodes: HashMap::new(),
+            nodes,
             role: Follower {
                 leader_id: None,
                 log: log.new(o!("role" => "follower")),
@@ -181,7 +185,7 @@ impl From<Raft<Follower>> for Raft<Candidate> {
 
 #[cfg(test)]
 mod tests {
-    use std::cell::RefCell;
+    use std::cell::{RefCell, Ref};
     use std::net::IpAddr;
     use std::net::SocketAddr;
     use std::rc::Rc;
@@ -197,6 +201,7 @@ mod tests {
     use super::Raft;
     use super::RaftConfig;
     use super::RaftHandle;
+    use std::collections::HashMap;
 
     #[test]
     fn follower_to_leader_single_node_cluster() {
@@ -222,5 +227,6 @@ mod tests {
 
     fn new_follower() -> Raft<Follower> {
         let config = RaftConfig::default();
+        Raft::new(config, None, HashMap::new()).unwrap()
     }
 }

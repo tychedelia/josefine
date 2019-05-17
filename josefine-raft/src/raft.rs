@@ -16,6 +16,7 @@ use std::thread::JoinHandle;
 use std::time::Duration;
 use std::time::Instant;
 
+use actix::{Actor, Arbiter, AsyncContext, Context, Handler, Recipient, Supervised, Supervisor, System, SystemRegistry, SystemService};
 use slog::Logger;
 use tokio::prelude::Future;
 use tokio::sync::oneshot;
@@ -25,8 +26,9 @@ use crate::candidate::Candidate;
 use crate::config::RaftConfig;
 use crate::follower::Follower;
 use crate::leader::Leader;
-use actix::{Actor, Handler, Context, Recipient};
-use crate::node::RpcMessage;
+use crate::log::get_root_logger;
+use crate::node::NodeActor;
+use crate::rpc::RpcMessage;
 
 /// An id that uniquely identifies this instance of Raft.
 pub type NodeId = u32;
@@ -184,7 +186,7 @@ pub struct Raft<T: Role> {
     pub config: RaftConfig,
 
     /// A map of known nodes in the cluster.
-    pub nodes: HashMap<NodeId, Recipient<RpcMessage>>,
+    pub nodes: NodeMap,
 
     /// Volatile and persistent state for the state machine. Note that specific additional per-role
     /// state may be contained in that role.
@@ -196,11 +198,6 @@ pub struct Raft<T: Role> {
 
 // Base methods for general operations (+ debugging and testing).
 impl<T: Role> Raft<T> {
-    /// Add the provided node to our record of the cluster.
-    pub fn add_node_to_cluster(&mut self, socket_addr: SocketAddr) {
-        info!(self.log, "Adding node"; "address" => format!("{:?}", socket_addr));
-    }
-
     /// Checks the status of the election timer.
     pub fn needs_election(&self) -> bool {
         match (self.state.election_time, self.state.election_timeout) {
@@ -239,7 +236,7 @@ pub enum RaftHandle {
 
 impl RaftHandle {
     /// Obtain a new instance of raft initialized in the default follower state.
-    pub fn new(config: RaftConfig, logger: Logger, nodes: HashMap<NodeId, Recipient<RpcMessage>>) -> RaftHandle {
+    pub fn new(config: RaftConfig, logger: Logger, nodes: NodeMap) -> RaftHandle {
         let raft = Raft::new(config, Some(logger), nodes);
         RaftHandle::Follower(raft.unwrap())
     }
@@ -264,20 +261,51 @@ pub trait Apply {
     fn apply(self, cmd: Command) -> Result<RaftHandle, failure::Error>;
 }
 
-struct RaftActor {
-    raft: Option<RaftHandle>
+pub struct RaftActor {
+    raft: Option<RaftHandle>,
+    log: Logger,
+    config: RaftConfig,
 }
 
 impl RaftActor {
-    pub fn new(config: RaftConfig, logger: Logger, nodes: HashMap<NodeId, Recipient<RpcMessage>>) -> RaftActor {
+    pub fn new(config: RaftConfig, logger: Logger, nodes: NodeMap) -> RaftActor {
+        let c = config.clone();
+        let log = logger.new(o!());
         RaftActor {
-            raft: Some(RaftHandle::new(config, logger, nodes))
+            log: logger,
+            raft: Some(RaftHandle::new(c, log, nodes)),
+            config,
         }
     }
 }
 
+pub type NodeMap = HashMap<NodeId, Recipient<RpcMessage>>;
+
+fn setup() {
+    let system = System::new("raft");
+    let config = RaftConfig::default();
+    let log = get_root_logger();
+    let raft = RaftActor::create(move |ctx| {
+        let mut nodes = HashMap::new();
+        for node in config.clone().nodes {
+            let addr = node.addr.clone();
+            let log = log.new(o!());
+            let raft = ctx.address().recipient();
+            let n = Supervisor::start(move |_| NodeActor::new(addr, log, raft));
+            nodes.insert(node.id, n.recipient());
+        }
+
+        RaftActor::new(config, log, nodes)
+    });
+    system.run();
+}
+
 impl Actor for RaftActor {
     type Context = Context<Self>;
+
+    fn started(&mut self, ctx: &mut Self::Context) {
+        info!(self.log, "Starting...");
+    }
 }
 
 impl Handler<RpcMessage> for RaftActor {
@@ -286,8 +314,17 @@ impl Handler<RpcMessage> for RaftActor {
     fn handle(&mut self, msg: RpcMessage, ctx: &mut Self::Context) -> Self::Result {
         let raft = mem::replace(&mut self.raft, None).unwrap();
         let raft = raft.apply(Command::Ping(1)).unwrap();
-        self.raft  = Some(raft);
+        self.raft = Some(raft);
         ()
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use crate::raft::setup;
+
+    #[test]
+    fn it_runs() {
+        setup();
+    }
+}

@@ -61,7 +61,6 @@ impl Apply for Raft<Leader> {
                 Ok(RaftHandle::Leader(self))
             }
             Command::AddNode(node) => {
-                self.add_node_to_cluster(node);
                 Ok(RaftHandle::Leader(self))
             }
             Command::AppendResponse { node_id, term: _, index } => {

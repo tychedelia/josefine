@@ -13,6 +13,8 @@ use crate::raft::{Apply, RaftHandle, RaftRole};
 use crate::raft::Command;
 use crate::raft::Raft;
 use crate::raft::Role;
+use crate::rpc::RpcMessage;
+use tokio::prelude::Future;
 
 pub struct Candidate {
     pub election: Election,
@@ -69,7 +71,10 @@ impl Apply for Raft<Candidate> {
                 Ok(RaftHandle::Candidate(self))
             }
             Command::VoteRequest { candidate_id, term: _, .. } => {
-//                self.rpc.respond_vote(&self.state, candidate_id, false);
+                self.nodes[&candidate_id]
+                    .send(RpcMessage::RespondVote(self.state.current_term, false))
+                    .wait()
+                    .unwrap();
                 Ok(RaftHandle::Candidate(self))
             }
             Command::VoteResponse { granted, candidate_id, .. } => {

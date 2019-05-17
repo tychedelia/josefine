@@ -3,7 +3,7 @@ use std::net::SocketAddr;
 use actix::{Actor, ActorContext, actors::{
     resolver::Connect,
     resolver::Resolver
-}, AsyncContext, Context, ContextFutureSpawner, fut::ActorFuture, fut::WrapFuture, registry::SystemService, StreamHandler, Recipient, Message, Handler, Supervised, Running};
+}, AsyncContext, Context, ContextFutureSpawner, fut::ActorFuture, fut::WrapFuture, registry::SystemService, StreamHandler, Recipient, Message, Handler, Supervised, Running, System};
 use serde::private::de::Content;
 use slog::Logger;
 use tokio::codec::{Decoder, FramedRead, LinesCodec};
@@ -15,22 +15,19 @@ use backoff::ExponentialBackoff;
 use backoff::backoff::Backoff;
 use actix::io::{FramedWrite, WriteHandler};
 use tokio::net::TcpStream;
-
-#[derive(Debug, Serialize, Deserialize)]
-pub enum RpcMessage {
-    Ping
-}
+use crate::rpc::RpcMessage;
+use crate::raft::RaftActor;
 
 impl Message for RpcMessage {
     type Result = ();
 }
 
-struct NodeActor {
+pub struct NodeActor {
     addr: SocketAddr,
     log: Logger,
     raft: Recipient<RpcMessage>,
     backoff: ExponentialBackoff,
-    write: Option<FramedWrite<WriteHalf<TcpStream>, LinesCodec>>
+    writer: Option<FramedWrite<WriteHalf<TcpStream>, LinesCodec>>
 }
 
 
@@ -43,7 +40,7 @@ impl NodeActor {
             log,
             raft,
             backoff,
-            write: None,
+            writer: None,
         }
     }
 }
@@ -57,7 +54,7 @@ impl WriteHandler<io::Error> for NodeActor {
 
 impl Supervised for NodeActor {
     fn restarting(&mut self, ctx: &mut Self::Context) {
-        info!(self.log, "Restarting...")
+        info!(self.log, "Restarting")
     }
 }
 
@@ -65,7 +62,7 @@ impl Actor for NodeActor {
     type Context = Context<Self>;
 
     fn started(&mut self, ctx: &mut Self::Context) {
-        info!(self.log, "Starting...");
+        info!(self.log, "Starting");
 
         Resolver::from_registry()
             .send(Connect::host(self.addr.to_string()))
@@ -74,24 +71,24 @@ impl Actor for NodeActor {
                 Ok(stream) => {
                     info!(act.log, "Connected"; "addr" => act.addr.to_string());
 
-                    let (r, mut w) = stream.split();
+                    let (r, w) = stream.split();
                     let line_reader = FramedRead::new(r, LinesCodec::new());
                     let line_writer = FramedWrite::new(w, LinesCodec::new(), ctx);
-                    act.write = Some(line_writer);
+                    act.writer = Some(line_writer);
 
                     Context::add_stream(ctx, line_reader);
 
                     act.backoff.reset();
                 }
                 Err(err) => {
-                    error!(act.log, "Could not connect"; "addr" => act.addr.to_string());
+                    error!(act.log, "Could not connect");
                     if let Some(timeout) = act.backoff.next_backoff() {
                         Context::run_later(ctx, timeout, |_, ctx| Context::stop(ctx));
                     }
                 }
             })
             .map_err(|err, act, ctx| {
-                error!(act.log, "Could not connect"; "addr" => act.addr.to_string());
+                error!(act.log, "Could not connect");
                 if let Some(timeout) = act.backoff.next_backoff() {
                     Context::run_later(ctx, timeout, |_, ctx| Context::stop(ctx));
                 }
@@ -100,28 +97,19 @@ impl Actor for NodeActor {
     }
 }
 
-impl StreamHandler<String, std::io::Error> for NodeActor {
-    fn handle(&mut self, line: String, _ctx: &mut Self::Context) {
-        let message: RpcMessage = serde_json::from_str(&line).unwrap();
-        self.raft.do_send(message).unwrap();
+impl Handler<RpcMessage> for NodeActor {
+    type Result = ();
+
+    fn handle(&mut self, msg: RpcMessage, ctx: &mut Self::Context) -> Self::Result {
+        if let Some(w) = &mut self.writer {
+            w.write(serde_json::to_string(&msg).unwrap());
+        }
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use std::net::SocketAddr;
-
-    use crate::log::get_root_logger;
-    use crate::node::{NodeActor, Raft};
-    use std::time::Duration;
-    use std::thread;
-
-    #[test]
-    fn it_starts() {
-        let system = actix::System::new("node-test");
-        let raft = actix::Arbiter::start(|_| Raft {});
-        let node = actix::Supervisor::start(|_|  super::NodeActor::new("127.0.0.1:8080".parse().unwrap(), get_root_logger(), raft.recipient()));
-
-//        system.run();
+impl StreamHandler<String, std::io::Error> for NodeActor {
+    fn handle(&mut self, line: String, _ctx: &mut Self::Context) {
+        let message: RpcMessage = serde_json::from_str(&line).unwrap();
+        self.raft.send(message);
     }
 }

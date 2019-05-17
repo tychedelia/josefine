@@ -32,7 +32,7 @@ use slog::Logger;
 use crate::config::RaftConfig;
 use crate::raft::{RaftRole, RaftHandle};
 
-mod actor;
+mod rpc;
 mod node;
 mod follower;
 mod candidate;
