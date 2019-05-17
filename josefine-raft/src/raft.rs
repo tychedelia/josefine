@@ -25,7 +25,7 @@ use crate::candidate::Candidate;
 use crate::config::RaftConfig;
 use crate::follower::Follower;
 use crate::leader::Leader;
-use actix::{Actor, Handler, Context};
+use actix::{Actor, Handler, Context, Recipient};
 use crate::node::RpcMessage;
 
 /// An id that uniquely identifies this instance of Raft.
@@ -173,10 +173,6 @@ impl Default for State {
     }
 }
 
-/// A map of nodes in the cluster shared between a few components in the crate.
-// TODO: Refactor into better pattern.
-pub type NodeMap = Arc<RwLock<HashMap<NodeId, Node>>>;
-
 /// The primary struct representing the state machine. Contains fields common all roles.
 pub struct Raft<T: Role> {
     /// The identifier for this node.
@@ -188,7 +184,7 @@ pub struct Raft<T: Role> {
     pub config: RaftConfig,
 
     /// A map of known nodes in the cluster.
-    pub nodes: NodeMap,
+    pub nodes: HashMap<NodeId, Recipient<RpcMessage>>,
 
     /// Volatile and persistent state for the state machine. Note that specific additional per-role
     /// state may be contained in that role.
@@ -243,8 +239,8 @@ pub enum RaftHandle {
 
 impl RaftHandle {
     /// Obtain a new instance of raft initialized in the default follower state.
-    pub fn new(config: RaftConfig, logger: Logger, nodes: NodeMap) -> RaftHandle {
-        let raft = Raft::new(config, Some(logger), Some(nodes));
+    pub fn new(config: RaftConfig, logger: Logger, nodes: HashMap<NodeId, Recipient<RpcMessage>>) -> RaftHandle {
+        let raft = Raft::new(config, Some(logger), nodes);
         RaftHandle::Follower(raft.unwrap())
     }
 }
@@ -273,7 +269,7 @@ struct RaftActor {
 }
 
 impl RaftActor {
-    pub fn new(config: RaftConfig, logger: Logger, nodes: NodeMap) -> RaftActor {
+    pub fn new(config: RaftConfig, logger: Logger, nodes: HashMap<NodeId, Recipient<RpcMessage>>) -> RaftActor {
         RaftActor {
             raft: Some(RaftHandle::new(config, logger, nodes))
         }

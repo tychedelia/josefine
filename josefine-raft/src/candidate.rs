@@ -133,10 +133,10 @@ impl From<Raft<Candidate>> for Raft<Leader> {
         Raft {
             id: val.id,
             state: val.state,
-            nodes: val.nodes.clone(),
+            nodes: val.nodes,
             role: Leader {
-                log: val.log.new(o!("role" => "leader", "nodes" => format!("{:?}", val.nodes.read().unwrap()))),
-                progress: ReplicationProgress::new(val.nodes.clone()),
+                log: val.log.new(o!("role" => "leader")),
+                progress: ReplicationProgress::new(),
                 heartbeat_time: Instant::now(),
                 heartbeat_timeout: val.config.heartbeat_timeout,
             },

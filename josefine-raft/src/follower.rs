@@ -24,7 +24,8 @@ use crate::raft::{Apply, RaftHandle, RaftRole};
 use crate::raft::{Command, Node, NodeId, Raft, Role, State};
 use crate::raft::Entry;
 use crate::raft::EntryType;
-use crate::raft::NodeMap;
+use actix::Recipient;
+use crate::node::RpcMessage;
 
 pub struct Follower {
     pub leader_id: Option<NodeId>,
@@ -115,8 +116,7 @@ impl Raft<Follower> {
     /// * `logger` - An optional logger implementation.
     /// * `nodes` - An optional map of nodes present in the cluster.
     ///
-    pub fn new(config: RaftConfig, logger: Option<Logger>, nodes: Option<NodeMap>)
-               -> Result<Raft<Follower>, ConfigError> {
+    pub fn new(config: RaftConfig, logger: Option<Logger>, nodes: HashMap<NodeId, Recipient<RpcMessage>>) -> Result<Raft<Follower>, ConfigError> {
         config.validate()?;
 
         let log = match logger {
@@ -124,21 +124,12 @@ impl Raft<Follower> {
             Some(logger) => logger.new(o!("id" => config.id)),
         };
 
-        let nodes = match nodes {
-            Some(nodes) => nodes,
-            None => Arc::new(RwLock::new(HashMap::new())),
-        };
-
-        nodes.write().unwrap().insert(config.id, Node {
-            id: config.id,
-            addr: SocketAddr::new(config.ip, config.port),
-        });
 
         let mut raft = Raft {
             id: config.id,
             config,
             state: State::default(),
-            nodes,
+            nodes: HashMap::new(),
             role: Follower {
                 leader_id: None,
                 log: log.new(o!("role" => "follower")),
@@ -176,7 +167,7 @@ fn get_logger() -> Logger {
 
 impl From<Raft<Follower>> for Raft<Candidate> {
     fn from(val: Raft<Follower>) -> Raft<Candidate> {
-        let election = Election::new(val.nodes.clone());
+        let election = Election::new();
         Raft {
             id: val.id,
             state: val.state,

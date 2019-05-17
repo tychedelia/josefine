@@ -1,23 +1,20 @@
 use std::collections::HashMap;
 
 use crate::raft::{NodeId, LogIndex};
-use crate::raft::NodeMap;
 
 pub struct ReplicationProgress {
     progress: HashMap<NodeId, ProgressHandle>,
-    nodes: NodeMap,
 }
 
 impl ReplicationProgress {
-    pub fn new(nodes: NodeMap) -> ReplicationProgress {
+    pub fn new() -> ReplicationProgress {
         let mut progress = HashMap::new();
-        for (id, _) in nodes.read().unwrap().iter() {
-            progress.insert(*id, ProgressHandle::new(*id));
-        }
+//        for (id, _) in nodes.read().unwrap().iter() {
+//            progress.insert(*id, ProgressHandle::new(*id));
+//        }
 
         ReplicationProgress {
             progress,
-            nodes,
         }
     }
 
