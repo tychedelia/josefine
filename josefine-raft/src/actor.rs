@@ -1,5 +1,5 @@
 use actix::{Actor, Context, Handler};
-use crate::raft::{RaftContainer, RaftHandle};
+use crate::raft::{RaftHandle};
 
 struct RaftActor {
     raft: RaftHandle

@@ -176,7 +176,7 @@ impl Default for State {
 pub type NodeMap = Arc<RwLock<HashMap<NodeId, Node>>>;
 
 /// The primary struct representing the state machine. Contains fields common all roles.
-pub struct Raft<S: Role> {
+pub struct Raft<T: Role> {
     /// The identifier for this node.
     pub id: NodeId,
     /// The logger implementation for this node.
@@ -196,11 +196,11 @@ pub struct Raft<S: Role> {
     pub state: State,
 
     /// An instance containing role specific state and behavior.
-    pub role: S,
+    pub role: T,
 }
 
 // Base methods for general operations (+ debugging and testing).
-impl<S: Role> Raft<S> {
+impl<T: Role> Raft<T> {
     /// Add the provided node to our record of the cluster.
     pub fn add_node_to_cluster(&mut self, socket_addr: SocketAddr) {
         info!(self.log, "Adding node"; "address" => format!("{:?}", socket_addr));
@@ -272,77 +272,5 @@ pub trait Apply {
     /// should occur for only truly exceptional conditions, and are provided to allow the wrapping
     /// server containing this state machine to shut down gracefully.
     fn apply(self, step: ApplyStep) -> Result<RaftHandle, failure::Error>;
-}
-
-pub struct RaftContainer {
-    tx: mpsc::Sender<ApplyStep>,
-    pub join_handle: JoinHandle<RaftHandle>,
-}
-
-impl RaftContainer {
-    pub fn new(config: RaftConfig, _tx: mpsc::Sender<ApplyStep>, logger: Logger, nodes: NodeMap) -> RaftContainer {
-        let (tx, rx) = mpsc::channel::<ApplyStep>();
-        let log = logger.new(o!());
-
-
-        let mut raft = RaftHandle::new(config.clone(), tx.clone(), log, nodes.clone());
-        raft = raft.apply(ApplyStep(Command::Start, None)).unwrap();
-
-        for node in &config.nodes {
-            raft = raft.apply(ApplyStep(Command::AddNode(node.addr), None)).unwrap();
-        }
-
-        info!(logger, "nodemap"; "id" => config.id, "nodes" => format!("{:?}", nodes.read().unwrap()));
-
-        let join_handle = thread::spawn(move || {
-            let mut timeout = Duration::from_millis(100);
-            let mut t = Instant::now();
-
-            let run_for = config.run_for;
-            let now = Instant::now();
-
-            loop {
-                if let Some(run_for) = run_for {
-                    if now.elapsed() > run_for {
-                        break;
-                    }
-                }
-
-                match rx.recv_timeout(timeout) {
-                    Ok(step) => {
-                        raft = raft.apply(step).unwrap();
-                    }
-                    Err(RecvTimeoutError::Timeout) => (),
-                    Err(RecvTimeoutError::Disconnected) => return raft,
-                }
-
-                let d = t.elapsed();
-                t = Instant::now();
-                if d >= timeout {
-                    timeout = Duration::from_millis(100);
-                    raft = raft.apply(ApplyStep(Command::Tick, None)).unwrap();
-                } else {
-                    timeout -= d;
-                }
-            }
-
-            raft
-        });
-
-        RaftContainer {
-            tx,
-            join_handle,
-        }
-    }
-
-    pub fn wait(self) -> RaftHandle {
-        self.join_handle.join().unwrap()
-    }
-
-    pub fn apply(&mut self, command: Command) -> impl Future<Item=ApplyResult, Error=failure::Error> {
-        let (tx, rx) = channel::<ApplyResult>();
-        self.tx.send(ApplyStep(command, Some(tx)));
-        rx.map_err(|err| err.into())
-    }
 }
 
