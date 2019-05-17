@@ -17,7 +17,7 @@ use actix::io::{FramedWrite, WriteHandler};
 use tokio::net::TcpStream;
 
 #[derive(Debug, Serialize, Deserialize)]
-enum RpcMessage {
+pub enum RpcMessage {
     Ping
 }
 

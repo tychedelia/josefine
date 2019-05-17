@@ -20,7 +20,7 @@ use tokio::sync::oneshot;
 use crate::candidate::Candidate;
 use crate::config::{ConfigError, RaftConfig};
 use crate::election::Election;
-use crate::raft::{Apply, ApplyResult, ApplyStep, RaftHandle, RaftRole};
+use crate::raft::{Apply, RaftHandle, RaftRole};
 use crate::raft::{Command, Node, NodeId, Raft, Role, State};
 use crate::raft::Entry;
 use crate::raft::EntryType;
@@ -42,16 +42,15 @@ impl Role for Follower {
 }
 
 impl Apply for Raft<Follower> {
-    fn apply(mut self, step: ApplyStep) -> Result<RaftHandle, failure::Error> {
-        let ApplyStep(command, cb) = step;
-        trace!(self.role.log, "Applying command"; "command" => format!("{:?}", command));
-        match command {
+    fn apply(mut self, cmd: Command) -> Result<RaftHandle, failure::Error> {
+        trace!(self.role.log, "Applying command"; "command" => format!("{:?}", cmd));
+        match cmd {
             Command::Start => {
                 Ok(RaftHandle::Follower(self))
             }
             Command::Tick => {
                 if self.needs_election() {
-                    return self.apply(ApplyStep(Command::Timeout, cb));
+                    return self.apply(Command::Timeout);
                 }
 
                 Ok(RaftHandle::Follower(self))
@@ -116,7 +115,7 @@ impl Raft<Follower> {
     /// * `logger` - An optional logger implementation.
     /// * `nodes` - An optional map of nodes present in the cluster.
     ///
-    pub fn new(config: RaftConfig, tx: mpsc::Sender<ApplyStep>, logger: Option<Logger>, nodes: Option<NodeMap>)
+    pub fn new(config: RaftConfig, logger: Option<Logger>, nodes: Option<NodeMap>)
                -> Result<Raft<Follower>, ConfigError> {
         config.validate()?;
 
@@ -145,20 +144,10 @@ impl Raft<Follower> {
                 log: log.new(o!("role" => "follower")),
             },
             log,
-            tx,
         };
 
         raft.init();
         Ok(raft)
-    }
-
-    fn retry(&self, command: Command, duration: Duration) {
-        info!(self.log, "Retrying command");
-        let tx = self.tx.clone();
-        thread::spawn(move || {
-            thread::sleep(duration);
-            tx.send(ApplyStep(command, None)).unwrap();
-        });
     }
 
     fn init(&mut self) {
@@ -194,7 +183,6 @@ impl From<Raft<Follower>> for Raft<Candidate> {
             nodes: val.nodes,
             role: Candidate { election, log: val.log.new(o!("role" => "candidate")) },
             log: val.log,
-            tx: val.tx,
             config: val.config,
         }
     }
@@ -211,7 +199,6 @@ mod tests {
     use std::time::Duration;
 
     use crate::follower::Follower;
-    use crate::raft::ApplyStep;
 
     use super::Apply;
     use super::Command;
@@ -224,7 +211,7 @@ mod tests {
     fn follower_to_leader_single_node_cluster() {
         let follower = new_follower();
         let id = follower.id;
-        match follower.apply(ApplyStep(Command::Timeout, None)).unwrap() {
+        match follower.apply(Command::Timeout).unwrap() {
             RaftHandle::Follower(_) => panic!(),
             RaftHandle::Candidate(_) => panic!(),
             RaftHandle::Leader(leader) => assert_eq!(id, leader.id),
@@ -235,7 +222,7 @@ mod tests {
     fn follower_noop() {
         let follower = new_follower();
         let id = follower.id;
-        match follower.apply(ApplyStep(Command::Noop, None)).unwrap() {
+        match follower.apply(Command::Noop).unwrap() {
             RaftHandle::Follower(follower) => assert_eq!(id, follower.id),
             RaftHandle::Candidate(_) => panic!(),
             RaftHandle::Leader(_) => panic!(),
@@ -244,7 +231,5 @@ mod tests {
 
     fn new_follower() -> Raft<Follower> {
         let config = RaftConfig::default();
-        let (tx, _rx) = mpsc::channel();
-        Raft::new(config, tx, None, None).unwrap()
     }
 }

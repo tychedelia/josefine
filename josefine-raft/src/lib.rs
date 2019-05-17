@@ -30,7 +30,7 @@ use std::sync::mpsc::channel;
 use slog::Logger;
 
 use crate::config::RaftConfig;
-use crate::raft::{ApplyStep, RaftRole, RaftHandle};
+use crate::raft::{RaftRole, RaftHandle};
 
 mod actor;
 mod node;

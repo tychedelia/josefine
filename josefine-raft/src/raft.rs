@@ -25,6 +25,8 @@ use crate::candidate::Candidate;
 use crate::config::RaftConfig;
 use crate::follower::Follower;
 use crate::leader::Leader;
+use actix::{Actor, Handler, Context};
+use crate::node::RpcMessage;
 
 /// An id that uniquely identifies this instance of Raft.
 pub type NodeId = u32;
@@ -182,9 +184,6 @@ pub struct Raft<T: Role> {
     /// The logger implementation for this node.
     pub log: Logger,
 
-    ///
-    pub tx: mpsc::Sender<ApplyStep>,
-
     /// Configuration for this instance.
     pub config: RaftConfig,
 
@@ -244,26 +243,21 @@ pub enum RaftHandle {
 
 impl RaftHandle {
     /// Obtain a new instance of raft initialized in the default follower state.
-    pub fn new(config: RaftConfig, tx: mpsc::Sender<ApplyStep>, logger: Logger, nodes: NodeMap) -> RaftHandle {
-        let raft = Raft::new(config, tx, Some(logger), Some(nodes));
+    pub fn new(config: RaftConfig, logger: Logger, nodes: NodeMap) -> RaftHandle {
+        let raft = Raft::new(config, Some(logger), Some(nodes));
         RaftHandle::Follower(raft.unwrap())
     }
 }
 
 impl Apply for RaftHandle {
-    fn apply(self, step: ApplyStep) -> Result<RaftHandle, failure::Error> {
+    fn apply(self, cmd: Command) -> Result<RaftHandle, failure::Error> {
         match self {
-            RaftHandle::Follower(raft) => { raft.apply(step) }
-            RaftHandle::Candidate(raft) => { raft.apply(step) }
-            RaftHandle::Leader(raft) => { raft.apply(step) }
+            RaftHandle::Follower(raft) => { raft.apply(cmd) }
+            RaftHandle::Candidate(raft) => { raft.apply(cmd) }
+            RaftHandle::Leader(raft) => { raft.apply(cmd) }
         }
     }
 }
-
-pub enum ApplyResult {}
-
-pub struct ApplyStep(pub Command, pub Option<oneshot::Sender<ApplyResult>>);
-
 
 /// Applying a command is the basic way the state machine is moved forward. Each role implements
 /// trait to handle how it responds (or does not respond) to particular commands.
@@ -271,6 +265,33 @@ pub trait Apply {
     /// Apply a command to the raft state machine, which may result in a new raft state. Errors
     /// should occur for only truly exceptional conditions, and are provided to allow the wrapping
     /// server containing this state machine to shut down gracefully.
-    fn apply(self, step: ApplyStep) -> Result<RaftHandle, failure::Error>;
+    fn apply(self, cmd: Command) -> Result<RaftHandle, failure::Error>;
+}
+
+struct RaftActor {
+    raft: Option<RaftHandle>
+}
+
+impl RaftActor {
+    pub fn new(config: RaftConfig, logger: Logger, nodes: NodeMap) -> RaftActor {
+        RaftActor {
+            raft: Some(RaftHandle::new(config, logger, nodes))
+        }
+    }
+}
+
+impl Actor for RaftActor {
+    type Context = Context<Self>;
+}
+
+impl Handler<RpcMessage> for RaftActor {
+    type Result = ();
+
+    fn handle(&mut self, msg: RpcMessage, ctx: &mut Self::Context) -> Self::Result {
+        let raft = mem::replace(&mut self.raft, None).unwrap();
+        let raft = raft.apply(Command::Ping(1)).unwrap();
+        self.raft  = Some(raft);
+        ()
+    }
 }
 

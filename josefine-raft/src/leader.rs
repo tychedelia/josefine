@@ -9,7 +9,7 @@ use slog::Logger;
 use crate::follower::Follower;
 use crate::progress::ProgressHandle;
 use crate::progress::ReplicationProgress;
-use crate::raft::{Apply, ApplyResult, ApplyStep, RaftHandle, RaftRole};
+use crate::raft::{Apply, RaftHandle, RaftRole};
 use crate::raft::Command;
 use crate::raft::Raft;
 use crate::raft::Role;
@@ -48,10 +48,9 @@ impl Role for Leader {
 }
 
 impl Apply for Raft<Leader> {
-    fn apply(mut self, step: ApplyStep) -> Result<RaftHandle, failure::Error> {
-        let ApplyStep(command, _cb) = step;
-        trace!(self.role.log, "Applying command"; "command" => format!("{:?}", command));
-        match command {
+    fn apply(mut self, cmd: Command) -> Result<RaftHandle, failure::Error> {
+        trace!(self.role.log, "Applying command"; "command" => format!("{:?}", cmd));
+        match cmd{
             Command::Tick => {
                 if self.needs_heartbeat() {
                     if let Err(_err) = self.heartbeat() {
@@ -97,7 +96,6 @@ impl From<Raft<Leader>> for Raft<Follower> {
         Raft {
             id: val.id,
             state: val.state,
-            tx: val.tx,
             nodes: val.nodes,
             role: Follower { leader_id: None, log: val.log.new(o!("role" => "follower"))  },
             log: val.log,
