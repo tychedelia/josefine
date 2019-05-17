@@ -27,7 +27,6 @@ fn main() {
 
     let config_path = matches.value_of("config").unwrap();
     let config = get_config(config_path);
-
 }
 
 fn get_config(config_path: &str) -> RaftConfig {
