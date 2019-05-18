@@ -1,13 +1,13 @@
-use std::cell::RefCell;
-use std::collections::HashMap;
-use std::io;
-use std::net::SocketAddr;
-use std::rc::Rc;
-use std::sync::Arc;
-use std::sync::mpsc;
-use std::sync::Mutex;
-use std::sync::RwLock;
-use std::thread;
+
+
+
+
+
+
+
+
+
+
 use std::time::Duration;
 use std::time::Instant;
 
@@ -15,16 +15,16 @@ use rand::Rng;
 use slog;
 use slog::Drain;
 use slog::Logger;
-use tokio::sync::oneshot;
+
 
 use crate::candidate::Candidate;
 use crate::config::{ConfigError, RaftConfig};
 use crate::election::Election;
 use crate::raft::{Apply, RaftHandle, RaftRole, NodeMap};
-use crate::raft::{Command, Node, NodeId, Raft, Role, State};
-use crate::raft::Entry;
-use crate::raft::EntryType;
-use actix::Recipient;
+use crate::raft::{Command, NodeId, Raft, Role, State};
+
+
+
 use crate::rpc::RpcMessage;
 use tokio::prelude::future::Future;
 
@@ -57,7 +57,7 @@ impl Apply for Raft<Follower> {
 
                 Ok(RaftHandle::Follower(self))
             }
-            Command::AppendEntries { entries, leader_id, term } => {
+            Command::AppendEntries { entries, leader_id, term: _ } => {
                 self.state.election_time = Some(Instant::now());
                 self.role.leader_id = Some(leader_id);
                 self.state.voted_for = Some(leader_id);
@@ -97,11 +97,11 @@ impl Apply for Raft<Follower> {
 
                 Ok(RaftHandle::Follower(self))
             }
-            Command::Ping(term, node_id) => {
+            Command::Ping(_term, _node_id) => {
 //                self.rpc.ping(node_id);
                 Ok(RaftHandle::Follower(self))
             }
-            Command::AddNode(socket_addr) => {
+            Command::AddNode(_socket_addr) => {
                 Ok(RaftHandle::Follower(self))
             }
             _ => Ok(RaftHandle::Follower(self))
@@ -188,19 +188,19 @@ impl From<Raft<Follower>> for Raft<Candidate> {
 
 #[cfg(test)]
 mod tests {
-    use std::cell::{RefCell, Ref};
-    use std::net::IpAddr;
-    use std::net::SocketAddr;
-    use std::rc::Rc;
-    use std::sync::mpsc;
-    use std::thread;
-    use std::time::Duration;
+    
+    
+    
+    
+    
+    
+    
 
     use crate::follower::Follower;
 
     use super::Apply;
     use super::Command;
-    use super::Node;
+    
     use super::Raft;
     use super::RaftConfig;
     use super::RaftHandle;

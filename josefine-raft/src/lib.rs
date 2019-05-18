@@ -23,14 +23,14 @@ extern crate slog_async;
 extern crate slog_term;
 extern crate threadpool;
 
-use std::collections::HashMap;
-use std::sync::{Arc, RwLock};
-use std::sync::mpsc::channel;
+
+
+
 
 use slog::Logger;
 
 use crate::config::RaftConfig;
-use crate::raft::{RaftRole, RaftHandle, setup};
+use crate::raft::{setup};
 
 mod rpc;
 mod node;

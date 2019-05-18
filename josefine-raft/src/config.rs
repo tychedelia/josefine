@@ -2,11 +2,11 @@ use std::error::Error;
 use std::fmt;
 use std::fmt::Formatter;
 use std::net::{IpAddr, Ipv4Addr};
-use std::net::SocketAddr;
+
 use std::net::ToSocketAddrs;
 use std::time::Duration;
 
-use crate::config;
+
 use crate::raft::Node;
 use crate::raft::NodeId;
 

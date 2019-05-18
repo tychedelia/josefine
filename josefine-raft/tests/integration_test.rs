@@ -1,7 +1,7 @@
 extern crate josefine_raft;
 
 use josefine_raft::config::RaftConfig;
-use josefine_raft::raft::{Node, RaftHandle};
+
 use std::time::Duration;
 use std::thread;
 use josefine_raft::JosefineBuilder;

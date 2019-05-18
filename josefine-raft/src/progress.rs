@@ -8,7 +8,7 @@ pub struct ReplicationProgress {
 
 impl ReplicationProgress {
     pub fn new() -> ReplicationProgress {
-        let mut progress = HashMap::new();
+        let progress = HashMap::new();
 //        for (id, _) in nodes.read().unwrap().iter() {
 //            progress.insert(*id, ProgressHandle::new(*id));
 //        }

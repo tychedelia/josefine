@@ -1,26 +1,26 @@
-use std::{mem, thread};
-use std::cell::RefCell;
+use std::{mem};
+
 use std::collections::HashMap;
-use std::io::Error;
-use std::net::IpAddr;
+
+
 use std::net::SocketAddr;
 use std::ops::Index;
-use std::rc::Rc;
-use std::sync::Arc;
-use std::sync::mpsc;
-use std::sync::mpsc::RecvTimeoutError;
-use std::sync::Mutex;
-use std::sync::RwLock;
-use std::sync::RwLockReadGuard;
-use std::thread::JoinHandle;
+
+
+
+
+
+
+
+
 use std::time::Duration;
 use std::time::Instant;
 
 use actix::{Actor, Arbiter, AsyncContext, Context, Handler, Recipient, Supervised, Supervisor, System, SystemRegistry, SystemService, SystemRunner};
 use slog::Logger;
 use tokio::prelude::Future;
-use tokio::sync::oneshot;
-use tokio::sync::oneshot::channel;
+
+
 
 use crate::candidate::Candidate;
 use crate::config::RaftConfig;
@@ -284,7 +284,7 @@ pub type NodeMap = HashMap<NodeId, Recipient<RpcMessage>>;
 pub fn setup(config: RaftConfig) {
     let system = System::new("raft");
     let log = get_root_logger();
-    let raft = RaftActor::create(move |ctx| {
+    let _raft = RaftActor::create(move |ctx| {
         let mut nodes = HashMap::new();
         for node in config.clone().nodes {
             let addr = node.addr.clone();
@@ -302,7 +302,7 @@ pub fn setup(config: RaftConfig) {
 impl Actor for RaftActor {
     type Context = Context<Self>;
 
-    fn started(&mut self, ctx: &mut Self::Context) {
+    fn started(&mut self, _ctx: &mut Self::Context) {
         info!(self.log, "Starting...");
     }
 }
@@ -310,7 +310,7 @@ impl Actor for RaftActor {
 impl Handler<RpcMessage> for RaftActor {
     type Result = ();
 
-    fn handle(&mut self, msg: RpcMessage, ctx: &mut Self::Context) -> Self::Result {
+    fn handle(&mut self, msg: RpcMessage, _ctx: &mut Self::Context) -> Self::Result {
         info!(self.log, "Received message"; "msg" => format!("{:?}", msg));
         let raft = mem::replace(&mut self.raft, None).unwrap();
         let raft = raft.apply(msg.into()).unwrap();

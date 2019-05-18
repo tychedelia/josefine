@@ -1,6 +1,6 @@
-use std::io::Error;
-use std::sync::mpsc::Sender;
-use std::time::Duration;
+
+
+
 use std::time::Instant;
 
 use slog::Logger;
@@ -94,7 +94,7 @@ impl Apply for Raft<Candidate> {
                     },
                 }
             }
-            Command::AppendEntries { entries, term, .. } => {
+            Command::AppendEntries { entries: _, term, .. } => {
                 // While waiting for votes, a candidate may receive an
                 // AppendEntries RPC from another server claiming to be
                 // leader. If the leader’s term (included in its RPC) is at least
@@ -103,7 +103,7 @@ impl Apply for Raft<Candidate> {
                 // state.
                 if term >= self.state.current_term {
                     info!(self.role.log, "Received higher term, transitioning to follower");
-                    let mut raft: Raft<Follower> = Raft::from(self);
+                    let raft: Raft<Follower> = Raft::from(self);
 //                    raft.io.append(entries)?;
                     return Ok(RaftHandle::Follower(raft));
                 }

@@ -1,9 +1,9 @@
-use std::io::Error;
-use std::sync::mpsc::Sender;
+
+
 use std::time::Duration;
 use std::time::Instant;
 
-use rand::Rng;
+
 use slog::Logger;
 
 use crate::follower::Follower;
@@ -60,7 +60,7 @@ impl Apply for Raft<Leader> {
                 }
                 Ok(RaftHandle::Leader(self))
             }
-            Command::AddNode(node) => {
+            Command::AddNode(_node) => {
                 Ok(RaftHandle::Leader(self))
             }
             Command::AppendResponse { node_id, term: _, index } => {
