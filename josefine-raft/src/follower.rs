@@ -97,7 +97,7 @@ impl Apply for Raft<Follower> {
 
                 Ok(RaftHandle::Follower(self))
             }
-            Command::Ping(node_id) => {
+            Command::Ping(term, node_id) => {
 //                self.rpc.ping(node_id);
                 Ok(RaftHandle::Follower(self))
             }
@@ -171,7 +171,10 @@ fn get_logger() -> Logger {
 
 impl From<Raft<Follower>> for Raft<Candidate> {
     fn from(val: Raft<Follower>) -> Raft<Candidate> {
-        let election = Election::new();
+        let mut node_ids: Vec<NodeId> = val.nodes.iter().map(|(k, _v)| *k).collect();
+        node_ids.push(val.id);
+        let election = Election::new(node_ids);
+
         Raft {
             id: val.id,
             state: val.state,

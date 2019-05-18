@@ -16,7 +16,7 @@ use std::thread::JoinHandle;
 use std::time::Duration;
 use std::time::Instant;
 
-use actix::{Actor, Arbiter, AsyncContext, Context, Handler, Recipient, Supervised, Supervisor, System, SystemRegistry, SystemService};
+use actix::{Actor, Arbiter, AsyncContext, Context, Handler, Recipient, Supervised, Supervisor, System, SystemRegistry, SystemService, SystemRunner};
 use slog::Logger;
 use tokio::prelude::Future;
 use tokio::sync::oneshot;
@@ -92,7 +92,7 @@ pub enum Command {
     /// Don't do anything.
     Noop,
     /// Say hello to another node.
-    Ping(NodeId),
+    Ping(Term, NodeId),
 }
 
 /// Shared behavior that all roles of the state machine must implement.
@@ -281,9 +281,8 @@ impl RaftActor {
 
 pub type NodeMap = HashMap<NodeId, Recipient<RpcMessage>>;
 
-fn setup() {
+pub fn setup(config: RaftConfig) {
     let system = System::new("raft");
-    let config = RaftConfig::default();
     let log = get_root_logger();
     let raft = RaftActor::create(move |ctx| {
         let mut nodes = HashMap::new();
@@ -312,19 +311,10 @@ impl Handler<RpcMessage> for RaftActor {
     type Result = ();
 
     fn handle(&mut self, msg: RpcMessage, ctx: &mut Self::Context) -> Self::Result {
+        info!(self.log, "Received message"; "msg" => format!("{:?}", msg));
         let raft = mem::replace(&mut self.raft, None).unwrap();
-        let raft = raft.apply(Command::Ping(1)).unwrap();
+        let raft = raft.apply(msg.into()).unwrap();
         self.raft = Some(raft);
         ()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::raft::setup;
-
-    #[test]
-    fn it_runs() {
-        setup();
     }
 }

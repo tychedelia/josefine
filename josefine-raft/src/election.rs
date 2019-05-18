@@ -15,9 +15,9 @@ pub enum ElectionStatus {
 }
 
 impl Election {
-    pub fn new() -> Election {
+    pub fn new(voter_ids: Vec<NodeId>) -> Election {
         let mut election = Election {
-            voter_ids: Vec::new(),
+            voter_ids,
             votes: HashMap::new(),
         };
 
@@ -26,12 +26,7 @@ impl Election {
     }
 
     pub fn reset(&mut self) {
-        self.voter_ids.clear();
         self.votes.clear();
-//
-//        for (k, _v) in self.nodes.read().unwrap().iter() {
-//            self.voter_ids.push(k.clone());
-//        }
     }
 
     pub fn vote(&mut self, id: NodeId, vote: bool) {
@@ -67,6 +62,7 @@ impl Election {
 
     #[inline]
     fn quorum_size(&self) -> usize {
+        // If we are a single node cluster, we always win the election
         if self.voter_ids.len() == 1 {
             return 0;
         }

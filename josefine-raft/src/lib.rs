@@ -30,7 +30,7 @@ use std::sync::mpsc::channel;
 use slog::Logger;
 
 use crate::config::RaftConfig;
-use crate::raft::{RaftRole, RaftHandle};
+use crate::raft::{RaftRole, RaftHandle, setup};
 
 mod rpc;
 mod node;
@@ -81,8 +81,8 @@ impl JosefineBuilder {
         }
     }
 
-    pub fn build(self) -> RaftHandle {
-        unimplemented!()
+    pub fn build(self) {
+        setup(self.config);
     }
 }
 

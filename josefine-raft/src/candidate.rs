@@ -80,9 +80,18 @@ impl Apply for Raft<Candidate> {
             Command::VoteResponse { granted, candidate_id, .. } => {
                 self.role.election.vote(candidate_id, granted);
                 match self.role.election.election_status() {
-                    ElectionStatus::Elected => Ok(RaftHandle::Leader(Raft::from(self))),
-                    ElectionStatus::Voting => Ok(RaftHandle::Candidate(self)),
-                    ElectionStatus::Defeated => Ok(RaftHandle::Follower(Raft::from(self))),
+                    ElectionStatus::Elected => {
+                        info!(self.role.log, "I have been elected leader");
+                        Ok(RaftHandle::Leader(Raft::from(self)))
+                    },
+                    ElectionStatus::Voting => {
+                        info!(self.role.log, "We are still voting");
+                        Ok(RaftHandle::Candidate(self))
+                    },
+                    ElectionStatus::Defeated => {
+                        info!(self.role.log, "I was defeated in the election");
+                        Ok(RaftHandle::Follower(Raft::from(self)))
+                    },
                 }
             }
             Command::AppendEntries { entries, term, .. } => {

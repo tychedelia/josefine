@@ -4,28 +4,24 @@ use josefine_raft::config::RaftConfig;
 use josefine_raft::raft::{Node, RaftHandle};
 use std::time::Duration;
 use std::thread;
+use josefine_raft::JosefineBuilder;
 
 #[test]
 fn it_runs() {
-//    let config = RaftConfig {
-//        run_for: Some(Duration::from_secs(1)),
-//        port: 5440,
-//        nodes: vec![Node {
-//            id: 0,
-//            addr: "127.0.0.1:5440".parse().unwrap(),
-//        }],
-//        ..RaftConfig::default()
-//    };
-//
-//    let josefine = JosefineBuilder::new()
-//        .with_config(config)
-//        .build();
-//    let raft = josefine.wait();
-//
-//    match raft {
-//        RaftHandle::Leader(_) => {},
-//        _ => panic!("is not leader!"),
-//    }
+    thread::spawn(|| {
+        let config = RaftConfig {
+            run_for: Some(Duration::from_secs(1)),
+            port: 5440,
+            nodes: vec![],
+            ..RaftConfig::default()
+        };
+
+        JosefineBuilder::new()
+            .with_config(config)
+            .build();
+    });
+
+    thread::sleep(Duration::from_secs(1));
 }
 
 #[test]

@@ -71,9 +71,11 @@ impl Actor for NodeActor {
                 Ok(stream) => {
                     info!(act.log, "Connected"; "addr" => act.addr.to_string());
 
-                    let (r, w) = stream.split();
+                    let (r, mut w) = stream.split();
+                    w.write(serde_json::to_string(&RpcMessage::Ping(1, 1)).unwrap().as_bytes());
+
                     let line_reader = FramedRead::new(r, LinesCodec::new());
-                    let line_writer = FramedWrite::new(w, LinesCodec::new(), ctx);
+                    let mut line_writer = FramedWrite::new(w, LinesCodec::new(), ctx);
                     act.writer = Some(line_writer);
 
                     Context::add_stream(ctx, line_reader);
@@ -102,14 +104,15 @@ impl Handler<RpcMessage> for NodeActor {
 
     fn handle(&mut self, msg: RpcMessage, ctx: &mut Self::Context) -> Self::Result {
         if let Some(w) = &mut self.writer {
-            w.write(serde_json::to_string(&msg).unwrap());
+            w.write(serde_json::to_string(&msg).unwrap() + "\n");
         }
     }
 }
 
 impl StreamHandler<String, std::io::Error> for NodeActor {
     fn handle(&mut self, line: String, _ctx: &mut Self::Context) {
+        info!(self.log, "TCP read"; "line" => &line);
         let message: RpcMessage = serde_json::from_str(&line).unwrap();
-        self.raft.send(message);
+        self.raft.try_send(message).unwrap();
     }
 }
