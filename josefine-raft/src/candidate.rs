@@ -33,7 +33,7 @@ impl Raft<Candidate> {
             node.try_send(RpcMessage::RequestVote(self.state.current_term, self.id, self.state.current_term, self.state.commit_index)).unwrap();
         }
 
-        self.apply(Command::VoteResponse { candidate_id: from, term, granted: true })
+        self.apply(Command::VoteResponse { from, term, granted: true })
     }
 }
 
@@ -59,13 +59,13 @@ impl Apply for Raft<Candidate> {
                             Ok(RaftHandle::Leader(Raft::from(self)))
                         },
                         ElectionStatus::Voting => {
-                            trace!(self.role.log, "Election ended with missing votes");
+                            info!(self.role.log, "Election ended with missing votes");
                             self.state.voted_for = None;
                             let raft: Raft<Follower> = Raft::from(self);
                             Ok(raft.apply(Command::Timeout)?)
                         },
                         ElectionStatus::Defeated => {
-                            trace!(self.role.log, "Defeated in election.");
+                            info!(self.role.log, "Defeated in election.");
                             self.state.voted_for = None;
                             let raft: Raft<Follower> = Raft::from(self);
                             Ok(raft.apply(Command::Timeout)?)
@@ -73,17 +73,18 @@ impl Apply for Raft<Candidate> {
                     }
                 }
 
+//                info!(self.role.log, "Transitioning to follower");
                 Ok(RaftHandle::Candidate(self))
             }
             Command::VoteRequest { candidate_id, term: _, .. } => {
                 self.nodes[&candidate_id]
-                    .send(RpcMessage::RespondVote(self.state.current_term, candidate_id, false))
-                    .wait()
+                    .try_send(RpcMessage::RespondVote(self.state.current_term, self.id, false))
                     .unwrap();
                 Ok(RaftHandle::Candidate(self))
             }
-            Command::VoteResponse { granted, candidate_id, .. } => {
-                self.role.election.vote(candidate_id, granted);
+            Command::VoteResponse { granted, from, .. } => {
+                info!(self.role.log, "Recieved vote"; "granted" => granted, "from" => from);
+                self.role.election.vote(from, granted);
                 match self.role.election.election_status() {
                     ElectionStatus::Elected => {
                         info!(self.role.log, "I have been elected leader");

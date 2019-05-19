@@ -48,7 +48,7 @@ pub enum Command {
         /// The term of the voter.
         term: Term,
         /// The id of the voter responding to the vote.
-        candidate_id: NodeId,
+        from: NodeId,
         /// Whether the vote was granted to the candidate.
         granted: bool,
     },
@@ -310,7 +310,7 @@ impl Handler<RpcMessage> for RaftActor {
     type Result = ();
 
     fn handle(&mut self, msg: RpcMessage, _ctx: &mut Self::Context) -> Self::Result {
-        info!(self.log, "Received message"; "msg" => format!("{:?}", msg));
+//        info!(self.log, "Received message"; "msg" => format!("{:?}", msg));
         let raft = mem::replace(&mut self.raft, None).unwrap();
         let raft = raft.apply(msg.into()).unwrap();
         self.raft = Some(raft);

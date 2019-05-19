@@ -44,10 +44,9 @@ impl Election {
                 (votes, total)
             });
 
-
         if votes > self.quorum_size() {
             ElectionStatus::Elected
-        } else if votes - total == self.quorum_size() {
+        } else if total - votes == self.quorum_size() {
             ElectionStatus::Defeated
         } else {
             ElectionStatus::Voting

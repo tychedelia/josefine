@@ -12,9 +12,9 @@ impl From<RpcMessage> for Command {
     fn from(msg: RpcMessage) -> Self {
         match msg {
             RpcMessage::Ping(term, id) => Command::Ping(term, id),
-            RpcMessage::RespondVote(term, candidate_id, granted) => Command::VoteResponse {
+            RpcMessage::RespondVote(term, from, granted) => Command::VoteResponse {
                 term,
-                candidate_id,
+                from,
                 granted,
             },
             RpcMessage::RequestVote(term, candidate_id, last_term, last_index) => Command::VoteRequest {
