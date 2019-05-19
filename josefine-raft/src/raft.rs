@@ -3,7 +3,7 @@ use std::{mem};
 use std::collections::HashMap;
 
 
-use std::net::SocketAddr;
+use std::net::{SocketAddr, Ipv4Addr, IpAddr};
 use std::ops::Index;
 
 
@@ -29,6 +29,7 @@ use crate::leader::Leader;
 use crate::log::get_root_logger;
 use crate::node::NodeActor;
 use crate::rpc::RpcMessage;
+use crate::listener::TcpListenerActor;
 
 /// An id that uniquely identifies this instance of Raft.
 pub type NodeId = u32;
@@ -281,10 +282,14 @@ impl RaftActor {
 
 pub type NodeMap = HashMap<NodeId, Recipient<RpcMessage>>;
 
-pub fn setup(config: RaftConfig) {
+pub fn setup(log: Logger, config: RaftConfig) {
     let system = System::new("raft");
-    let log = get_root_logger();
     let _raft = RaftActor::create(move |ctx| {
+        let l = log.new(o!());
+        let addr = SocketAddr::new("127.0.0.1".parse().unwrap(), config.port); // TODO: :(
+        let raft = ctx.address().recipient();
+        let server = Supervisor::start(move |_| TcpListenerActor::new(addr, l, raft));
+
         let mut nodes = HashMap::new();
         for node in config.clone().nodes {
             let addr = node.addr.clone();

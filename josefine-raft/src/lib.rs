@@ -32,6 +32,7 @@ use slog::Logger;
 use crate::config::RaftConfig;
 use crate::raft::{setup};
 
+mod listener;
 mod rpc;
 mod node;
 mod follower;
@@ -51,26 +52,17 @@ pub mod config;
 mod progress;
 mod log;
 
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
-    }
-}
-
 pub struct JosefineBuilder {
     config: RaftConfig,
     log: Logger,
 }
 
-
 impl JosefineBuilder {
     pub fn new() -> JosefineBuilder {
+        let config = RaftConfig::default();
         JosefineBuilder {
-            config: RaftConfig::default(),
-            log: log::get_root_logger(),
+            log: log::get_root_logger(config.clone()),
+            config,
         }
     }
 
@@ -82,7 +74,7 @@ impl JosefineBuilder {
     }
 
     pub fn build(self) {
-        setup(self.config);
+        setup(self.log, self.config);
     }
 }
 

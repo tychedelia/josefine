@@ -83,14 +83,14 @@ impl Actor for NodeActor {
                     act.backoff.reset();
                 }
                 Err(_err) => {
-                    error!(act.log, "Could not connect");
+                    error!(act.log, "Could not connect"; "addr" => act.addr.to_string());
                     if let Some(timeout) = act.backoff.next_backoff() {
                         Context::run_later(ctx, timeout, |_, ctx| Context::stop(ctx));
                     }
                 }
             })
             .map_err(|_err, act, ctx| {
-                error!(act.log, "Could not connect");
+                error!(act.log, "Could not connect"; "addr" => act.addr.to_string());
                 if let Some(timeout) = act.backoff.next_backoff() {
                     Context::run_later(ctx, timeout, |_, ctx| Context::stop(ctx));
                 }
