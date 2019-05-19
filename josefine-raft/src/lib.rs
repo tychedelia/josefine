@@ -66,10 +66,17 @@ impl JosefineBuilder {
         }
     }
 
+    pub fn with_log(self, log: Logger) -> Self {
+        JosefineBuilder {
+            log,
+            ..self
+        }
+    }
+
     pub fn with_config(self, config: RaftConfig) -> Self {
         JosefineBuilder {
+            log: log::get_root_logger(config.clone()),
             config,
-            ..self
         }
     }
 

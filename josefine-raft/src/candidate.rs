@@ -28,6 +28,11 @@ impl Raft<Candidate> {
         self.state.current_term += 1;
         let from = self.id;
         let term = self.state.current_term;
+
+        for (_, node) in &self.nodes {
+            node.try_send(RpcMessage::RequestVote(self.state.current_term, self.id, self.state.current_term, self.state.commit_index)).unwrap();
+        }
+
         self.apply(Command::VoteResponse { candidate_id: from, term, granted: true })
     }
 }
@@ -72,7 +77,7 @@ impl Apply for Raft<Candidate> {
             }
             Command::VoteRequest { candidate_id, term: _, .. } => {
                 self.nodes[&candidate_id]
-                    .send(RpcMessage::RespondVote(self.state.current_term, false))
+                    .send(RpcMessage::RespondVote(self.state.current_term, candidate_id, false))
                     .wait()
                     .unwrap();
                 Ok(RaftHandle::Candidate(self))

@@ -109,8 +109,12 @@ impl Actor for TcpReaderActor {
 
 impl StreamHandler<String, std::io::Error> for TcpReaderActor {
     fn handle(&mut self, line: String, _ctx: &mut Self::Context) {
+        if line.is_empty() {
+            return
+        }
+
         info!(self.log, "TCP read"; "line" => &line);
-        let message: RpcMessage = serde_json::from_str(&line).unwrap();
+        let message: RpcMessage = serde_json::from_str(&line).expect(&line);
         self.raft.try_send(message).unwrap();
     }
 }

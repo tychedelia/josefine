@@ -55,6 +55,7 @@ impl Apply for Raft<Follower> {
                     return self.apply(Command::Timeout);
                 }
 
+                info!(self.role.log, "Transitioning to follower");
                 Ok(RaftHandle::Follower(self))
             }
             Command::AppendEntries { entries, leader_id, term: _ } => {
@@ -79,11 +80,11 @@ impl Apply for Raft<Follower> {
             Command::VoteRequest { candidate_id, last_index, last_term, .. } => {
                 if self.state.current_term > last_term || self.state.commit_index > last_index {
                     self.nodes[&candidate_id]
-                        .send(RpcMessage::RespondVote(self.state.current_term, false))
+                        .send(RpcMessage::RespondVote(self.state.current_term, candidate_id, false))
                         .wait();
                 } else {
                     self.nodes[&candidate_id]
-                        .send(RpcMessage::RespondVote(self.state.current_term, true))
+                        .send(RpcMessage::RespondVote(self.state.current_term, candidate_id, true))
                         .wait();
                 }
                 Ok(RaftHandle::Follower(self))

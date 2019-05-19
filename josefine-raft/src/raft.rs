@@ -1,26 +1,12 @@
-use std::{mem};
-
+use std::{mem, thread};
 use std::collections::HashMap;
-
-
 use std::net::{SocketAddr, Ipv4Addr, IpAddr};
 use std::ops::Index;
-
-
-
-
-
-
-
-
 use std::time::Duration;
 use std::time::Instant;
-
 use actix::{Actor, Arbiter, AsyncContext, Context, Handler, Recipient, Supervised, Supervisor, System, SystemRegistry, SystemService, SystemRunner};
 use slog::Logger;
 use tokio::prelude::Future;
-
-
 
 use crate::candidate::Candidate;
 use crate::config::RaftConfig;
@@ -298,6 +284,14 @@ pub fn setup(log: Logger, config: RaftConfig) {
             let n = Supervisor::start(move |_| NodeActor::new(addr, log, raft));
             nodes.insert(node.id, n.recipient());
         }
+
+        let raft = ctx.address().recipient();
+        thread::spawn(move || {
+            loop {
+                thread::sleep(Duration::from_millis(100));
+                raft.try_send(RpcMessage::Tick).unwrap();
+            }
+        });
 
         RaftActor::new(config, log, nodes)
     });
