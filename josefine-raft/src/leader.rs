@@ -13,6 +13,7 @@ use crate::raft::{Apply, RaftHandle, RaftRole};
 use crate::raft::Command;
 use crate::raft::Raft;
 use crate::raft::Role;
+use crate::rpc::RpcMessage;
 
 ///
 pub struct Leader {
@@ -26,6 +27,10 @@ pub struct Leader {
 
 impl Raft<Leader> {
     fn heartbeat(&self) -> Result<(), failure::Error> {
+        for (_, node) in &self.nodes {
+            node.try_send(RpcMessage::HeartBeat(self.state.current_term, self.id))?;
+        };
+
         Ok(())
     }
 

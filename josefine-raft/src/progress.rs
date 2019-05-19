@@ -19,11 +19,11 @@ impl ReplicationProgress {
     }
 
     pub fn get(&self, node_id: NodeId) -> Option<&ProgressHandle> {
-        return self.progress.get(&node_id);
+        self.progress.get(&node_id)
     }
 
     pub fn get_mut(&mut self, node_id: NodeId) -> Option<&mut ProgressHandle> {
-        return self.progress.get_mut(&node_id);
+        self.progress.get_mut(&node_id)
     }
 
     pub fn insert(&mut self, node_id: NodeId) {
