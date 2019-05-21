@@ -46,7 +46,6 @@ fn three_node_cluster() {
             }
         })
         .map(|config| {
-//            thread::sleep(Duration::from_secs(1));
             thread::spawn(move || {
                 JosefineBuilder::new()
                     .with_config(config)
@@ -57,5 +56,5 @@ fn three_node_cluster() {
         })
         .collect();
 
-    thread::sleep(Duration::from_secs(100));
+    thread::sleep(Duration::from_secs(10));
 }

@@ -1,4 +1,4 @@
-use std::{mem, thread};
+use std::{mem, thread, fmt};
 use std::collections::HashMap;
 use std::net::{SocketAddr, Ipv4Addr, IpAddr};
 use std::ops::Index;
@@ -16,6 +16,8 @@ use crate::log::get_root_logger;
 use crate::node::NodeActor;
 use crate::rpc::RpcMessage;
 use crate::listener::TcpListenerActor;
+use std::fmt::{Debug, Formatter};
+use std::error::Error;
 
 /// An id that uniquely identifies this instance of Raft.
 pub type NodeId = u32;
@@ -87,6 +89,7 @@ pub trait Role {
     /// Set the term for the node, reseting the current election.
     fn term(&mut self, term: u64);
     fn role(&self) -> RaftRole;
+    fn log(&self) -> &Logger;
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -129,12 +132,10 @@ pub struct State {
     pub current_term: u64,
     /// Who the node has voted for in the current election.
     pub voted_for: Option<NodeId>,
-
     /// The current commit index of the replicated log.
     pub commit_index: LogIndex,
     ///
     pub last_applied: u64,
-
     /// The time the election was started.
     pub election_time: Option<Instant>,
     /// The timeout for the current election.
@@ -143,6 +144,21 @@ pub struct State {
     pub min_election_timeout: usize,
     /// The min timeout that can be selected randomly.
     pub max_election_timeout: usize,
+}
+
+impl Debug for State {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let timeout = match (self.election_time, self.election_timeout) {
+            (Some(time), Some(timeout)) => if timeout > time.elapsed() {
+                timeout - time.elapsed()
+            } else {
+                Duration::from_secs(0)
+            },
+            _ => Duration::from_secs(0),
+        };
+        write!(f, "State {{ current_term: {}, voted_for: {:?}, commit_index: {}, last_applied: {}, timeout: {:?} }}",
+               self.current_term, self.voted_for, self.commit_index, self.last_applied, timeout)
+    }
 }
 
 impl State {}
@@ -156,8 +172,8 @@ impl Default for State {
             last_applied: 0,
             election_time: None,
             election_timeout: None,
-            min_election_timeout: 10,
-            max_election_timeout: 10000,
+            min_election_timeout: 500,
+            max_election_timeout: 1000,
         }
     }
 }
@@ -200,6 +216,13 @@ impl<T: Role> Raft<T> {
 
         self.role.term(term);
     }
+
+    pub fn log_command(&self, cmd: &Command) {
+        match cmd {
+//            Command::Tick => {}
+            _ => debug!(self.role.log(), ""; "state" => format!("{:?}", self.state), "cmd" => format!("{:?}", cmd))
+        };
+    }
 }
 
 pub enum RaftRole {
@@ -224,7 +247,7 @@ pub enum RaftHandle {
 impl RaftHandle {
     /// Obtain a new instance of raft initialized in the default follower state.
     pub fn new(config: RaftConfig, logger: Logger, nodes: NodeMap) -> RaftHandle {
-        let raft = Raft::new(config, Some(logger), nodes);
+        let raft = Raft::new(config, logger, nodes);
         RaftHandle::Follower(raft.unwrap())
     }
 }
@@ -302,7 +325,7 @@ impl Actor for RaftActor {
     type Context = Context<Self>;
 
     fn started(&mut self, _ctx: &mut Self::Context) {
-        info!(self.log, "Starting...");
+        info!(self.log, "Starting Raft"; "config" => format!("{:?}", self.config));
     }
 }
 

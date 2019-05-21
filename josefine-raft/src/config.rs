@@ -92,7 +92,7 @@ impl Default for RaftConfig {
             port: 6669,
             nodes: vec![],
             protocol_version: 0,
-            heartbeat_timeout: Duration::from_millis(1000),
+            heartbeat_timeout: Duration::from_millis(100),
             election_timeout: Duration::from_millis(1000),
             commit_timeout: Duration::from_millis(50),
             max_append_entries: 64,

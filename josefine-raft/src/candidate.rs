@@ -45,11 +45,15 @@ impl Role for Candidate {
     fn role(&self) -> RaftRole {
         RaftRole::Candidate
     }
+
+    fn log(&self) -> &Logger {
+        &self.log
+    }
 }
 
 impl Apply for Raft<Candidate> {
     fn apply(mut self, cmd: Command) -> Result<RaftHandle, failure::Error> {
-        trace!(self.role.log, "Applying command"; "command" => format!("{:?}", cmd));
+        self.log_command(&cmd);
         match cmd {
             Command::Tick => {
                 if self.needs_election() {

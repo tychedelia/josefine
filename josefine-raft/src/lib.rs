@@ -21,9 +21,8 @@ extern crate serde_derive;
 extern crate slog;
 extern crate slog_async;
 extern crate slog_term;
-extern crate threadpool;
-
-
+#[macro_use]
+extern crate lazy_static;
 
 
 
@@ -31,6 +30,7 @@ use slog::Logger;
 
 use crate::config::RaftConfig;
 use crate::raft::{setup};
+use crate::log::get_instance_logger;
 
 mod listener;
 mod rpc;
@@ -54,19 +54,19 @@ mod log;
 
 pub struct JosefineBuilder {
     config: RaftConfig,
-    log: Logger,
+    log: &'static Logger,
 }
 
 impl JosefineBuilder {
     pub fn new() -> JosefineBuilder {
         let config = RaftConfig::default();
         JosefineBuilder {
-            log: log::get_root_logger(config.clone()),
+            log: log::get_root_logger(),
             config,
         }
     }
 
-    pub fn with_log(self, log: Logger) -> Self {
+    pub fn with_log(self, log: &'static Logger) -> Self {
         JosefineBuilder {
             log,
             ..self
@@ -75,13 +75,13 @@ impl JosefineBuilder {
 
     pub fn with_config(self, config: RaftConfig) -> Self {
         JosefineBuilder {
-            log: log::get_root_logger(config.clone()),
+            log: log::get_root_logger(),
             config,
         }
     }
 
     pub fn build(self) {
-        setup(self.log, self.config);
+        setup(get_instance_logger(self.log, &self.config), self.config);
     }
 }
 

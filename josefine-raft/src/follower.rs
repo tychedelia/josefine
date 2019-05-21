@@ -1,13 +1,3 @@
-
-
-
-
-
-
-
-
-
-
 use std::time::Duration;
 use std::time::Instant;
 
@@ -15,18 +5,14 @@ use rand::Rng;
 use slog;
 use slog::Drain;
 use slog::Logger;
-
+use tokio::prelude::future::Future;
 
 use crate::candidate::Candidate;
 use crate::config::{ConfigError, RaftConfig};
 use crate::election::Election;
-use crate::raft::{Apply, RaftHandle, RaftRole, NodeMap};
+use crate::raft::{Apply, LogIndex, NodeMap, RaftHandle, RaftRole, Term};
 use crate::raft::{Command, NodeId, Raft, Role, State};
-
-
-
 use crate::rpc::RpcMessage;
-use tokio::prelude::future::Future;
 
 pub struct Follower {
     pub leader_id: Option<NodeId>,
@@ -41,11 +27,15 @@ impl Role for Follower {
     fn role(&self) -> RaftRole {
         RaftRole::Follower
     }
+
+    fn log(&self) -> &Logger {
+        &self.log
+    }
 }
 
 impl Apply for Raft<Follower> {
     fn apply(mut self, cmd: Command) -> Result<RaftHandle, failure::Error> {
-        trace!(self.role.log, "Applying command"; "command" => format!("{:?}", cmd));
+        self.log_command(&cmd);
         match cmd {
             Command::Start => {
                 Ok(RaftHandle::Follower(self))
@@ -70,23 +60,23 @@ impl Apply for Raft<Follower> {
                 Ok(RaftHandle::Follower(self))
             }
             Command::Heartbeat { leader_id, .. } => {
-                self.state.election_time = Some(Instant::now());
+                self.set_election_timeout();
                 self.role.leader_id = Some(leader_id);
-                // TODO:
-                // self.io.heartbeat(leader_id);
+                self.state.voted_for = Some(leader_id);
+
+                self.nodes[&leader_id]
+                    .try_send(RpcMessage::Heartbeat(self.state.current_term, leader_id))?;
+
                 Ok(RaftHandle::Follower(self))
             }
             Command::VoteRequest { candidate_id, last_index, last_term, .. } => {
-                if self.state.current_term > last_term || self.state.commit_index > last_index {
-                    info!(self.role.log, "My term is higher");
+                if self.can_vote(last_term, last_index) {
                     self.nodes[&candidate_id]
-                        .try_send(RpcMessage::RespondVote(self.state.current_term, self.id, false))
-                        .unwrap();
+                        .try_send(RpcMessage::RespondVote(self.state.current_term, self.id, true))?;
+                    self.state.voted_for = Some(candidate_id);
                 } else {
-                    info!(self.role.log, "Voting for candidate");
                     self.nodes[&candidate_id]
-                        .try_send(RpcMessage::RespondVote(self.state.current_term, self.id, true))
-                        .unwrap();
+                        .try_send(RpcMessage::RespondVote(self.state.current_term, self.id, false))?;
                 }
                 Ok(RaftHandle::Follower(self))
             }
@@ -122,14 +112,8 @@ impl Raft<Follower> {
     /// * `logger` - An optional logger implementation.
     /// * `nodes` - An optional map of nodes present in the cluster.
     ///
-    pub fn new(config: RaftConfig, logger: Option<Logger>, nodes: NodeMap) -> Result<Raft<Follower>, ConfigError> {
+    pub fn new(config: RaftConfig, logger: Logger, nodes: NodeMap) -> Result<Raft<Follower>, ConfigError> {
         config.validate()?;
-
-        let log = match logger {
-            None => get_logger().new(o!("id" => config.id)),
-            Some(logger) => logger.new(o!("id" => config.id)),
-        };
-
 
         let mut raft = Raft {
             id: config.id,
@@ -138,9 +122,9 @@ impl Raft<Follower> {
             nodes,
             role: Follower {
                 leader_id: None,
-                log: log.new(o!("role" => "follower")),
+                log: logger.new(o!("role" => "follower")),
             },
-            log,
+            log: logger,
         };
 
         raft.init();
@@ -149,6 +133,10 @@ impl Raft<Follower> {
 
     fn init(&mut self) {
         self.set_election_timeout();
+    }
+
+    fn can_vote(&self, last_term: Term, last_index: LogIndex) -> bool {
+        !(self.state.voted_for.is_some() || self.state.current_term > last_term || self.state.commit_index > last_index)
     }
 
     fn get_randomized_timeout(&self) -> Duration {
@@ -161,14 +149,6 @@ impl Raft<Follower> {
         self.state.election_timeout = Some(self.get_randomized_timeout());
         self.state.election_time = Some(Instant::now());
     }
-}
-
-fn get_logger() -> Logger {
-    let decorator = slog_term::TermDecorator::new().build();
-    let drain = slog_term::FullFormat::new(decorator).build().fuse();
-    let drain = slog_async::Async::new(drain).build().fuse();
-
-    Logger::root(drain, o!())
 }
 
 impl From<Raft<Follower>> for Raft<Candidate> {
@@ -190,23 +170,16 @@ impl From<Raft<Follower>> for Raft<Candidate> {
 
 #[cfg(test)]
 mod tests {
-    
-    
-    
-    
-    
-    
-    
+    use std::collections::HashMap;
 
     use crate::follower::Follower;
+    use crate::log::get_root_logger;
 
     use super::Apply;
     use super::Command;
-    
     use super::Raft;
     use super::RaftConfig;
     use super::RaftHandle;
-    use std::collections::HashMap;
 
     #[test]
     fn follower_to_leader_single_node_cluster() {
@@ -232,6 +205,7 @@ mod tests {
 
     fn new_follower() -> Raft<Follower> {
         let config = RaftConfig::default();
-        Raft::new(config, None, HashMap::new()).unwrap()
+        let log = get_root_logger();
+        Raft::new(config, log.new(o!()), HashMap::new()).unwrap()
     }
 }

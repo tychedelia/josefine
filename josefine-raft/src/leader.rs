@@ -28,7 +28,7 @@ pub struct Leader {
 impl Raft<Leader> {
     fn heartbeat(&self) -> Result<(), failure::Error> {
         for (_, node) in &self.nodes {
-            node.try_send(RpcMessage::HeartBeat(self.state.current_term, self.id))?;
+            node.try_send(RpcMessage::Heartbeat(self.state.current_term, self.id))?;
         };
 
         Ok(())
@@ -50,12 +50,16 @@ impl Role for Leader {
     fn role(&self) -> RaftRole {
         RaftRole::Leader
     }
+
+    fn log(&self) -> &Logger {
+        &self.log
+    }
 }
 
 impl Apply for Raft<Leader> {
     fn apply(mut self, cmd: Command) -> Result<RaftHandle, failure::Error> {
-        trace!(self.role.log, "Applying command"; "command" => format!("{:?}", cmd));
-        match cmd{
+        self.log_command(&cmd);
+        match cmd {
             Command::Tick => {
                 if self.needs_heartbeat() {
                     if let Err(_err) = self.heartbeat() {

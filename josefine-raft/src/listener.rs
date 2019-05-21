@@ -113,7 +113,7 @@ impl StreamHandler<String, std::io::Error> for TcpReaderActor {
             return
         }
 
-        info!(self.log, "TCP read"; "line" => &line);
+        trace!(self.log, "TCP read"; "line" => &line);
         let message: RpcMessage = serde_json::from_str(&line).expect(&line);
         self.raft.try_send(message).unwrap();
     }

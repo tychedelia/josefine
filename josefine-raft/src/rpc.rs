@@ -5,14 +5,14 @@ pub enum RpcMessage {
     Ping(Term, NodeId),
     RequestVote(Term, NodeId, Term, LogIndex),
     RespondVote(Term, NodeId, bool),
-    HeartBeat(Term, NodeId),
+    Heartbeat(Term, NodeId),
     Tick,
 }
 
 impl From<RpcMessage> for Command {
     fn from(msg: RpcMessage) -> Self {
         match msg {
-            RpcMessage::HeartBeat(term, leader_id) => Command::Heartbeat { term, leader_id },
+            RpcMessage::Heartbeat(term, leader_id) => Command::Heartbeat { term, leader_id },
             RpcMessage::Ping(term, id) => Command::Ping(term, id),
             RpcMessage::RespondVote(term, from, granted) => Command::VoteResponse {
                 term,

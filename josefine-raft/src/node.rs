@@ -62,8 +62,6 @@ impl Actor for NodeActor {
     type Context = Context<Self>;
 
     fn started(&mut self, ctx: &mut Self::Context) {
-        info!(self.log, "Starting");
-
         Resolver::from_registry()
             .send(Connect::host(self.addr.to_string()))
             .into_actor(self)
@@ -111,7 +109,7 @@ impl Handler<RpcMessage> for NodeActor {
 
 impl StreamHandler<String, std::io::Error> for NodeActor {
     fn handle(&mut self, line: String, _ctx: &mut Self::Context) {
-        info!(self.log, "TCP read"; "line" => &line);
+        trace!(self.log, "TCP read"; "line" => &line);
         let message: RpcMessage = serde_json::from_str(&line).unwrap();
         self.raft.try_send(message).unwrap();
     }
