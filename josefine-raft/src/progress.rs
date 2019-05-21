@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use crate::raft::{NodeId, LogIndex};
 
+#[derive(Debug)]
 pub struct ReplicationProgress {
     progress: HashMap<NodeId, ProgressHandle>,
 }
@@ -43,6 +44,7 @@ impl ReplicationProgress {
     }
 }
 
+#[derive(Debug)]
 pub enum ProgressHandle {
     Probe(Progress<Probe>),
     Replicate(Progress<Replicate>),
@@ -59,6 +61,7 @@ pub trait ProgressState {
     fn reset(&mut self);
 }
 
+#[derive(Debug)]
 pub struct Progress<T: ProgressState> {
     node_id: NodeId,
     state: T,
@@ -89,6 +92,7 @@ impl<T: ProgressState> Progress<T> {
     }
 }
 
+#[derive(Debug)]
 pub struct Probe {
     paused: bool,
 }
@@ -128,6 +132,7 @@ impl From<Progress<Replicate>> for Progress<Probe> {
 }
 
 #[allow(dead_code)]
+#[derive(Debug)]
 pub struct Snapshot {
     pending: u64,
 }
@@ -144,6 +149,7 @@ impl Progress<Snapshot> {
     }
 }
 
+#[derive(Debug)]
 pub struct Replicate {}
 
 impl ProgressState for Replicate {
@@ -153,6 +159,7 @@ impl ProgressState for Replicate {
 
 impl Progress<Replicate> {}
 
+#[derive(Debug)]
 struct PendingReplication {
     index: usize,
     count: usize,

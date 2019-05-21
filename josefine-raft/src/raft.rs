@@ -85,7 +85,7 @@ pub enum Command {
 }
 
 /// Shared behavior that all roles of the state machine must implement.
-pub trait Role {
+pub trait Role: Debug {
     /// Set the term for the node, reseting the current election.
     fn term(&mut self, term: u64);
     fn role(&self) -> RaftRole;
@@ -219,8 +219,9 @@ impl<T: Role> Raft<T> {
 
     pub fn log_command(&self, cmd: &Command) {
         match cmd {
-//            Command::Tick => {}
-            _ => debug!(self.role.log(), ""; "state" => format!("{:?}", self.state), "cmd" => format!("{:?}", cmd))
+            Command::Tick => {}
+            Command::Heartbeat {..} => {}
+            _ => debug!(self.role.log(), ""; "role_state" => format!("{:?}", self.role), "state" => format!("{:?}", self.state), "cmd" => format!("{:?}", cmd))
         };
     }
 }

@@ -16,6 +16,7 @@ use crate::raft::Role;
 use crate::rpc::RpcMessage;
 
 ///
+#[derive(Debug)]
 pub struct Leader {
     pub log: Logger,
     pub progress: ReplicationProgress,

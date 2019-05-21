@@ -16,6 +16,7 @@ use crate::raft::Role;
 use crate::rpc::RpcMessage;
 use tokio::prelude::Future;
 
+#[derive(Debug)]
 pub struct Candidate {
     pub election: Election,
     pub log: Logger,
@@ -100,7 +101,7 @@ impl Apply for Raft<Candidate> {
                     },
                     ElectionStatus::Defeated => {
                         info!(self.role.log, "I was defeated in the election");
-                        Ok(RaftHandle::Follower(Raft::from(self)))
+                        Ok(RaftHandle::Candidate(self))
                     },
                 }
             }

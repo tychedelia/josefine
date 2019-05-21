@@ -69,9 +69,7 @@ impl Actor for NodeActor {
                 Ok(stream) => {
                     info!(act.log, "Connected"; "addr" => act.addr.to_string());
 
-                    let (r, mut w) = stream.split();
-                    w.write((serde_json::to_string(&RpcMessage::Ping(1, 1)).unwrap() + "\n").as_bytes());
-
+                    let (r, w) = stream.split();
                     let line_reader = FramedRead::new(r, LinesCodec::new());
                     let line_writer = FramedWrite::new(w, LinesCodec::new(), ctx);
                     act.writer = Some(line_writer);

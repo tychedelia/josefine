@@ -14,6 +14,7 @@ use crate::raft::{Apply, LogIndex, NodeMap, RaftHandle, RaftRole, Term};
 use crate::raft::{Command, NodeId, Raft, Role, State};
 use crate::rpc::RpcMessage;
 
+#[derive(Debug)]
 pub struct Follower {
     pub leader_id: Option<NodeId>,
     pub log: Logger,

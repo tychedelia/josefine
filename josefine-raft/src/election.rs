@@ -3,11 +3,13 @@ use std::collections::HashMap;
 
 use crate::raft::NodeId;
 
+#[derive(Debug)]
 pub struct Election {
     voter_ids: Vec<NodeId>,
     votes: HashMap<NodeId, bool>,
 }
 
+#[derive(Debug)]
 pub enum ElectionStatus {
     Elected,
     Voting,
@@ -44,7 +46,7 @@ impl Election {
                 (votes, total)
             });
 
-        if votes > self.quorum_size() {
+        if votes >= self.quorum_size() {
             ElectionStatus::Elected
         } else if total - votes == self.quorum_size() {
             ElectionStatus::Defeated
