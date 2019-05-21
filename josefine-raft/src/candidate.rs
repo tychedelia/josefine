@@ -101,7 +101,8 @@ impl Apply for Raft<Candidate> {
                     },
                     ElectionStatus::Defeated => {
                         info!(self.role.log, "I was defeated in the election");
-                        Ok(RaftHandle::Candidate(self))
+                        self.state.voted_for = None;
+                        Ok(RaftHandle::Follower(Raft::from(self)))
                     },
                 }
             }

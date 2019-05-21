@@ -38,11 +38,3 @@ fn get_config(config_path: &str) -> RaftConfig {
     settings.try_into().expect("Could not create configuration")
 }
 
-fn get_logger() -> Logger {
-    let decorator = slog_term::TermDecorator::new().build();
-    let drain = slog_term::FullFormat::new(decorator).build().fuse();
-    let drain = slog_async::Async::new(drain).build().fuse();
-
-    Logger::root(drain, o!())
-}
-
