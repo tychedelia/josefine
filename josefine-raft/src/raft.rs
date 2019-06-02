@@ -12,7 +12,7 @@ use crate::candidate::Candidate;
 use crate::config::RaftConfig;
 use crate::follower::Follower;
 use crate::leader::Leader;
-use crate::log::get_root_logger;
+use crate::logger::get_root_logger;
 use crate::node::NodeActor;
 use crate::rpc::RpcMessage;
 use crate::listener::TcpListenerActor;
@@ -122,8 +122,6 @@ pub struct Node {
     pub addr: SocketAddr,
 }
 
-impl Node {}
-
 /// Volatile and persistent state that is common to all roles.
 // NB: These could just be fields on the common Raft struct, but copying them is annoying.
 #[derive(PartialEq, Clone, Copy)]
@@ -186,20 +184,17 @@ pub struct Raft<T: Role> {
     /// The identifier for this node.
     pub id: NodeId,
     /// The logger implementation for this node.
-    pub log: Logger,
-
+    pub(crate) logger: Logger,
     /// Configuration for this instance.
     pub config: RaftConfig,
-
     /// A map of known nodes in the cluster.
     pub nodes: NodeMap,
-
     /// Volatile and persistent state for the state machine. Note that specific additional per-role
     /// state may be contained in that role.
     pub state: State,
-
     /// An instance containing role specific state and behavior.
     pub role: T,
+    pub data: Vec<Entry>
 }
 
 // Base methods for general operations (+ debugging and testing).
@@ -277,17 +272,17 @@ pub trait Apply {
 
 pub struct RaftActor {
     raft: Option<RaftHandle>,
-    log: Logger,
+    logger: Logger,
     config: RaftConfig,
 }
 
 impl RaftActor {
     pub fn new(config: RaftConfig, logger: Logger, nodes: NodeMap) -> RaftActor {
         let c = config.clone();
-        let log = logger.new(o!());
+        let l = logger.new(o!());
         RaftActor {
-            log: logger,
-            raft: Some(RaftHandle::new(c, log, nodes)),
+            logger,
+            raft: Some(RaftHandle::new(c, l, nodes)),
             config,
         }
     }
@@ -299,7 +294,7 @@ impl RaftActor {
 
 pub type NodeMap = HashMap<NodeId, Recipient<RpcMessage>>;
 
-pub fn setup<T: Actor<Context=Context<T>> + Send>(log: Logger, config: RaftConfig, actor: Option<T>) {
+pub fn setup<T: Actor<Context=Context<T>> + Send>(logger: Logger, config: RaftConfig, actor: Option<T>) {
     let system = System::new("raft");
 
     if let Some(actor) = actor {
@@ -307,7 +302,7 @@ pub fn setup<T: Actor<Context=Context<T>> + Send>(log: Logger, config: RaftConfi
     }
 
     let raft = RaftActor::create(move |ctx| {
-        let l = log.new(o!());
+        let l = logger.new(o!());
         let addr = SocketAddr::new("127.0.0.1".parse().unwrap(), config.port); // TODO: :(
         let raft = ctx.address().recipient();
         let server = Supervisor::start(move |_| TcpListenerActor::new(addr, l, raft));
@@ -315,9 +310,9 @@ pub fn setup<T: Actor<Context=Context<T>> + Send>(log: Logger, config: RaftConfi
         let mut nodes = HashMap::new();
         for node in config.clone().nodes {
             let addr = node.addr.clone();
-            let log = log.new(o!());
+            let l = logger.new(o!());
             let raft = ctx.address().recipient();
-            let n = Supervisor::start(move |_| NodeActor::new(addr, log, raft));
+            let n = Supervisor::start(move |_| NodeActor::new(addr, l, raft));
             nodes.insert(node.id, n.recipient());
         }
 
@@ -330,7 +325,7 @@ pub fn setup<T: Actor<Context=Context<T>> + Send>(log: Logger, config: RaftConfi
         });
 
         System::current().registry().set(ctx.address());
-        RaftActor::new(config, log, nodes)
+        RaftActor::new(config, logger, nodes)
     });
     system.run();
 }
@@ -339,7 +334,7 @@ impl Actor for RaftActor {
     type Context = Context<Self>;
 
     fn started(&mut self, _ctx: &mut Self::Context) {
-        info!(self.log, "Starting Raft"; "config" => format!("{:?}", self.config));
+        info!(self.logger, "Starting Raft"; "config" => format!("{:?}", self.config));
     }
 }
 
@@ -361,7 +356,7 @@ impl Handler<RpcMessage> for RaftActor {
     type Result = ();
 
     fn handle(&mut self, msg: RpcMessage, _ctx: &mut Self::Context) -> Self::Result {
-//        info!(self.log, "Received message"; "msg" => format!("{:?}", msg));
+//        info!(self.logger, "Received message"; "msg" => format!("{:?}", msg));
         let raft = self.unwrap();
         let raft = raft.apply(msg.into()).unwrap();
         self.raft = Some(raft);

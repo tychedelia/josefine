@@ -27,9 +27,10 @@ use slog::Logger;
 
 use crate::config::RaftConfig;
 use crate::raft::{setup, RaftActor};
-use crate::log::get_instance_logger;
+use crate::logger::get_instance_logger;
 use actix::Addr;
 
+mod commit_log;
 mod error;
 mod listener;
 mod rpc;
@@ -49,32 +50,32 @@ pub mod raft;
 /// Raft can be configured with a variety of options.
 pub mod config;
 mod progress;
-mod log;
+mod logger;
 
 pub struct JosefineBuilder {
     config: RaftConfig,
-    log: &'static Logger,
+    logger: &'static Logger,
 }
 
 impl JosefineBuilder {
     pub fn new() -> JosefineBuilder {
         let config = RaftConfig::default();
         JosefineBuilder {
-            log: log::get_root_logger(),
+            logger: logger::get_root_logger(),
             config,
         }
     }
 
-    pub fn with_log(self, log: &'static Logger) -> Self {
+    pub fn with_log(self, logger: &'static Logger) -> Self {
         JosefineBuilder {
-            log,
+            logger,
             ..self
         }
     }
 
     pub fn with_config(self, config: RaftConfig) -> Self {
         JosefineBuilder {
-            log: log::get_root_logger(),
+            logger: logger::get_root_logger(),
             config,
         }
     }
@@ -87,7 +88,7 @@ impl JosefineBuilder {
     }
 
     pub fn build(self) {
-        setup::<RaftActor>(get_instance_logger(self.log, &self.config), self.config, None);
+        setup::<RaftActor>(get_instance_logger(self.logger, &self.config), self.config, None);
     }
 }
 

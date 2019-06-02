@@ -1,4 +1,4 @@
-use crate::raft::{Term, NodeId, Command, LogIndex};
+use crate::raft::{Term, NodeId, Command, LogIndex, Entry};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum RpcMessage {
@@ -6,6 +6,8 @@ pub enum RpcMessage {
     RequestVote(Term, NodeId, Term, LogIndex),
     RespondVote(Term, NodeId, bool),
     Heartbeat(Term, NodeId),
+    Append { term: Term, leader_id: NodeId, prev_log_index: LogIndex, prev_log_term: Term, entries: Vec<Entry>, leader_commit: LogIndex },
+    RespondAppend(Term, NodeId, bool),
     Tick,
 }
 
@@ -26,6 +28,16 @@ impl From<RpcMessage> for Command {
                 last_index,
             },
             RpcMessage::Tick => Command::Tick,
+            RpcMessage::Append { term, leader_id, entries, .. } => Command::AppendEntries {
+                term,
+                leader_id,
+                entries
+            },
+            RpcMessage::RespondAppend(term, node_id, success) => Command::AppendResponse {
+                node_id,
+                term,
+                index: 0,
+            },
             _ => Command::Noop
         }
     }

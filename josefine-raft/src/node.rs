@@ -24,7 +24,7 @@ impl Message for RpcMessage {
 
 pub struct NodeActor {
     addr: SocketAddr,
-    log: Logger,
+    logger: Logger,
     raft: Recipient<RpcMessage>,
     backoff: ExponentialBackoff,
     writer: Option<FramedWrite<WriteHalf<TcpStream>, LinesCodec>>
@@ -32,12 +32,12 @@ pub struct NodeActor {
 
 
 impl NodeActor {
-    pub fn new(addr: SocketAddr, log: Logger, raft: Recipient<RpcMessage>) -> NodeActor {
+    pub fn new(addr: SocketAddr, logger: Logger, raft: Recipient<RpcMessage>) -> NodeActor {
         let mut backoff = ExponentialBackoff::default();
         backoff.max_elapsed_time = None;
         NodeActor {
             addr,
-            log,
+            logger,
             raft,
             backoff,
             writer: None,
@@ -47,14 +47,14 @@ impl NodeActor {
 
 impl WriteHandler<io::Error> for NodeActor {
     fn error(&mut self, _err: io::Error, _: &mut Self::Context) -> Running {
-        error!(self.log, "Error writing");
+        error!(self.logger, "Error writing");
         Running::Stop
     }
 }
 
 impl Supervised for NodeActor {
     fn restarting(&mut self, _ctx: &mut Self::Context) {
-        info!(self.log, "Restarting")
+        info!(self.logger, "Restarting")
     }
 }
 
@@ -67,7 +67,7 @@ impl Actor for NodeActor {
             .into_actor(self)
             .map(|res, mut act, ctx| match res {
                 Ok(stream) => {
-                    info!(act.log, "Connected"; "addr" => act.addr.to_string());
+                    info!(act.logger, "Connected"; "addr" => act.addr.to_string());
 
                     let (r, w) = stream.split();
                     let line_reader = FramedRead::new(r, LinesCodec::new());
@@ -79,14 +79,14 @@ impl Actor for NodeActor {
                     act.backoff.reset();
                 }
                 Err(_err) => {
-                    error!(act.log, "Could not connect"; "addr" => act.addr.to_string());
+                    error!(act.logger, "Could not connect"; "addr" => act.addr.to_string());
                     if let Some(timeout) = act.backoff.next_backoff() {
                         Context::run_later(ctx, timeout, |_, ctx| Context::stop(ctx));
                     }
                 }
             })
             .map_err(|_err, act, ctx| {
-                error!(act.log, "Could not connect"; "addr" => act.addr.to_string());
+                error!(act.logger, "Could not connect"; "addr" => act.addr.to_string());
                 if let Some(timeout) = act.backoff.next_backoff() {
                     Context::run_later(ctx, timeout, |_, ctx| Context::stop(ctx));
                 }
@@ -107,7 +107,7 @@ impl Handler<RpcMessage> for NodeActor {
 
 impl StreamHandler<String, std::io::Error> for NodeActor {
     fn handle(&mut self, line: String, _ctx: &mut Self::Context) {
-        trace!(self.log, "TCP read"; "line" => &line);
+        trace!(self.logger, "TCP read"; "line" => &line);
         let message: RpcMessage = serde_json::from_str(&line).unwrap();
         self.raft.try_send(message).unwrap();
     }

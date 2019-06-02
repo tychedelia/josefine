@@ -18,7 +18,7 @@ use crate::error::RaftError;
 #[derive(Debug)]
 pub struct Follower {
     pub leader_id: Option<NodeId>,
-    pub log: Logger,
+    pub logger: Logger,
 }
 
 impl Role for Follower {
@@ -31,7 +31,7 @@ impl Role for Follower {
     }
 
     fn log(&self) -> &Logger {
-        &self.log
+        &self.logger
     }
 }
 
@@ -40,16 +40,24 @@ impl Apply for Raft<Follower> {
         self.log_command(&cmd);
         match cmd {
             Command::Start => {
-                Ok(RaftHandle::Follower(self))
+                self.apply_self()
             }
             Command::Tick => {
                 if self.needs_election() {
                     return self.apply(Command::Timeout);
                 }
 
-                Ok(RaftHandle::Follower(self))
+
+
+                self.apply_self()
             }
-            Command::AppendEntries { entries, leader_id, term: _ } => {
+            Command::AppendEntries { entries, leader_id, term } => {
+                if term < self.state.current_term {
+                    self.nodes[&leader_id]
+                        .try_send(RpcMessage::RespondAppend(self.state.current_term, self.id, false))?;
+                    return self.apply_self();
+                }
+
                 self.state.election_time = Some(Instant::now());
                 self.role.leader_id = Some(leader_id);
                 self.state.voted_for = Some(leader_id);
@@ -59,7 +67,7 @@ impl Apply for Raft<Follower> {
 //                    self.rpc.respond_append(leader_id, term, index)?;
                 }
 
-                Ok(RaftHandle::Follower(self))
+                self.apply_self()
             }
             Command::Heartbeat { leader_id, .. } => {
                 self.set_election_timeout();
@@ -69,7 +77,7 @@ impl Apply for Raft<Follower> {
                 self.nodes[&leader_id]
                     .try_send(RpcMessage::Heartbeat(self.state.current_term, leader_id))?;
 
-                Ok(RaftHandle::Follower(self))
+                self.apply_self()
             }
             Command::VoteRequest { candidate_id, last_index, last_term, .. } => {
                 if self.can_vote(last_term, last_index) {
@@ -80,7 +88,7 @@ impl Apply for Raft<Follower> {
                     self.nodes[&candidate_id]
                         .try_send(RpcMessage::RespondVote(self.state.current_term, self.id, false))?;
                 }
-                Ok(RaftHandle::Follower(self))
+                self.apply_self()
             }
             Command::Timeout => {
                 if self.state.voted_for.is_none() {
@@ -89,16 +97,16 @@ impl Apply for Raft<Follower> {
                     return raft.seek_election();
                 }
 
-                Ok(RaftHandle::Follower(self))
+                self.apply_self()
             }
             Command::Ping(_term, _node_id) => {
 //                self.rpc.ping(node_id);
-                Ok(RaftHandle::Follower(self))
+                self.apply_self()
             }
             Command::AddNode(_socket_addr) => {
-                Ok(RaftHandle::Follower(self))
+                self.apply_self()
             }
-            _ => Ok(RaftHandle::Follower(self))
+            _ => self.apply_self()
         }
     }
 }
@@ -124,9 +132,10 @@ impl Raft<Follower> {
             nodes,
             role: Follower {
                 leader_id: None,
-                log: logger.new(o!("role" => "follower")),
+                logger: logger.new(o!("role" => "follower")),
             },
-            log: logger,
+            logger: logger,
+            data: vec![]
         };
 
         raft.init();
@@ -151,6 +160,10 @@ impl Raft<Follower> {
         self.state.election_timeout = Some(self.get_randomized_timeout());
         self.state.election_time = Some(Instant::now());
     }
+
+    fn apply_self(self) -> Result<RaftHandle, RaftError> {
+        Ok(RaftHandle::Follower(self))
+    }
 }
 
 impl From<Raft<Follower>> for Raft<Candidate> {
@@ -163,9 +176,10 @@ impl From<Raft<Follower>> for Raft<Candidate> {
             id: val.id,
             state: val.state,
             nodes: val.nodes,
-            role: Candidate { election, log: val.log.new(o!("role" => "candidate")) },
-            log: val.log,
+            role: Candidate { election, logger: val.logger.new(o!("role" => "candidate")) },
+            logger: val.logger,
             config: val.config,
+            data: val.data,
         }
     }
 }
@@ -175,7 +189,7 @@ mod tests {
     use std::collections::HashMap;
 
     use crate::follower::Follower;
-    use crate::log::get_root_logger;
+    use crate::logger::get_root_logger;
 
     use super::Apply;
     use super::Command;

@@ -16,18 +16,18 @@ use std::sync::{Mutex, Arc};
 
 pub struct TcpListenerActor {
     addr: SocketAddr,
-    log: Logger,
+    logger: Logger,
     backoff: ExponentialBackoff,
     raft: Recipient<RpcMessage>,
 }
 
 impl TcpListenerActor {
-    pub fn new(addr: SocketAddr, log: Logger, raft: Recipient<RpcMessage>) -> TcpListenerActor {
+    pub fn new(addr: SocketAddr, logger: Logger, raft: Recipient<RpcMessage>) -> TcpListenerActor {
         let mut backoff = ExponentialBackoff::default();
         backoff.max_elapsed_time = None;
         TcpListenerActor {
             addr,
-            log,
+            logger,
             backoff,
             raft,
         }
@@ -44,7 +44,7 @@ impl Actor for TcpListenerActor {
     type Context = Context<Self>;
 
     fn started(&mut self, ctx: &mut Self::Context) {
-        info!(self.log, "Listening"; "port" => format!("{:?}", self.addr));
+        info!(self.logger, "Listening"; "port" => format!("{:?}", self.addr));
 
         match TcpListener::bind(&self.addr) {
             Ok(listener) => {
@@ -54,7 +54,7 @@ impl Actor for TcpListenerActor {
                 }));
             },
             Err(_err) => {
-                error!(self.log, "Could bind to address");
+                error!(self.logger, "Could bind to address");
                 if let Some(timeout) = self.backoff.next_backoff() {
                     Context::run_later(ctx, timeout, |_, ctx| Context::stop(ctx));
                 }
@@ -67,12 +67,12 @@ impl Handler<TcpConnect> for TcpListenerActor {
     type Result = ();
 
     fn handle(&mut self, msg: TcpConnect, _: &mut Context<Self>) {
-        let log = self.log.new(o!());
+        let logger = self.logger.new(o!());
         let raft = self.raft.clone();
         let (r, w) = msg.0.split();
         let line_reader = FramedRead::new(r, LinesCodec::new());
         Arbiter::start(move |_| {
-            TcpReaderActor::new(log, raft, line_reader)
+            TcpReaderActor::new(logger, raft, line_reader)
         });
     }
 }
@@ -83,15 +83,15 @@ impl Supervised for TcpListenerActor {
 }
 
 struct TcpReaderActor {
-    log: Logger,
+    logger: Logger,
     raft: Recipient<RpcMessage>,
     reader: Option<FramedRead<ReadHalf<TcpStream>, LinesCodec>>,
 }
 
 impl TcpReaderActor {
-    pub fn new(log: Logger, raft: Recipient<RpcMessage>, reader: FramedRead<ReadHalf<TcpStream>, LinesCodec>) -> TcpReaderActor {
+    pub fn new(logger: Logger, raft: Recipient<RpcMessage>, reader: FramedRead<ReadHalf<TcpStream>, LinesCodec>) -> TcpReaderActor {
         TcpReaderActor {
-            log,
+            logger,
             raft,
             reader: Some(reader),
         }
@@ -113,7 +113,7 @@ impl StreamHandler<String, std::io::Error> for TcpReaderActor {
             return
         }
 
-        trace!(self.log, "TCP read"; "line" => &line);
+        trace!(self.logger, "TCP read"; "line" => &line);
         let message: RpcMessage = serde_json::from_str(&line).expect(&line);
         self.raft.try_send(message).unwrap();
     }

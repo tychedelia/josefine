@@ -16,6 +16,6 @@ pub fn get_root_logger() -> &'static LOG {
     &LOG
 }
 
-pub fn get_instance_logger(log: &Logger, config: &RaftConfig) -> Logger {
-    log.new(o!("id" => config.id))
+pub fn get_instance_logger(logger: &Logger, config: &RaftConfig) -> Logger {
+    logger.new(o!("id" => config.id))
 }

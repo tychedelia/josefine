@@ -20,12 +20,12 @@ use tokio::prelude::Future;
 #[derive(Debug)]
 pub struct Candidate {
     pub election: Election,
-    pub log: Logger,
+    pub logger: Logger,
 }
 
 impl Raft<Candidate> {
     pub(crate) fn seek_election(mut self) -> Result<RaftHandle, RaftError> {
-        info!(self.role.log, "Seeking election");
+        info!(self.role.logger, "Seeking election");
         self.state.voted_for = Some(self.id);
         self.state.current_term += 1;
         let from = self.id;
@@ -49,7 +49,7 @@ impl Role for Candidate {
     }
 
     fn log(&self) -> &Logger {
-        &self.log
+        &self.logger
     }
 }
 
@@ -61,17 +61,17 @@ impl Apply for Raft<Candidate> {
                 if self.needs_election() {
                     return match self.role.election.election_status() {
                         ElectionStatus::Elected => {
-                            error!(self.role.log, "This should never happen.");
+                            error!(self.role.logger, "This should never happen.");
                             Ok(RaftHandle::Leader(Raft::from(self)))
                         },
                         ElectionStatus::Voting => {
-                            info!(self.role.log, "Election ended with missing votes");
+                            info!(self.role.logger, "Election ended with missing votes");
                             self.state.voted_for = None;
                             let raft: Raft<Follower> = Raft::from(self);
                             Ok(raft.apply(Command::Timeout)?)
                         },
                         ElectionStatus::Defeated => {
-                            info!(self.role.log, "Defeated in election.");
+                            info!(self.role.logger, "Defeated in election.");
                             self.state.voted_for = None;
                             let raft: Raft<Follower> = Raft::from(self);
                             Ok(raft.apply(Command::Timeout)?)
@@ -79,7 +79,7 @@ impl Apply for Raft<Candidate> {
                     }
                 }
 
-//                info!(self.role.log, "Transitioning to follower");
+//                info!(self.role.logger, "Transitioning to follower");
                 Ok(RaftHandle::Candidate(self))
             }
             Command::VoteRequest { candidate_id, term: _, .. } => {
@@ -89,21 +89,21 @@ impl Apply for Raft<Candidate> {
                 Ok(RaftHandle::Candidate(self))
             }
             Command::VoteResponse { granted, from, .. } => {
-                info!(self.role.log, "Recieved vote"; "granted" => granted, "from" => from);
+                info!(self.role.logger, "Recieved vote"; "granted" => granted, "from" => from);
                 self.role.election.vote(from, granted);
                 match self.role.election.election_status() {
                     ElectionStatus::Elected => {
-                        info!(self.role.log, "I have been elected leader");
+                        info!(self.role.logger, "I have been elected leader");
                         let raft = Raft::from(self);
                         raft.heartbeat()?;
                         Ok(RaftHandle::Leader(raft))
                     },
                     ElectionStatus::Voting => {
-                        info!(self.role.log, "We are still voting");
+                        info!(self.role.logger, "We are still voting");
                         Ok(RaftHandle::Candidate(self))
                     },
                     ElectionStatus::Defeated => {
-                        info!(self.role.log, "I was defeated in the election");
+                        info!(self.role.logger, "I was defeated in the election");
                         self.state.voted_for = None;
                         Ok(RaftHandle::Follower(Raft::from(self)))
                     },
@@ -117,7 +117,7 @@ impl Apply for Raft<Candidate> {
                 // recognizes the leader as legitimate and returns to follower
                 // state.
                 if term >= self.state.current_term {
-                    info!(self.role.log, "Received higher term, transitioning to follower");
+                    info!(self.role.logger, "Received higher term, transitioning to follower");
                     let raft: Raft<Follower> = Raft::from(self);
 //                    raft.io.append(entries)?;
                     return Ok(RaftHandle::Follower(raft));
@@ -130,7 +130,7 @@ impl Apply for Raft<Candidate> {
             }
             Command::Heartbeat { term, leader_id: _, .. } => {
                 if term >= self.state.current_term {
-                    info!(self.role.log, "Received higher term, transitioning to follower");
+                    info!(self.role.logger, "Received higher term, transitioning to follower");
                     let raft: Raft<Follower> = Raft::from(self);
 //                    raft.io.heartbeat(leader_id);
                     return Ok(RaftHandle::Follower(raft));
@@ -149,29 +149,31 @@ impl From<Raft<Candidate>> for Raft<Follower> {
             id: val.id,
             state: val.state,
             nodes: val.nodes,
-            role: Follower { leader_id: None, log: val.log.new(o!("role" => "follower")) },
-            log: val.log,
+            role: Follower { leader_id: None, logger: val.logger.new(o!("role" => "follower")) },
+            logger: val.logger,
             config: val.config,
+            data: val.data,
         }
     }
 }
 
 impl From<Raft<Candidate>> for Raft<Leader> {
     fn from(val: Raft<Candidate>) -> Raft<Leader> {
-        info!(val.role.log, "Becoming the leader");
+        info!(val.role.logger, "Becoming the leader");
         let mut progress = ReplicationProgress::new(&val.nodes);
         Raft {
             id: val.id,
             state: val.state,
             nodes: val.nodes,
             role: Leader {
-                log: val.log.new(o!("role" => "leader")),
+                logger: val.logger.new(o!("role" => "leader")),
                 progress,
                 heartbeat_time: Instant::now(),
                 heartbeat_timeout: val.config.heartbeat_timeout,
             },
-            log: val.log,
+            logger: val.logger,
             config: val.config,
+            data: val.data,
         }
     }
 }

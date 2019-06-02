@@ -19,7 +19,7 @@ use crate::error::RaftError;
 ///
 #[derive(Debug)]
 pub struct Leader {
-    pub log: Logger,
+    pub logger: Logger,
     pub progress: ReplicationProgress,
     /// The time of the last heartbeat.
     pub heartbeat_time: Instant,
@@ -68,7 +68,7 @@ impl Role for Leader {
     }
 
     fn log(&self) -> &Logger {
-        &self.log
+        &self.logger
     }
 }
 
@@ -121,9 +121,10 @@ impl From<Raft<Leader>> for Raft<Follower> {
             id: val.id,
             state: val.state,
             nodes: val.nodes,
-            role: Follower { leader_id: None, log: val.log.new(o!("role" => "follower"))  },
-            log: val.log,
-            config: val.config
+            role: Follower { leader_id: None, logger: val.logger.new(o!("role" => "follower"))  },
+            logger: val.logger,
+            config: val.config,
+            data: val.data,
         }
     }
 }
