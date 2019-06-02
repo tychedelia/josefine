@@ -401,7 +401,7 @@ mod tests {
             type Context = Context<Self>;
 
             fn started(&mut self, ctx: &mut Self::Context) {
-                ctx.run_later(Duration::from_secs(1), |_act, _ctx| {
+                ctx.run_later(Duration::from_secs(5), |_act, _ctx| {
                     let raft = System::current().registry().get::<RaftActor>();
                     let state = raft.send(DebugStateMessage)
                         .map(|res| {

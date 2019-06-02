@@ -56,5 +56,5 @@ fn three_node_cluster() {
         })
         .collect();
 
-    thread::sleep(Duration::from_secs(10));
+    thread::sleep(Duration::from_secs(1));
 }
