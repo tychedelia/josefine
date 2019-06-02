@@ -9,6 +9,7 @@ use std::time::Duration;
 
 use crate::raft::Node;
 use crate::raft::NodeId;
+use crate::error::RaftError;
 
 #[serde(default)]
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -43,28 +44,37 @@ pub struct RaftConfig {
 const MAX_PROTOCOL_VERSION: u32 = 0;
 
 impl RaftConfig {
+    pub fn config(config_path: &str) -> RaftConfig {
+        let mut settings = config::Config::default();
+        settings
+            .merge(config::File::with_name(config_path)).expect("Could not read configuration file")
+            .merge(config::Environment::with_prefix("JOSEFINE")).expect("Could not read environment variables");
+
+        settings.try_into().expect("Could not create configuration")
+    }
+
     /// Validates the configuration, ensuring all values make sense.
-    pub fn validate(&self) -> Result<(), ConfigError> {
+    pub fn validate(&self) -> Result<(), RaftError> {
         if self.protocol_version > MAX_PROTOCOL_VERSION {
-            return Err(ConfigError::new("Invalid protocol version."));
+            return Err(RaftError::ConfigError { file_path: "".to_string(), error_msg: "Invalid protocol version.".to_string() });
         }
         if self.id == 0 {
-            return Err(ConfigError::new("Id cannot be zero."));
+            return Err(RaftError::ConfigError { file_path: "".to_string(), error_msg: "Id cannot be zero.".to_string() });
         }
         if self.port < 1023 {
-            return Err(ConfigError::new("Port value too low."));
+            return Err(RaftError::ConfigError { file_path: "".to_string(), error_msg: "Port value too low.".to_string() });
         }
         if self.heartbeat_timeout < Duration::from_millis(5) {
-            return Err(ConfigError::new("Heartbeat timeout is too low."));
+            return Err(RaftError::ConfigError { file_path: "".to_string(), error_msg: "Heartbeat timeout is too low.".to_string() });
         }
         if self.election_timeout < Duration::from_millis(5) {
-            return Err(ConfigError::new("Election timeout is too low."));
+            return Err(RaftError::ConfigError { file_path: "".to_string(), error_msg: "Election timeout is too low.".to_string() });
         }
         if self.commit_timeout < Duration::from_millis(1) {
-            return Err(ConfigError::new("Commit timeout is too low."));
+            return Err(RaftError::ConfigError { file_path: "".to_string(), error_msg: "Commit timeout is too low.".to_string() });
         }
         if self.snapshot_interval < Duration::from_millis(5) {
-            return Err(ConfigError::new("Snapshot interval is too low."));
+            return Err(RaftError::ConfigError { file_path: "".to_string(), error_msg: "Snapshot interval is too low.".to_string() });
         }
 
         Ok(())
@@ -99,31 +109,6 @@ impl Default for RaftConfig {
             snapshot_interval: Duration::from_secs(120),
             snapshot_threshold: 8192,
         }
-    }
-}
-
-#[derive(Debug)]
-/// Represents an error with the configuration.
-pub struct ConfigError {
-    reason: String
-}
-
-impl ConfigError {
-    /// Create an error with the provided reason.
-    pub fn new(reason: &str) -> ConfigError {
-        ConfigError { reason: reason.to_string() }
-    }
-}
-
-impl Error for ConfigError {
-    fn description(&self) -> &str {
-        &self.reason
-    }
-}
-
-impl fmt::Display for ConfigError {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{}", self.reason)
     }
 }
 

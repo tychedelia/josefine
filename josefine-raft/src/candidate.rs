@@ -14,6 +14,7 @@ use crate::raft::Command;
 use crate::raft::Raft;
 use crate::raft::Role;
 use crate::rpc::RpcMessage;
+use crate::error::RaftError;
 use tokio::prelude::Future;
 
 #[derive(Debug)]
@@ -23,7 +24,7 @@ pub struct Candidate {
 }
 
 impl Raft<Candidate> {
-    pub(crate) fn seek_election(mut self) -> Result<RaftHandle, failure::Error> {
+    pub(crate) fn seek_election(mut self) -> Result<RaftHandle, RaftError> {
         info!(self.role.log, "Seeking election");
         self.state.voted_for = Some(self.id);
         self.state.current_term += 1;
@@ -53,7 +54,7 @@ impl Role for Candidate {
 }
 
 impl Apply for Raft<Candidate> {
-    fn apply(mut self, cmd: Command) -> Result<RaftHandle, failure::Error> {
+    fn apply(mut self, cmd: Command) -> Result<RaftHandle, RaftError> {
         self.log_command(&cmd);
         match cmd {
             Command::Tick => {

@@ -1,16 +1,11 @@
 extern crate clap;
 extern crate josefine_raft;
-#[macro_use]
-extern crate slog;
-extern crate slog_async;
-extern crate slog_term;
 
 use clap::App;
 use clap::Arg;
 
 use josefine_raft::config::RaftConfig;
-use slog::Drain;
-use slog::Logger;
+use josefine_raft::JosefineBuilder;
 
 fn main() {
     let matches = App::new("Josefine")
@@ -26,15 +21,7 @@ fn main() {
         .get_matches();
 
     let config_path = matches.value_of("config").unwrap();
-    let config = get_config(config_path);
+    let raft = JosefineBuilder::new()
+        .with_config_path(config_path)
+        .build();
 }
-
-fn get_config(config_path: &str) -> RaftConfig {
-    let mut settings = config::Config::default();
-    settings
-        .merge(config::File::with_name(config_path)).expect("Could not read configuration file")
-        .merge(config::Environment::with_prefix("JOSEFINE")).expect("Could not read environment variables");
-
-    settings.try_into().expect("Could not create configuration")
-}
-

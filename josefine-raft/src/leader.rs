@@ -14,6 +14,7 @@ use crate::raft::Command;
 use crate::raft::Raft;
 use crate::raft::Role;
 use crate::rpc::RpcMessage;
+use crate::error::RaftError;
 
 ///
 #[derive(Debug)]
@@ -27,7 +28,7 @@ pub struct Leader {
 }
 
 impl Raft<Leader> {
-    pub(crate) fn heartbeat(&self) -> Result<(), failure::Error> {
+    pub(crate) fn heartbeat(&self) -> Result<(), RaftError> {
         for (_, node) in &self.nodes {
             node.try_send(RpcMessage::Heartbeat(self.state.current_term, self.id))?;
         };
@@ -72,7 +73,7 @@ impl Role for Leader {
 }
 
 impl Apply for Raft<Leader> {
-    fn apply(mut self, cmd: Command) -> Result<RaftHandle, failure::Error> {
+    fn apply(mut self, cmd: Command) -> Result<RaftHandle, RaftError> {
         self.log_command(&cmd);
         match cmd {
             Command::Tick => {

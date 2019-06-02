@@ -20,6 +20,7 @@ use std::fmt::{Debug, Formatter};
 use std::error::Error;
 use actix::dev::MessageResponse;
 use core::borrow::BorrowMut;
+use crate::error::RaftError;
 
 /// An id that uniquely identifies this instance of Raft.
 pub type NodeId = u32;
@@ -256,7 +257,7 @@ impl RaftHandle {
 }
 
 impl Apply for RaftHandle {
-    fn apply(self, cmd: Command) -> Result<RaftHandle, failure::Error> {
+    fn apply(self, cmd: Command) -> Result<RaftHandle, RaftError> {
         match self {
             RaftHandle::Follower(raft) => { raft.apply(cmd) }
             RaftHandle::Candidate(raft) => { raft.apply(cmd) }
@@ -271,7 +272,7 @@ pub trait Apply {
     /// Apply a command to the raft state machine, which may result in a new raft state. Errors
     /// should occur for only truly exceptional conditions, and are provided to allow the wrapping
     /// server containing this state machine to shut down gracefully.
-    fn apply(self, cmd: Command) -> Result<RaftHandle, failure::Error>;
+    fn apply(self, cmd: Command) -> Result<RaftHandle, RaftError>;
 }
 
 pub struct RaftActor {

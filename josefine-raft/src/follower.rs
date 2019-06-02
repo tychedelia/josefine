@@ -8,11 +8,12 @@ use slog::Logger;
 use tokio::prelude::future::Future;
 
 use crate::candidate::Candidate;
-use crate::config::{ConfigError, RaftConfig};
+use crate::config::RaftConfig;
 use crate::election::Election;
 use crate::raft::{Apply, LogIndex, NodeMap, RaftHandle, RaftRole, Term};
 use crate::raft::{Command, NodeId, Raft, Role, State};
 use crate::rpc::RpcMessage;
+use crate::error::RaftError;
 
 #[derive(Debug)]
 pub struct Follower {
@@ -35,7 +36,7 @@ impl Role for Follower {
 }
 
 impl Apply for Raft<Follower> {
-    fn apply(mut self, cmd: Command) -> Result<RaftHandle, failure::Error> {
+    fn apply(mut self, cmd: Command) -> Result<RaftHandle, RaftError> {
         self.log_command(&cmd);
         match cmd {
             Command::Start => {
@@ -113,7 +114,7 @@ impl Raft<Follower> {
     /// * `logger` - An optional logger implementation.
     /// * `nodes` - An optional map of nodes present in the cluster.
     ///
-    pub fn new(config: RaftConfig, logger: Logger, nodes: NodeMap) -> Result<Raft<Follower>, ConfigError> {
+    pub fn new(config: RaftConfig, logger: Logger, nodes: NodeMap) -> Result<Raft<Follower>, RaftError> {
         config.validate()?;
 
         let mut raft = Raft {

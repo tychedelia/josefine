@@ -10,9 +10,6 @@
 //! applications, and does not reference concerns specfic to the distributed log implementation.
 //! Raft is itself a commit log and tracks its state in a manner that is somewhat similar to the
 //! Kafka reference implementation for Josefine.
-extern crate failure;
-#[macro_use]
-extern crate failure_derive;
 extern crate rand;
 extern crate serde;
 #[macro_use]
@@ -33,6 +30,7 @@ use crate::raft::{setup, RaftActor};
 use crate::log::get_instance_logger;
 use actix::Addr;
 
+mod error;
 mod listener;
 mod rpc;
 mod node;
@@ -78,6 +76,13 @@ impl JosefineBuilder {
         JosefineBuilder {
             log: log::get_root_logger(),
             config,
+        }
+    }
+
+    pub fn with_config_path(self, config_path: &str) -> Self {
+        JosefineBuilder {
+            config: RaftConfig::config(config_path),
+            ..self
         }
     }
 
