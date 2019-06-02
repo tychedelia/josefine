@@ -356,27 +356,6 @@ impl Supervised for RaftActor {
 
 }
 
-struct DebugStateMessage;
-
-impl Message for DebugStateMessage {
-    type Result = Result<State, std::io::Error>;
-}
-
-impl Handler<DebugStateMessage> for RaftActor {
-    type Result = Result<State, std::io::Error>;
-
-    fn handle(&mut self, msg: DebugStateMessage, ctx: &mut Self::Context) -> Self::Result {
-        let raft = self.unwrap();
-        let state = match &raft {
-            RaftHandle::Follower(raft) => Ok(raft.state.clone()),
-            RaftHandle::Candidate(raft) => Ok(raft.state.clone()),
-            RaftHandle::Leader(raft) => Ok(raft.state.clone()),
-        };
-        self.raft = Some(raft);
-        state
-    }
-}
-
 impl Handler<RpcMessage> for RaftActor {
     type Result = ();
 
@@ -392,6 +371,27 @@ impl Handler<RpcMessage> for RaftActor {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    struct DebugStateMessage;
+
+    impl Message for DebugStateMessage {
+        type Result = Result<State, std::io::Error>;
+    }
+
+    impl Handler<DebugStateMessage> for RaftActor {
+        type Result = Result<State, std::io::Error>;
+
+        fn handle(&mut self, msg: DebugStateMessage, ctx: &mut Self::Context) -> Self::Result {
+            let raft = self.unwrap();
+            let state = match &raft {
+                RaftHandle::Follower(raft) => Ok(raft.state.clone()),
+                RaftHandle::Candidate(raft) => Ok(raft.state.clone()),
+                RaftHandle::Leader(raft) => Ok(raft.state.clone()),
+            };
+            self.raft = Some(raft);
+            state
+        }
+    }
 
     #[test]
     fn it_runs() {
