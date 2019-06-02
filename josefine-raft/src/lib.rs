@@ -29,8 +29,9 @@ extern crate lazy_static;
 use slog::Logger;
 
 use crate::config::RaftConfig;
-use crate::raft::{setup};
+use crate::raft::{setup, RaftActor};
 use crate::log::get_instance_logger;
+use actix::Addr;
 
 mod listener;
 mod rpc;
@@ -81,7 +82,7 @@ impl JosefineBuilder {
     }
 
     pub fn build(self) {
-        setup(get_instance_logger(self.log, &self.config), self.config);
+        setup::<RaftActor>(get_instance_logger(self.log, &self.config), self.config, None);
     }
 }
 

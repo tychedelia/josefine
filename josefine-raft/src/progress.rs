@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 
 use crate::raft::{NodeId, LogIndex};
+use actix::Recipient;
+use crate::rpc::RpcMessage;
 
 #[derive(Debug)]
 pub struct ReplicationProgress {
@@ -8,12 +10,11 @@ pub struct ReplicationProgress {
 }
 
 impl ReplicationProgress {
-    pub fn new() -> ReplicationProgress {
-        let progress = HashMap::new();
-//        for (id, _) in nodes.read().unwrap().iter() {
-//            progress.insert(*id, ProgressHandle::new(*id));
-//        }
-
+    pub fn new(nodes: &HashMap<NodeId, Recipient<RpcMessage>>) -> ReplicationProgress {
+        let mut progress = HashMap::new();
+        for (id, _) in nodes {
+            progress.insert(*id, ProgressHandle::Probe(Progress::new(*id)));
+        }
         ReplicationProgress {
             progress,
         }
@@ -43,6 +44,8 @@ impl ReplicationProgress {
         indices[indices.len() / 2]
     }
 }
+
+
 
 #[derive(Debug)]
 pub enum ProgressHandle {

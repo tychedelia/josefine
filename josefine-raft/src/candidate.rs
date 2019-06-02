@@ -93,7 +93,9 @@ impl Apply for Raft<Candidate> {
                 match self.role.election.election_status() {
                     ElectionStatus::Elected => {
                         info!(self.role.log, "I have been elected leader");
-                        Ok(RaftHandle::Leader(Raft::from(self)))
+                        let raft = Raft::from(self);
+                        raft.heartbeat()?;
+                        Ok(RaftHandle::Leader(raft))
                     },
                     ElectionStatus::Voting => {
                         info!(self.role.log, "We are still voting");
@@ -156,13 +158,14 @@ impl From<Raft<Candidate>> for Raft<Follower> {
 impl From<Raft<Candidate>> for Raft<Leader> {
     fn from(val: Raft<Candidate>) -> Raft<Leader> {
         info!(val.role.log, "Becoming the leader");
+        let mut progress = ReplicationProgress::new(&val.nodes);
         Raft {
             id: val.id,
             state: val.state,
             nodes: val.nodes,
             role: Leader {
                 log: val.log.new(o!("role" => "leader")),
-                progress: ReplicationProgress::new(),
+                progress,
                 heartbeat_time: Instant::now(),
                 heartbeat_timeout: val.config.heartbeat_timeout,
             },

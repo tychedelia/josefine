@@ -9,7 +9,7 @@ use slog::Logger;
 use crate::follower::Follower;
 use crate::progress::ProgressHandle;
 use crate::progress::ReplicationProgress;
-use crate::raft::{Apply, RaftHandle, RaftRole};
+use crate::raft::{Apply, RaftHandle, RaftRole, NodeId};
 use crate::raft::Command;
 use crate::raft::Raft;
 use crate::raft::Role;
@@ -27,13 +27,27 @@ pub struct Leader {
 }
 
 impl Raft<Leader> {
-    fn heartbeat(&self) -> Result<(), failure::Error> {
+    pub(crate) fn heartbeat(&self) -> Result<(), failure::Error> {
         for (_, node) in &self.nodes {
             node.try_send(RpcMessage::Heartbeat(self.state.current_term, self.id))?;
         };
 
         Ok(())
     }
+
+    fn append_entry(&mut self, node_id: NodeId, handle: ProgressHandle) {
+        match handle {
+            ProgressHandle::Probe(probe) => {},
+            ProgressHandle::Replicate(_) => {},
+            ProgressHandle::Snapshot(_) => {},
+        };
+    }
+//
+//    fn append_entries(&mut self) {
+//        for (id, _) in nodes {
+//            self.append_entry(id, self.role.progress[id]);
+//        }
+//    }
 
     fn needs_heartbeat(&self) -> bool {
         self.role.heartbeat_time.elapsed() > self.role.heartbeat_timeout

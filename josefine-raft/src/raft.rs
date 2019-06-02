@@ -4,7 +4,7 @@ use std::net::{SocketAddr, Ipv4Addr, IpAddr};
 use std::ops::Index;
 use std::time::Duration;
 use std::time::Instant;
-use actix::{Actor, Arbiter, AsyncContext, Context, Handler, Recipient, Supervised, Supervisor, System, SystemRegistry, SystemService, SystemRunner};
+use actix::{Actor, Arbiter, AsyncContext, Context, Handler, Recipient, Supervised, Supervisor, System, SystemRegistry, SystemService, SystemRunner, Message, Addr};
 use slog::Logger;
 use tokio::prelude::Future;
 
@@ -18,6 +18,8 @@ use crate::rpc::RpcMessage;
 use crate::listener::TcpListenerActor;
 use std::fmt::{Debug, Formatter};
 use std::error::Error;
+use actix::dev::MessageResponse;
+use core::borrow::BorrowMut;
 
 /// An id that uniquely identifies this instance of Raft.
 pub type NodeId = u32;
@@ -220,7 +222,7 @@ impl<T: Role> Raft<T> {
     pub fn log_command(&self, cmd: &Command) {
         match cmd {
             Command::Tick => {}
-            Command::Heartbeat {..} => {}
+            Command::Heartbeat { .. } => {}
             _ => debug!(self.role.log(), ""; "role_state" => format!("{:?}", self.role), "state" => format!("{:?}", self.state), "cmd" => format!("{:?}", cmd))
         };
     }
@@ -288,13 +290,22 @@ impl RaftActor {
             config,
         }
     }
+
+    fn unwrap(&mut self) -> RaftHandle {
+        mem::replace(&mut self.raft, None).expect("Unwrap has been called twice in a row")
+    }
 }
 
 pub type NodeMap = HashMap<NodeId, Recipient<RpcMessage>>;
 
-pub fn setup(log: Logger, config: RaftConfig) {
+pub fn setup<T: Actor<Context=Context<T>> + Send>(log: Logger, config: RaftConfig, actor: Option<T>) {
     let system = System::new("raft");
-    let _raft = RaftActor::create(move |ctx| {
+
+    if let Some(actor) = actor {
+        Arbiter::start(move |_| actor);
+    }
+
+    let raft = RaftActor::create(move |ctx| {
         let l = log.new(o!());
         let addr = SocketAddr::new("127.0.0.1".parse().unwrap(), config.port); // TODO: :(
         let raft = ctx.address().recipient();
@@ -317,6 +328,7 @@ pub fn setup(log: Logger, config: RaftConfig) {
             }
         });
 
+        System::current().registry().set(ctx.address());
         RaftActor::new(config, log, nodes)
     });
     system.run();
@@ -330,14 +342,84 @@ impl Actor for RaftActor {
     }
 }
 
+impl SystemService for RaftActor {
+
+}
+
+impl Default for RaftActor {
+    fn default() -> Self {
+        unimplemented!()
+    }
+}
+
+impl Supervised for RaftActor {
+
+}
+
+struct DebugStateMessage;
+
+impl Message for DebugStateMessage {
+    type Result = Result<State, std::io::Error>;
+}
+
+impl Handler<DebugStateMessage> for RaftActor {
+    type Result = Result<State, std::io::Error>;
+
+    fn handle(&mut self, msg: DebugStateMessage, ctx: &mut Self::Context) -> Self::Result {
+        let raft = self.unwrap();
+        let state = match &raft {
+            RaftHandle::Follower(raft) => Ok(raft.state.clone()),
+            RaftHandle::Candidate(raft) => Ok(raft.state.clone()),
+            RaftHandle::Leader(raft) => Ok(raft.state.clone()),
+        };
+        self.raft = Some(raft);
+        state
+    }
+}
+
 impl Handler<RpcMessage> for RaftActor {
     type Result = ();
 
     fn handle(&mut self, msg: RpcMessage, _ctx: &mut Self::Context) -> Self::Result {
 //        info!(self.log, "Received message"; "msg" => format!("{:?}", msg));
-        let raft = mem::replace(&mut self.raft, None).unwrap();
+        let raft = self.unwrap();
         let raft = raft.apply(msg.into()).unwrap();
         self.raft = Some(raft);
         ()
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn it_runs() {
+        struct TestActor;
+
+        impl Actor for TestActor {
+            type Context = Context<Self>;
+
+            fn started(&mut self, ctx: &mut Self::Context) {
+                ctx.run_later(Duration::from_secs(1), |_act, _ctx| {
+                    let raft = System::current().registry().get::<RaftActor>();
+                    let state = raft.send(DebugStateMessage)
+                        .map(|res| {
+                            let state = res.unwrap();
+                            assert!(state.voted_for.is_some());
+                            assert_eq!(state.voted_for.unwrap(), 1);
+                            assert_eq!(state.current_term, 1);
+                        })
+                        .wait();
+
+                    System::current().stop();
+                });
+            }
+        }
+
+        let log = get_root_logger();
+        let raft = setup(log.new(o!()), RaftConfig::default(), Some(TestActor));
+    }
+
+
 }
