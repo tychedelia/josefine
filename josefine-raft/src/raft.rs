@@ -393,33 +393,41 @@ mod tests {
         }
     }
 
-    #[test]
-    fn it_runs() {
-        struct TestActor;
 
-        impl Actor for TestActor {
-            type Context = Context<Self>;
+    macro_rules! test_node {
+        ($timeout:literal, $test:expr) => {
+            struct TestActor;
 
-            fn started(&mut self, ctx: &mut Self::Context) {
-                ctx.run_later(Duration::from_secs(5), |_act, _ctx| {
-                    let raft = System::current().registry().get::<RaftActor>();
-                    let state = raft.send(DebugStateMessage)
-                        .map(|res| {
-                            let state = res.unwrap();
-                            assert!(state.voted_for.is_some());
-                            assert_eq!(state.voted_for.unwrap(), 1);
-                            assert_eq!(state.current_term, 1);
-                        })
-                        .wait();
+            impl Actor for TestActor {
+                type Context = Context<Self>;
 
-                    System::current().stop();
-                });
+                fn started(&mut self, ctx: &mut Self::Context) {
+                    ctx.run_later(Duration::from_secs($timeout), |_act, _ctx| {
+                        let raft = System::current().registry().get::<RaftActor>();
+                        let state = raft.send(DebugStateMessage)
+                            .map(|res| {
+                                let state = res.unwrap();
+                                $test(state)
+                            })
+                            .wait();
+
+                        System::current().stop();
+                    });
+                }
             }
-        }
 
-        let log = get_root_logger();
-        let raft = setup(log.new(o!()), RaftConfig::default(), Some(TestActor));
+            let log = get_root_logger();
+            let raft = setup(log.new(o!()), RaftConfig::default(), Some(TestActor));
+        }
     }
 
-
+    #[test]
+    fn it_runs() {
+        test_node!(5, |state: State| {
+            assert!(state.voted_for.is_some());
+            assert_eq!(state.voted_for.unwrap(), 1);
+            assert_eq!(state.current_term, 1);
+        });
+    }
 }
+
