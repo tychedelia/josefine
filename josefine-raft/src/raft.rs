@@ -416,7 +416,7 @@ mod tests {
                 id: 1,
                 ..Default::default()
             };
-            let _raft = setup(log.new(o!()), , Some(TestActor));
+            let _raft = setup(log.new(o!()), config, Some(TestActor));
         }
     }
 
