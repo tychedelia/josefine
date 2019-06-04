@@ -1,6 +1,3 @@
-use std::error::Error;
-use std::fmt;
-use std::fmt::Formatter;
 use std::net::{IpAddr, Ipv4Addr};
 
 use std::net::ToSocketAddrs;

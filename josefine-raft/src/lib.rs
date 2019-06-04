@@ -21,16 +21,13 @@ extern crate slog_term;
 #[macro_use]
 extern crate lazy_static;
 
-
-
 use slog::Logger;
 
 use crate::config::RaftConfig;
 use crate::raft::{setup, RaftActor};
 use crate::logger::get_instance_logger;
-use actix::Addr;
 
-mod commit_log;
+mod log;
 mod error;
 mod listener;
 mod rpc;

@@ -36,9 +36,9 @@ impl Raft<Leader> {
         Ok(())
     }
 
-    fn append_entry(&mut self, node_id: NodeId, handle: ProgressHandle) {
+    fn _append_entry(&mut self, _node_id: NodeId, handle: ProgressHandle) {
         match handle {
-            ProgressHandle::Probe(probe) => {},
+            ProgressHandle::Probe(_) => {},
             ProgressHandle::Replicate(_) => {},
             ProgressHandle::Snapshot(_) => {},
         };
@@ -88,7 +88,7 @@ impl Apply for Raft<Leader> {
             Command::AddNode(_node) => {
                 Ok(RaftHandle::Leader(self))
             }
-            Command::AppendResponse { node_id, term: _, index } => {
+            Command::AppendResponse { node_id, index, .. } => {
                 if let Some(mut progress) = self.role.progress.get_mut(node_id) {
                     match &mut progress {
                         ProgressHandle::Replicate(progress) => {

@@ -8,7 +8,6 @@ use actix::{Actor, ActorContext, actors::{
 use slog::Logger;
 use tokio::codec::{FramedRead, LinesCodec};
 use tokio::io::{AsyncRead, WriteHalf};
-use std::io::Write;
 
 use std::{io};
 use backoff::ExponentialBackoff;

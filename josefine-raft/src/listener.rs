@@ -12,7 +12,6 @@ use actix::AsyncContext;
 use actix::ActorContext;
 use core::mem;
 use backoff::backoff::Backoff;
-use std::sync::{Mutex, Arc};
 
 pub struct TcpListenerActor {
     addr: SocketAddr,
@@ -69,7 +68,7 @@ impl Handler<TcpConnect> for TcpListenerActor {
     fn handle(&mut self, msg: TcpConnect, _: &mut Context<Self>) {
         let logger = self.logger.new(o!());
         let raft = self.raft.clone();
-        let (r, w) = msg.0.split();
+        let (r, _w) = msg.0.split();
         let line_reader = FramedRead::new(r, LinesCodec::new());
         Arbiter::start(move |_| {
             TcpReaderActor::new(logger, raft, line_reader)

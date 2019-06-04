@@ -147,7 +147,7 @@ impl ProgressState for Snapshot {
 }
 
 impl Progress<Snapshot> {
-    fn snapshot_fail(&mut self) {
+    fn _snapshot_fail(&mut self) {
         self.state.pending = 0;
     }
 }
@@ -180,7 +180,7 @@ impl PendingReplication {
         }
     }
 
-    fn insert(&mut self, id: u64) {
+    fn _insert(&mut self, id: u64) {
         let mut next = self.index + self.count;
         let size = self.size;
 

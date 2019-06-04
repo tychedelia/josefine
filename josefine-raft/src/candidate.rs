@@ -15,7 +15,6 @@ use crate::raft::Raft;
 use crate::raft::Role;
 use crate::rpc::RpcMessage;
 use crate::error::RaftError;
-use tokio::prelude::Future;
 
 #[derive(Debug)]
 pub struct Candidate {
@@ -160,7 +159,7 @@ impl From<Raft<Candidate>> for Raft<Follower> {
 impl From<Raft<Candidate>> for Raft<Leader> {
     fn from(val: Raft<Candidate>) -> Raft<Leader> {
         info!(val.role.logger, "Becoming the leader");
-        let mut progress = ReplicationProgress::new(&val.nodes);
+        let progress = ReplicationProgress::new(&val.nodes);
         Raft {
             id: val.id,
             state: val.state,

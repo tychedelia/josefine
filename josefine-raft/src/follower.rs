@@ -3,9 +3,7 @@ use std::time::Instant;
 
 use rand::Rng;
 use slog;
-use slog::Drain;
 use slog::Logger;
-use tokio::prelude::future::Future;
 
 use crate::candidate::Candidate;
 use crate::config::RaftConfig;

@@ -1,6 +1,5 @@
 use snafu::Snafu;
 use actix::prelude::SendError;
-use std::any::Any;
 
 #[derive(Debug, Snafu)]
 pub enum RaftError {

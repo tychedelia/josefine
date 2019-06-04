@@ -36,9 +36,9 @@ impl From<RpcMessage> for Command {
             RpcMessage::RespondAppend(term, node_id, success) => Command::AppendResponse {
                 node_id,
                 term,
+                success,
                 index: 0,
             },
-            _ => Command::Noop
         }
     }
 }

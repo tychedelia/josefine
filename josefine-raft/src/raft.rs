@@ -1,25 +1,19 @@
 use std::{mem, thread, fmt};
 use std::collections::HashMap;
-use std::net::{SocketAddr, Ipv4Addr, IpAddr};
-use std::ops::Index;
+use std::net::SocketAddr;
 use std::time::Duration;
 use std::time::Instant;
-use actix::{Actor, Arbiter, AsyncContext, Context, Handler, Recipient, Supervised, Supervisor, System, SystemRegistry, SystemService, SystemRunner, Message, Addr};
+use actix::{Actor, Arbiter, AsyncContext, Context, Handler, Recipient, Supervised, Supervisor, System, SystemService};
 use slog::Logger;
-use tokio::prelude::Future;
 
 use crate::candidate::Candidate;
 use crate::config::RaftConfig;
 use crate::follower::Follower;
 use crate::leader::Leader;
-use crate::logger::get_root_logger;
 use crate::node::NodeActor;
 use crate::rpc::RpcMessage;
 use crate::listener::TcpListenerActor;
 use std::fmt::{Debug, Formatter};
-use std::error::Error;
-use actix::dev::MessageResponse;
-use core::borrow::BorrowMut;
 use crate::error::RaftError;
 
 /// An id that uniquely identifies this instance of Raft.
@@ -71,6 +65,7 @@ pub enum Command {
         node_id: NodeId,
         term: Term,
         index: LogIndex,
+        success: bool,
     },
     /// Heartbeat from another node.
     Heartbeat {
@@ -301,11 +296,11 @@ pub fn setup<T: Actor<Context=Context<T>> + Send>(logger: Logger, config: RaftCo
         Arbiter::start(move |_| actor);
     }
 
-    let raft = RaftActor::create(move |ctx| {
+    let _raft = RaftActor::create(move |ctx| {
         let l = logger.new(o!());
         let addr = SocketAddr::new("127.0.0.1".parse().unwrap(), config.port); // TODO: :(
         let raft = ctx.address().recipient();
-        let server = Supervisor::start(move |_| TcpListenerActor::new(addr, l, raft));
+        let _server = Supervisor::start(move |_| TcpListenerActor::new(addr, l, raft));
 
         let mut nodes = HashMap::new();
         for node in config.clone().nodes {
@@ -396,6 +391,7 @@ mod tests {
 
             impl Actor for TestActor {
                 type Context = Context<Self>;
+
 
                 fn started(&mut self, ctx: &mut Self::Context) {
                     ctx.run_later(Duration::from_secs($timeout), |_act, _ctx| {
