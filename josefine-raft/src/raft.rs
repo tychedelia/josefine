@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::time::Duration;
 use std::time::Instant;
+use std::fmt::{Debug, Formatter};
 use actix::{Actor, Arbiter, AsyncContext, Context, Handler, Recipient, Supervised, Supervisor, System, SystemService};
 use slog::Logger;
 
@@ -13,7 +14,6 @@ use crate::leader::Leader;
 use crate::node::NodeActor;
 use crate::rpc::RpcMessage;
 use crate::listener::TcpListenerActor;
-use std::fmt::{Debug, Formatter};
 use crate::error::RaftError;
 
 /// An id that uniquely identifies this instance of Raft.
@@ -362,6 +362,9 @@ impl Handler<RpcMessage> for RaftActor {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::logger::get_root_logger;
+    use actix::Message;
+    use tokio::prelude::Future;
 
     struct DebugStateMessage;
 
