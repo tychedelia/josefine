@@ -412,7 +412,11 @@ mod tests {
             }
 
             let log = get_root_logger();
-            let _raft = setup(log.new(o!()), RaftConfig::default(), Some(TestActor));
+            let config = RaftConfig {
+                id: 1,
+                ..Default::default()
+            }
+            let _raft = setup(log.new(o!()), , Some(TestActor));
         }
     }
 
