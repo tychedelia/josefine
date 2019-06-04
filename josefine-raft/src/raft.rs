@@ -375,7 +375,7 @@ mod tests {
     impl Handler<DebugStateMessage> for RaftActor {
         type Result = Result<State, std::io::Error>;
 
-        fn handle(&mut self, msg: DebugStateMessage, ctx: &mut Self::Context) -> Self::Result {
+        fn handle(&mut self, _msg: DebugStateMessage, _ctx: &mut Self::Context) -> Self::Result {
             let raft = self.unwrap();
             let state = match &raft {
                 RaftHandle::Follower(raft) => Ok(raft.state.clone()),
@@ -399,7 +399,7 @@ mod tests {
                 fn started(&mut self, ctx: &mut Self::Context) {
                     ctx.run_later(Duration::from_secs($timeout), |_act, _ctx| {
                         let raft = System::current().registry().get::<RaftActor>();
-                        let state = raft.send(DebugStateMessage)
+                        let _state = raft.send(DebugStateMessage)
                             .map(|res| {
                                 let state = res.unwrap();
                                 $test(state)
@@ -412,7 +412,7 @@ mod tests {
             }
 
             let log = get_root_logger();
-            let raft = setup(log.new(o!()), RaftConfig::default(), Some(TestActor));
+            let _raft = setup(log.new(o!()), RaftConfig::default(), Some(TestActor));
         }
     }
 

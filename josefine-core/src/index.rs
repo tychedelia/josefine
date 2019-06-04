@@ -1,9 +1,9 @@
-use std::env;
+
 use std::fs::OpenOptions;
-use std::io::Error;
+
 use std::io::Write;
 use std::path::PathBuf;
-use std::slice::Windows;
+
 
 use memmap::MmapMut;
 
@@ -67,7 +67,7 @@ impl Index {
 
 #[cfg(test)]
 mod tests {
-    use core::borrow::BorrowMut;
+    
     use std::env;
     use std::fs;
     use std::fs::OpenOptions;

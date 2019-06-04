@@ -4,7 +4,7 @@ extern crate josefine_raft;
 use clap::App;
 use clap::Arg;
 
-use josefine_raft::config::RaftConfig;
+
 use josefine_raft::JosefineBuilder;
 
 fn main() {
@@ -21,7 +21,7 @@ fn main() {
         .get_matches();
 
     let config_path = matches.value_of("config").unwrap();
-    let raft = JosefineBuilder::new()
+    let _raft = JosefineBuilder::new()
         .with_config_path(config_path)
         .build();
 }
