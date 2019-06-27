@@ -1,17 +1,18 @@
 use std::net::{IpAddr, Ipv4Addr};
-
 use std::net::ToSocketAddrs;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-
+use crate::error::RaftError;
 use crate::raft::Node;
 use crate::raft::NodeId;
-use crate::error::RaftError;
 
 #[serde(default)]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 /// The configuration for this Raft instance.
 pub struct RaftConfig {
+    ///
+    data_directory: PathBuf,
     /// Limit run-time for testing
     pub run_for: Option<Duration>,
     /// The id used for this instance. Should be unique.
@@ -93,6 +94,7 @@ impl Default for RaftConfig {
         };
 
         RaftConfig {
+            data_directory: PathBuf::from("/tmp/josefine"),
             run_for: None,
             id,
             ip,
@@ -143,6 +145,7 @@ mod tests {
             max_append_entries: 0,
             snapshot_interval: Duration::from_secs(100),
             snapshot_threshold: 0,
+            ..Default::default()
         };
 
         let res = config.validate();

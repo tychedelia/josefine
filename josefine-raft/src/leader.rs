@@ -101,7 +101,7 @@ impl Apply for Raft<Leader> {
                 self.state.commit_index = self.role.progress.committed_index();
                 Ok(RaftHandle::Leader(self))
             }
-            Command::AppendEntries { term, leader_id: _, entries: _ } => {
+            Command::AppendEntries { term, .. } => {
                 if term > self.state.current_term {
                     // TODO:
                     self.term(term);
@@ -124,7 +124,7 @@ impl From<Raft<Leader>> for Raft<Follower> {
             role: Follower { leader_id: None, logger: val.logger.new(o!("role" => "follower"))  },
             logger: val.logger,
             config: val.config,
-            data: val.data,
+            log: val.log,
         }
     }
 }

@@ -15,6 +15,7 @@ use crate::node::NodeActor;
 use crate::rpc::RpcMessage;
 use crate::listener::TcpListenerActor;
 use crate::error::RaftError;
+use crate::log::Log;
 
 /// An id that uniquely identifies this instance of Raft.
 pub type NodeId = u32;
@@ -57,9 +58,12 @@ pub enum Command {
         term: Term,
         /// The id of the node sending entries.
         leader_id: NodeId,
-
         /// The entries to append to our commit log.
         entries: Vec<Entry>,
+        ///
+        prev_log_index: LogIndex,
+        ///
+        prev_log_term: Term,
     },
     AppendResponse {
         node_id: NodeId,
@@ -130,8 +134,8 @@ pub struct State {
     pub voted_for: Option<NodeId>,
     /// The current commit index of the replicated log.
     pub commit_index: LogIndex,
-    ///
-    pub last_applied: u64,
+    /// Higher index known to be applied.
+    pub last_applied: LogIndex,
     /// The time the election was started.
     pub election_time: Option<Instant>,
     /// The timeout for the current election.
@@ -189,7 +193,8 @@ pub struct Raft<T: Role> {
     pub state: State,
     /// An instance containing role specific state and behavior.
     pub role: T,
-    pub data: Vec<Entry>
+    ///
+    pub log: Log,
 }
 
 // Base methods for general operations (+ debugging and testing).

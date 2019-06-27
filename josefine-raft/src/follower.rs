@@ -12,6 +12,7 @@ use crate::raft::{Apply, LogIndex, NodeMap, RaftHandle, RaftRole, Term};
 use crate::raft::{Command, NodeId, Raft, Role, State};
 use crate::rpc::RpcMessage;
 use crate::error::RaftError;
+use crate::log::Log;
 
 #[derive(Debug)]
 pub struct Follower {
@@ -45,12 +46,20 @@ impl Apply for Raft<Follower> {
                     return self.apply(Command::Timeout);
                 }
 
-
-
                 self.apply_self()
             }
-            Command::AppendEntries { entries, leader_id, term } => {
-                if term < self.state.current_term {
+            Command::AppendEntries { entries, leader_id, term, prev_log_index, prev_log_term } => {
+                if self.state.voted_for.is_none() && term >= self.state.current_term {
+                    self.term(term);
+                }
+
+                if let Some(voted_for) = self.state.voted_for {
+                    if voted_for != leader_id && term < self.state.current_term {
+                        panic!();
+                    }
+                }
+
+                if term < self.state.current_term || self.log.check_term(&prev_log_index, &prev_log_term) {
                     self.nodes[&leader_id]
                         .try_send(RpcMessage::RespondAppend(self.state.current_term, self.id, false))?;
                     return self.apply_self();
@@ -61,10 +70,14 @@ impl Apply for Raft<Follower> {
                 self.state.voted_for = Some(leader_id);
 
                 if !entries.is_empty() {
-//                    let index = self.io.append(entries)?;
-//                    self.rpc.respond_append(leader_id, term, index)?;
-                }
+                    for entry in entries {
+                        self.state.last_applied = entry.index;
+                        self.log.append(entry);
+                    }
 
+                    self.nodes[&leader_id]
+                        .try_send(RpcMessage::RespondAppend(self.state.current_term, self.id, true))?
+                }
                 self.apply_self()
             }
             Command::Heartbeat { leader_id, .. } => {
@@ -132,8 +145,8 @@ impl Raft<Follower> {
                 leader_id: None,
                 logger: logger.new(o!("role" => "follower")),
             },
-            logger: logger,
-            data: vec![]
+            logger,
+            log: Log::new(),
         };
 
         raft.init();
@@ -177,7 +190,7 @@ impl From<Raft<Follower>> for Raft<Candidate> {
             role: Candidate { election, logger: val.logger.new(o!("role" => "candidate")) },
             logger: val.logger,
             config: val.config,
-            data: val.data,
+            log: val.log,
         }
     }
 }

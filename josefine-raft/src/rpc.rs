@@ -28,10 +28,12 @@ impl From<RpcMessage> for Command {
                 last_index,
             },
             RpcMessage::Tick => Command::Tick,
-            RpcMessage::Append { term, leader_id, entries, .. } => Command::AppendEntries {
+            RpcMessage::Append { term, leader_id, entries, prev_log_index, prev_log_term, .. } => Command::AppendEntries {
                 term,
                 leader_id,
-                entries
+                entries,
+                prev_log_index,
+                prev_log_term,
             },
             RpcMessage::RespondAppend(term, node_id, success) => Command::AppendResponse {
                 node_id,

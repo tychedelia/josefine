@@ -151,7 +151,7 @@ impl From<Raft<Candidate>> for Raft<Follower> {
             role: Follower { leader_id: None, logger: val.logger.new(o!("role" => "follower")) },
             logger: val.logger,
             config: val.config,
-            data: val.data,
+            log: val.log,
         }
     }
 }
@@ -172,7 +172,7 @@ impl From<Raft<Candidate>> for Raft<Leader> {
             },
             logger: val.logger,
             config: val.config,
-            data: val.data,
+            log: val.log,
         }
     }
 }
