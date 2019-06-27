@@ -1,5 +1,6 @@
 use slog::Drain;
 use slog::Logger;
+
 use crate::config::RaftConfig;
 
 lazy_static! {

@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 
-use crate::raft::{NodeId, LogIndex};
 use actix::Recipient;
+
+use crate::raft::{LogIndex, NodeId};
 use crate::rpc::RpcMessage;
 
 #[derive(Debug)]

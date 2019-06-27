@@ -1,11 +1,9 @@
-
-
-
 use std::time::Instant;
 
 use slog::Logger;
 
 use crate::election::{Election, ElectionStatus};
+use crate::error::RaftError;
 use crate::follower::Follower;
 use crate::leader::Leader;
 use crate::progress::ReplicationProgress;
@@ -14,7 +12,6 @@ use crate::raft::Command;
 use crate::raft::Raft;
 use crate::raft::Role;
 use crate::rpc::RpcMessage;
-use crate::error::RaftError;
 
 #[derive(Debug)]
 pub struct Candidate {

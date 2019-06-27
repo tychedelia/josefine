@@ -1,17 +1,19 @@
-use actix::{Supervised, Actor, Context, Recipient, Arbiter, StreamHandler, Handler, Message};
+use core::mem;
 use std::net::SocketAddr;
+
+use actix::{Actor, Arbiter, Context, Handler, Message, Recipient, StreamHandler, Supervised};
+use actix::ActorContext;
+use actix::AsyncContext;
+use backoff::backoff::Backoff;
+use backoff::ExponentialBackoff;
+use slog::Logger;
+use tokio::codec::{FramedRead, LinesCodec};
+use tokio::io::AsyncRead;
+use tokio::io::ReadHalf;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::prelude::Stream;
-use slog::Logger;
-use backoff::ExponentialBackoff;
+
 use crate::rpc::RpcMessage;
-use tokio::codec::{LinesCodec, FramedRead};
-use tokio::io::ReadHalf;
-use tokio::io::AsyncRead;
-use actix::AsyncContext;
-use actix::ActorContext;
-use core::mem;
-use backoff::backoff::Backoff;
 
 pub struct TcpListenerActor {
     addr: SocketAddr,

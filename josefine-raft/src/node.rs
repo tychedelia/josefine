@@ -1,21 +1,19 @@
+use std::io;
 use std::net::SocketAddr;
 
 use actix::{Actor, ActorContext, actors::{
     resolver::Connect,
     resolver::Resolver
-}, AsyncContext, Context, ContextFutureSpawner, fut::ActorFuture, fut::WrapFuture, registry::SystemService, StreamHandler, Recipient, Message, Handler, Supervised, Running};
-
+}, AsyncContext, Context, ContextFutureSpawner, fut::ActorFuture, fut::WrapFuture, Handler, Message, Recipient, registry::SystemService, Running, StreamHandler, Supervised};
+use actix::io::{FramedWrite, WriteHandler};
+use backoff::backoff::Backoff;
+use backoff::ExponentialBackoff;
 use slog::Logger;
 use tokio::codec::{FramedRead, LinesCodec};
 use tokio::io::{AsyncRead, WriteHalf};
-
-use std::{io};
-use backoff::ExponentialBackoff;
-use backoff::backoff::Backoff;
-use actix::io::{FramedWrite, WriteHandler};
 use tokio::net::TcpStream;
-use crate::rpc::RpcMessage;
 
+use crate::rpc::RpcMessage;
 
 impl Message for RpcMessage {
     type Result = ();

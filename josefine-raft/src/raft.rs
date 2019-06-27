@@ -1,21 +1,22 @@
-use std::{mem, thread, fmt};
+use std::{fmt, mem, thread};
 use std::collections::HashMap;
+use std::fmt::{Debug, Formatter};
 use std::net::SocketAddr;
 use std::time::Duration;
 use std::time::Instant;
-use std::fmt::{Debug, Formatter};
+
 use actix::{Actor, Arbiter, AsyncContext, Context, Handler, Recipient, Supervised, Supervisor, System, SystemService};
 use slog::Logger;
 
 use crate::candidate::Candidate;
 use crate::config::RaftConfig;
+use crate::error::RaftError;
 use crate::follower::Follower;
 use crate::leader::Leader;
+use crate::listener::TcpListenerActor;
+use crate::log::Log;
 use crate::node::NodeActor;
 use crate::rpc::RpcMessage;
-use crate::listener::TcpListenerActor;
-use crate::error::RaftError;
-use crate::log::Log;
 
 /// An id that uniquely identifies this instance of Raft.
 pub type NodeId = u32;
@@ -366,10 +367,12 @@ impl Handler<RpcMessage> for RaftActor {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::logger::get_root_logger;
     use actix::Message;
     use tokio::prelude::Future;
+
+    use crate::logger::get_root_logger;
+
+    use super::*;
 
     struct DebugStateMessage;
 

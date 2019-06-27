@@ -8,11 +8,11 @@ use slog::Logger;
 use crate::candidate::Candidate;
 use crate::config::RaftConfig;
 use crate::election::Election;
+use crate::error::RaftError;
+use crate::log::Log;
 use crate::raft::{Apply, LogIndex, NodeMap, RaftHandle, RaftRole, Term};
 use crate::raft::{Command, NodeId, Raft, Role, State};
 use crate::rpc::RpcMessage;
-use crate::error::RaftError;
-use crate::log::Log;
 
 #[derive(Debug)]
 pub struct Follower {

@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-
 use crate::raft::NodeId;
 
 #[derive(Debug)]

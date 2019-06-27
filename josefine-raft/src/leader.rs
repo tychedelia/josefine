@@ -1,20 +1,17 @@
-
-
 use std::time::Duration;
 use std::time::Instant;
 
-
 use slog::Logger;
 
+use crate::error::RaftError;
 use crate::follower::Follower;
 use crate::progress::ProgressHandle;
 use crate::progress::ReplicationProgress;
-use crate::raft::{Apply, RaftHandle, RaftRole, NodeId};
+use crate::raft::{Apply, NodeId, RaftHandle, RaftRole};
 use crate::raft::Command;
 use crate::raft::Raft;
 use crate::raft::Role;
 use crate::rpc::RpcMessage;
-use crate::error::RaftError;
 
 ///
 #[derive(Debug)]

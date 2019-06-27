@@ -10,6 +10,8 @@
 //! applications, and does not reference concerns specfic to the distributed log implementation.
 //! Raft is itself a commit log and tracks its state in a manner that is somewhat similar to the
 //! Kafka reference implementation for Josefine.
+#[macro_use]
+extern crate lazy_static;
 extern crate rand;
 extern crate serde;
 #[macro_use]
@@ -18,14 +20,12 @@ extern crate serde_derive;
 extern crate slog;
 extern crate slog_async;
 extern crate slog_term;
-#[macro_use]
-extern crate lazy_static;
 
 use slog::Logger;
 
 use crate::config::RaftConfig;
-use crate::raft::{setup, RaftActor};
 use crate::logger::get_instance_logger;
+use crate::raft::{RaftActor, setup};
 
 mod log;
 mod error;

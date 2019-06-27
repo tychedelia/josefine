@@ -1,4 +1,4 @@
-use crate::raft::{Term, NodeId, Command, LogIndex, Entry};
+use crate::raft::{Command, Entry, LogIndex, NodeId, Term};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum RpcMessage {

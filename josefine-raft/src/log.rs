@@ -1,7 +1,8 @@
+use std::ops::Index;
+
 use crate::raft::Entry;
 use crate::raft::LogIndex;
 use crate::raft::Term;
-use std::ops::Index;
 
 pub struct Log {
     data: Vec<Entry>

@@ -1,5 +1,5 @@
-use snafu::Snafu;
 use actix::prelude::SendError;
+use snafu::Snafu;
 
 #[derive(Debug, Snafu)]
 pub enum RaftError {
