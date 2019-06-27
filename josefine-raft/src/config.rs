@@ -12,7 +12,7 @@ use crate::raft::NodeId;
 /// The configuration for this Raft instance.
 pub struct RaftConfig {
     ///
-    data_directory: PathBuf,
+    pub data_directory: PathBuf,
     /// Limit run-time for testing
     pub run_for: Option<Duration>,
     /// The id used for this instance. Should be unique.
