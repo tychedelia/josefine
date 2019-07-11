@@ -154,7 +154,8 @@ impl Progress<Snapshot> {
 }
 
 #[derive(Debug)]
-pub struct Replicate {}
+pub struct Replicate {
+}
 
 impl ProgressState for Replicate {
     fn reset(&mut self) {

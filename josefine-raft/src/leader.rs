@@ -80,6 +80,19 @@ impl Apply for Raft<Leader> {
                     }
                     self.reset_heartbeat_timer();
                 }
+
+                for (node_id, _) in &self.nodes {
+                    if let Some(mut progress) = self.role.progress.get_mut(*node_id) {
+                        match &mut progress {
+                            ProgressHandle::Replicate(progress) => {
+
+                            }
+                            _ => panic!()
+                        }
+                    }
+                    // node.try_send(RpcMessage::App(self.state.current_term, self.id, self.state.current_term, self.state.commit_index)).unwrap();
+                }
+
                 Ok(RaftHandle::Leader(self))
             }
             Command::AddNode(_node) => {
@@ -100,7 +113,7 @@ impl Apply for Raft<Leader> {
             }
             Command::AppendEntries { term, .. } => {
                 if term > self.state.current_term {
-                    // TODO:
+                    // TODO(jcm): move term logic into dedicated handler
                     self.term(term);
                     return Ok(RaftHandle::Follower(Raft::from(self)));
                 }

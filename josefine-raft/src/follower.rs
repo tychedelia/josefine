@@ -49,35 +49,45 @@ impl Apply for Raft<Follower> {
                 self.apply_self()
             }
             Command::AppendEntries { entries, leader_id, term, prev_log_index, prev_log_term } => {
+                // If we haven't voted and the rpc term is greater, set term to that term.
                 if self.state.voted_for.is_none() && term >= self.state.current_term {
                     self.term(term);
+
+                    // Vote for leader and reset election timeout
+                    self.state.election_time = Some(Instant::now());
+                    self.role.leader_id = Some(leader_id);
+                    self.state.voted_for = Some(leader_id);
                 }
 
+                // If we voted for someone...
                 if let Some(voted_for) = self.state.voted_for {
+                    // And the entries rpc is from another "leader" with a lower term
                     if voted_for != leader_id && term < self.state.current_term {
+                        // Something is wrong, fail fast.
                         panic!();
                     }
                 }
 
-                if term < self.state.current_term || self.log.check_term(&prev_log_index, &prev_log_term) {
+                // If we don't have a log at prev index and term, respond false
+                if !self.log.check_term(&prev_log_index, &prev_log_term) {
                     self.nodes[&leader_id]
                         .try_send(RpcMessage::RespondAppend(self.state.current_term, self.id, false))?;
                     return self.apply_self();
                 }
 
-                self.state.election_time = Some(Instant::now());
-                self.role.leader_id = Some(leader_id);
-                self.state.voted_for = Some(leader_id);
-
+                // If there are entries...
                 if !entries.is_empty() {
                     for entry in entries {
-                        self.state.last_applied = entry.index;
-                        self.log.append(entry);
+                        let index = entry.index;
+                        self.log.append(entry); // append the entry
+                        self.state.last_applied = index; // update our last applied
                     }
 
+                    // Respond success
                     self.nodes[&leader_id]
                         .try_send(RpcMessage::RespondAppend(self.state.current_term, self.id, true))?
                 }
+
                 self.apply_self()
             }
             Command::Heartbeat { leader_id, .. } => {

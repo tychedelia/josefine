@@ -18,10 +18,12 @@ use crate::log::Log;
 use crate::node::NodeActor;
 use crate::rpc::RpcMessage;
 
-/// An id that uniquely identifies this instance of Raft.
+/// A unique id that uniquely identifies an instance of Raft.
 pub type NodeId = u32;
-pub type Term = u64;
 
+/// A term serves as a logical clock that increases monotonically when a new election begins.
+pub type Term = u64;
+/// Each entry has an index in the log, which with the term, describes the unique position of an entry in the log.
 pub type LogIndex = u64;
 
 /// Commands that can be applied to the state machine.
@@ -39,9 +41,9 @@ pub enum Command {
         term: Term,
         /// The id of the candidate requesting the vote.
         candidate_id: NodeId,
-        ///
+        /// Term of the last log entry.
         last_term: Term,
-        ///
+        /// Index of the last log entry.
         last_index: LogIndex,
     },
     /// Respond to a vote from another node.
@@ -61,15 +63,19 @@ pub enum Command {
         leader_id: NodeId,
         /// The entries to append to our commit log.
         entries: Vec<Entry>,
-        ///
+        /// The last log index preceeding new entries.
         prev_log_index: LogIndex,
-        ///
+        /// The log term preceeding new entries.
         prev_log_term: Term,
     },
     AppendResponse {
+        /// The id of the responding node.
         node_id: NodeId,
+        /// The term of the responding node.
         term: Term,
+        /// The responding node's current index.
         index: LogIndex,
+        /// Whether the entries were successfully applied.
         success: bool,
     },
     /// Heartbeat from another node.
