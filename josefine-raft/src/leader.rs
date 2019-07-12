@@ -40,12 +40,6 @@ impl Raft<Leader> {
             ProgressHandle::Snapshot(_) => {},
         };
     }
-//
-//    fn append_entries(&mut self) {
-//        for (id, _) in nodes {
-//            self.append_entry(id, self.role.progress[id]);
-//        }
-//    }
 
     fn needs_heartbeat(&self) -> bool {
         self.role.heartbeat_time.elapsed() > self.role.heartbeat_timeout

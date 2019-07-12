@@ -38,9 +38,6 @@ impl Apply for Raft<Follower> {
     fn apply(mut self, cmd: Command) -> Result<RaftHandle, RaftError> {
         self.log_command(&cmd);
         match cmd {
-            Command::Start => {
-                self.apply_self()
-            }
             Command::Tick => {
                 if self.needs_election() {
                     return self.apply(Command::Timeout);
@@ -118,13 +115,6 @@ impl Apply for Raft<Follower> {
                     return raft.seek_election();
                 }
 
-                self.apply_self()
-            }
-            Command::Ping(_term, _node_id) => {
-//                self.rpc.ping(node_id);
-                self.apply_self()
-            }
-            Command::AddNode(_socket_addr) => {
                 self.apply_self()
             }
             _ => self.apply_self()

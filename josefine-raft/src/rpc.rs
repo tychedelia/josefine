@@ -2,7 +2,6 @@ use crate::raft::{Command, Entry, LogIndex, NodeId, Term};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum RpcMessage {
-    Ping(Term, NodeId),
     RequestVote(Term, NodeId, Term, LogIndex),
     RespondVote(Term, NodeId, bool),
     Heartbeat(Term, NodeId),
@@ -15,7 +14,6 @@ impl From<RpcMessage> for Command {
     fn from(msg: RpcMessage) -> Self {
         match msg {
             RpcMessage::Heartbeat(term, leader_id) => Command::Heartbeat { term, leader_id },
-            RpcMessage::Ping(term, id) => Command::Ping(term, id),
             RpcMessage::RespondVote(term, from, granted) => Command::VoteResponse {
                 term,
                 from,

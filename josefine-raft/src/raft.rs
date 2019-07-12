@@ -29,12 +29,8 @@ pub type LogIndex = u64;
 /// Commands that can be applied to the state machine.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum Command {
-    /// Called once at beginning to bootstrap the state machine.
-    Start,
     /// Move the state machine forward.
     Tick,
-    /// Add a node to the list of known nodes.
-    AddNode(SocketAddr),
     /// Request that this instance vote for the provide node.
     VoteRequest {
         /// The term of the candidate.
@@ -89,8 +85,6 @@ pub enum Command {
     Timeout,
     /// Don't do anything.
     Noop,
-    /// Say hello to another node.
-    Ping(Term, NodeId),
 }
 
 /// Shared behavior that all roles of the state machine must implement.
