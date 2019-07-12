@@ -65,13 +65,15 @@ pub trait ProgressState {
     fn reset(&mut self);
 }
 
+pub const MAX_INFLIGHT: u64 = 5;
+
 #[derive(Debug)]
 pub struct Progress<T: ProgressState> {
     node_id: NodeId,
     state: T,
     active: bool,
     pub index: LogIndex,
-    next: u64,
+    pub next: LogIndex,
 }
 
 impl<T: ProgressState> Progress<T> {

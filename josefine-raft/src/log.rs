@@ -44,6 +44,10 @@ impl Log {
     pub fn append(&mut self, entry: Entry) {
         self.data.insert((entry.index - 1) as usize, entry);
     }
+
+    pub fn get_range(&self, start: &LogIndex, end: &LogIndex) -> &[Entry] {
+        &self.data[Self::get_index(start)..Self::get_index(end)]
+    }
 }
 
 

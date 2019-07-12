@@ -75,21 +75,28 @@ impl Apply for Raft<Leader> {
                     self.reset_heartbeat_timer();
                 }
 
-                for (node_id, _) in &self.nodes {
+                for (node_id, node) in &self.nodes {
                     if let Some(mut progress) = self.role.progress.get_mut(*node_id) {
                         match &mut progress {
                             ProgressHandle::Replicate(progress) => {
+                                let entries = self.log.get_range(&progress.next, &(progress.next + crate::progress::MAX_INFLIGHT));
+                                let len = entries.len();
+                                node.try_send(RpcMessage::Append {
+                                    term: self.state.current_term,
+                                    leader_id: self.id,
+                                    prev_log_index: progress.index,
+                                    prev_log_term: 0, // TODO(jcm) need to track in progress?
+                                    entries: entries.to_vec(),
+                                    leader_commit: 0
+                                }).unwrap();
 
+                                progress.next = len as u64;
                             }
-                            _ => panic!()
+                            _ => {}
                         }
                     }
-                    // node.try_send(RpcMessage::App(self.state.current_term, self.id, self.state.current_term, self.state.commit_index)).unwrap();
                 }
 
-                Ok(RaftHandle::Leader(self))
-            }
-            Command::AddNode(_node) => {
                 Ok(RaftHandle::Leader(self))
             }
             Command::AppendResponse { node_id, index, .. } => {
