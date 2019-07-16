@@ -272,7 +272,7 @@ pub trait Apply {
 }
 
 pub struct RaftActor {
-    raft: Option<RaftHandle>,
+    pub raft: Option<RaftHandle>,
     logger: Logger,
     config: RaftConfig,
 }
@@ -288,7 +288,7 @@ impl RaftActor {
         }
     }
 
-    fn unwrap(&mut self) -> RaftHandle {
+    pub fn unwrap(&mut self) -> RaftHandle {
         mem::replace(&mut self.raft, None).expect("Unwrap has been called twice in a row")
     }
 }
@@ -362,79 +362,6 @@ impl Handler<RpcMessage> for RaftActor {
         let raft = raft.apply(msg.into())?;
         self.raft = Some(raft);
         Ok(())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use actix::Message;
-    use tokio::prelude::Future;
-
-    use crate::logger::get_root_logger;
-
-    use super::*;
-
-    struct DebugStateMessage;
-
-    impl Message for DebugStateMessage {
-        type Result = Result<State, std::io::Error>;
-    }
-
-    impl Handler<DebugStateMessage> for RaftActor {
-        type Result = Result<State, std::io::Error>;
-
-        fn handle(&mut self, _msg: DebugStateMessage, _ctx: &mut Self::Context) -> Self::Result {
-            let raft = self.unwrap();
-            let state = match &raft {
-                RaftHandle::Follower(raft) => Ok(raft.state.clone()),
-                RaftHandle::Candidate(raft) => Ok(raft.state.clone()),
-                RaftHandle::Leader(raft) => Ok(raft.state.clone()),
-            };
-            self.raft = Some(raft);
-            state
-        }
-    }
-
-
-    macro_rules! test_node {
-        ($timeout:literal, $test:expr) => {
-            struct TestActor;
-
-            impl Actor for TestActor {
-                type Context = Context<Self>;
-
-
-                fn started(&mut self, ctx: &mut Self::Context) {
-                    ctx.run_later(Duration::from_secs($timeout), |_act, _ctx| {
-                        let raft = System::current().registry().get::<RaftActor>();
-                        let _state = raft.send(DebugStateMessage)
-                            .map(|res| {
-                                let state = res.unwrap();
-                                $test(state)
-                            })
-                            .wait();
-
-                        System::current().stop();
-                    });
-                }
-            }
-
-            let log = get_root_logger();
-            let config = RaftConfig {
-                id: 1,
-                ..Default::default()
-            };
-            let _raft = setup(log.new(o!()), config, Some(TestActor));
-        }
-    }
-
-    #[test]
-    fn it_runs() {
-        test_node!(5, |state: State| {
-            assert!(state.voted_for.is_some());
-            assert_eq!(state.voted_for.unwrap(), 1);
-            assert_eq!(state.current_term, 1);
-        });
     }
 }
 

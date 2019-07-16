@@ -21,7 +21,7 @@ fn main() {
         .get_matches();
 
     let config_path = matches.value_of("config").unwrap();
-    let _raft = JosefineBuilder::new()
-        .with_config_path(config_path)
-        .build();
+    // let _raft = JosefineBuilder::new()
+    //    .with_config_path(config_path)
+    //    .build();
 }
