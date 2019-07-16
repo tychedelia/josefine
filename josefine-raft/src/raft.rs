@@ -354,14 +354,14 @@ impl Supervised for RaftActor {
 }
 
 impl Handler<RpcMessage> for RaftActor {
-    type Result = ();
+    type Result = Result<(), RaftError>;
 
     fn handle(&mut self, msg: RpcMessage, _ctx: &mut Self::Context) -> Self::Result {
 //        info!(self.logger, "Received message"; "msg" => format!("{:?}", msg));
         let raft = self.unwrap();
-        let raft = raft.apply(msg.into()).unwrap();
+        let raft = raft.apply(msg.into())?;
         self.raft = Some(raft);
-        ()
+        Ok(())
     }
 }
 

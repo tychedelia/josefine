@@ -13,10 +13,11 @@ use tokio::codec::{FramedRead, LinesCodec};
 use tokio::io::{AsyncRead, WriteHalf};
 use tokio::net::TcpStream;
 
+use crate::error::RaftError;
 use crate::rpc::RpcMessage;
 
 impl Message for RpcMessage {
-    type Result = ();
+    type Result = Result<(), RaftError>;
 }
 
 /// NodeActor represents another Raft node. Messages recieved will be forwarded
@@ -113,13 +114,16 @@ impl Actor for NodeActor {
 }
 
 impl Handler<RpcMessage> for NodeActor {
-    type Result = ();
+    type Result = Result<(), RaftError>;
 
     fn handle(&mut self, msg: RpcMessage, _ctx: &mut Self::Context) -> Self::Result {
         if let Some(w) = &mut self.writer {
             // Write the message directly to the stream
             w.write(serde_json::to_string(&msg).unwrap() + "\n");
+            return Ok(())
         }
+
+        Err(RaftError::MessageError { error_msg: format!("Could not write to {:?}", self.addr) })
     }
 }
 
