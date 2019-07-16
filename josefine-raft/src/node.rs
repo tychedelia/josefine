@@ -19,6 +19,13 @@ impl Message for RpcMessage {
     type Result = ();
 }
 
+/// NodeActor represents another Raft node. Messages recieved will be forwarded
+/// directly to the other Raft instance via TCP.
+///
+/// In this sense, NodeActor is the RPC layer for interacting with the cluster.
+///
+/// This actor will continuously attempt to connect to the host address, with
+/// an exponential backoff.
 pub struct NodeActor {
     addr: SocketAddr,
     logger: Logger,
@@ -29,9 +36,13 @@ pub struct NodeActor {
 
 
 impl NodeActor {
+    /// Creates a new actor instance. Must be provided a host address and an actor address
+    /// of the Raft instance it can call back to.
     pub fn new(addr: SocketAddr, logger: Logger, raft: Recipient<RpcMessage>) -> NodeActor {
+        // Backoff controlls attempts to reconnect to the given host address
         let mut backoff = ExponentialBackoff::default();
         backoff.max_elapsed_time = None;
+
         NodeActor {
             addr,
             logger,
@@ -44,6 +55,7 @@ impl NodeActor {
 
 impl WriteHandler<io::Error> for NodeActor {
     fn error(&mut self, _err: io::Error, _: &mut Self::Context) -> Running {
+        // If we have an error, stop and get restarted
         error!(self.logger, "Error writing");
         Running::Stop
     }
@@ -51,6 +63,7 @@ impl WriteHandler<io::Error> for NodeActor {
 
 impl Supervised for NodeActor {
     fn restarting(&mut self, _ctx: &mut Self::Context) {
+        // no special action needed when restarting
         info!(self.logger, "Restarting")
     }
 }
@@ -59,18 +72,25 @@ impl Actor for NodeActor {
     type Context = Context<Self>;
 
     fn started(&mut self, ctx: &mut Self::Context) {
+
+        // get tcp client
         Resolver::from_registry()
             .send(Connect::host(self.addr.to_string()))
-            .into_actor(self)
+            .into_actor(self) // transform stream into actor
             .map(|res, mut act, ctx| match res {
                 Ok(stream) => {
                     info!(act.logger, "Connected"; "addr" => act.addr.to_string());
 
+                    // get read half and write half of stream
                     let (r, w) = stream.split();
+
                     let line_reader = FramedRead::new(r, LinesCodec::new());
                     let line_writer = FramedWrite::new(w, LinesCodec::new(), ctx);
+
+                    // write side handles messages sent to us by other service level actors in the system
                     act.writer = Some(line_writer);
 
+                    // read side is called by actix, we add a handler
                     Context::add_stream(ctx, line_reader);
 
                     act.backoff.reset();
@@ -97,15 +117,20 @@ impl Handler<RpcMessage> for NodeActor {
 
     fn handle(&mut self, msg: RpcMessage, _ctx: &mut Self::Context) -> Self::Result {
         if let Some(w) = &mut self.writer {
+            // Write the message directly to the stream
             w.write(serde_json::to_string(&msg).unwrap() + "\n");
         }
     }
 }
 
+// Read a line from the tcp stream
 impl StreamHandler<String, std::io::Error> for NodeActor {
     fn handle(&mut self, line: String, _ctx: &mut Self::Context) {
+        // try to deserialize message
+        // TODO(jcm): switch from JSON
         trace!(self.logger, "TCP read"; "line" => &line);
         let message: RpcMessage = serde_json::from_str(&line).unwrap();
+
         self.raft.try_send(message).unwrap();
     }
 }
