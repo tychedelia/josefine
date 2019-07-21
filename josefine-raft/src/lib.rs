@@ -28,7 +28,7 @@ use slog::Logger;
 
 use crate::config::RaftConfig;
 use crate::logger::get_instance_logger;
-use crate::raft::{RaftActor, setup};
+use crate::raft::RaftActor;
 use std::net::SocketAddr;
 use crate::listener::TcpListenerActor;
 use std::collections::HashMap;

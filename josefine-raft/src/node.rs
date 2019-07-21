@@ -138,3 +138,49 @@ impl StreamHandler<String, std::io::Error> for NodeActor {
         self.raft.try_send(message).unwrap();
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use actix::{System, Arbiter};
+    use std::time::Duration;
+    use std::sync::atomic::AtomicBool;
+    use std::sync::Arc;
+    use std::ptr::eq;
+
+    #[test]
+    fn read() {
+        struct Tester {
+            did_pass: bool
+        }
+
+        impl Actor for Tester {
+            type Context = Context<Self>;
+
+            fn started(&mut self, ctx: &mut Self::Context) {
+                ctx.run_later(Duration::from_secs(10), |_, _| {
+                    System::current().stop();
+                });
+            }
+        }
+
+        impl Handler<RpcMessage> for Tester {
+            type Result = Result<(), RaftError>;
+
+            fn handle(&mut self, msg: RpcMessage, ctx: &mut Self::Context) -> Self::Result {
+                Ok(())
+            }
+        }
+
+        let sys = System::new("test");
+
+        let addr: SocketAddr = "127.0.0.1:8080".parse().unwrap();
+
+        let tester = Arbiter::start(move |_| Tester { did_pass: false });
+        Arbiter::start(move |_| NodeActor::new(addr, crate::logger::get_root_logger().new(o!()), tester.recipient()));
+
+
+
+        sys.run();
+    }
+}

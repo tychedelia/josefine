@@ -31,6 +31,10 @@ pub type LogIndex = u64;
 pub enum Command {
     /// Move the state machine forward.
     Tick,
+    /// Propose a change
+    Propose {
+        
+    },
     /// Request that this instance vote for the provide node.
     VoteRequest {
         /// The term of the candidate.
@@ -294,42 +298,6 @@ impl RaftActor {
 }
 
 pub type NodeMap = HashMap<NodeId, Recipient<RpcMessage>>;
-
-pub fn setup<T: Actor<Context=Context<T>> + Send>(logger: Logger, config: RaftConfig, actor: Option<T>) {
-    let system = System::new("raft");
-
-    if let Some(actor) = actor {
-        Arbiter::start(move |_| actor);
-    }
-
-    let _raft = RaftActor::create(move |ctx| {
-        let l = logger.new(o!());
-        let addr = SocketAddr::new("127.0.0.1".parse().unwrap(), config.port); // TODO: :(
-        let raft = ctx.address().recipient();
-        let _server = Supervisor::start(move |_| TcpListenerActor::new(addr, l, raft));
-
-        let mut nodes = HashMap::new();
-        for node in config.clone().nodes {
-            let addr = node.addr.clone();
-            let l = logger.new(o!());
-            let raft = ctx.address().recipient();
-            let n = Supervisor::start(move |_| NodeActor::new(addr, l, raft));
-            nodes.insert(node.id, n.recipient());
-        }
-
-        let raft = ctx.address().recipient();
-        thread::spawn(move || {
-            loop {
-                thread::sleep(Duration::from_millis(100));
-                raft.try_send(RpcMessage::Tick).unwrap();
-            }
-        });
-
-        System::current().registry().set(ctx.address());
-        RaftActor::new(config, logger, nodes)
-    });
-    system.run();
-}
 
 impl Actor for RaftActor {
     type Context = Context<Self>;
