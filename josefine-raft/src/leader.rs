@@ -5,7 +5,7 @@ use slog::Logger;
 
 use crate::error::RaftError;
 use crate::follower::Follower;
-use crate::progress::ProgressHandle;
+use crate::progress::NodeProgress;
 use crate::progress::ReplicationProgress;
 use crate::raft::{Apply, NodeId, RaftHandle, RaftRole};
 use crate::raft::Command;
@@ -33,11 +33,11 @@ impl Raft<Leader> {
         Ok(())
     }
 
-    fn _append_entry(&mut self, _node_id: NodeId, handle: ProgressHandle) {
+    fn _append_entry(&mut self, _node_id: NodeId, handle: NodeProgress) {
         match handle {
-            ProgressHandle::Probe(_) => {},
-            ProgressHandle::Replicate(_) => {},
-            ProgressHandle::Snapshot(_) => {},
+            NodeProgress::Probe(_) => {},
+            NodeProgress::Replicate(_) => {},
+            NodeProgress::Snapshot(_) => {},
         };
     }
 
@@ -78,7 +78,7 @@ impl Apply for Raft<Leader> {
                 for (node_id, node) in &self.nodes {
                     if let Some(mut progress) = self.role.progress.get_mut(*node_id) {
                         match &mut progress {
-                            ProgressHandle::Replicate(progress) => {
+                            NodeProgress::Replicate(progress) => {
                                 let entries = self.log.get_range(&progress.next, &(progress.next + crate::progress::MAX_INFLIGHT));
                                 let len = entries.len();
                                 let _ = RpcMessage::Append {
@@ -102,7 +102,7 @@ impl Apply for Raft<Leader> {
             Command::AppendResponse { node_id, index, .. } => {
                 if let Some(mut progress) = self.role.progress.get_mut(node_id) {
                     match &mut progress {
-                        ProgressHandle::Replicate(progress) => {
+                        NodeProgress::Replicate(progress) => {
                             progress.increment(index);
                         }
                         _ => panic!()

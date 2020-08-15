@@ -52,6 +52,7 @@ impl Role for Candidate {
 impl Apply for Raft<Candidate> {
     fn apply(mut self, cmd: Command) -> Result<RaftHandle, RaftError> {
         self.log_command(&cmd);
+
         match cmd {
             Command::Tick => {
                 if self.needs_election() {
@@ -171,4 +172,9 @@ impl From<Raft<Candidate>> for Raft<Leader> {
             log: val.log,
         }
     }
+}
+
+#[cfg(test)]
+mod tests {
+
 }

@@ -5,36 +5,36 @@ use crate::rpc::RpcMessage;
 
 #[derive(Debug)]
 pub struct ReplicationProgress {
-    progress: HashMap<NodeId, ProgressHandle>,
+    progress: HashMap<NodeId, NodeProgress>,
 }
 
 impl ReplicationProgress {
     pub fn new(nodes: &HashMap<NodeId, ()>) -> ReplicationProgress {
         let mut progress = HashMap::new();
         for (id, _) in nodes {
-            progress.insert(*id, ProgressHandle::Probe(Progress::new(*id)));
+            progress.insert(*id, NodeProgress::Probe(Progress::new(*id)));
         }
         ReplicationProgress {
             progress,
         }
     }
 
-    pub fn get(&self, node_id: NodeId) -> Option<&ProgressHandle> {
+    pub fn get(&self, node_id: NodeId) -> Option<&NodeProgress> {
         self.progress.get(&node_id)
     }
 
-    pub fn get_mut(&mut self, node_id: NodeId) -> Option<&mut ProgressHandle> {
+    pub fn get_mut(&mut self, node_id: NodeId) -> Option<&mut NodeProgress> {
         self.progress.get_mut(&node_id)
     }
 
     pub fn insert(&mut self, node_id: NodeId) {
-        self.progress.insert(node_id, ProgressHandle::Probe(Progress::new(node_id)));
+        self.progress.insert(node_id, NodeProgress::Probe(Progress::new(node_id)));
     }
 
     pub fn committed_index(&self) -> LogIndex {
         let mut indices = Vec::new();
         for progress in self.progress.values() {
-            if let ProgressHandle::Replicate(progress) = progress {
+            if let NodeProgress::Replicate(progress) = progress {
                 indices.push(progress.index);
             }
         }
@@ -47,15 +47,31 @@ impl ReplicationProgress {
 
 
 #[derive(Debug)]
-pub enum ProgressHandle {
+pub enum NodeProgress {
     Probe(Progress<Probe>),
     Replicate(Progress<Replicate>),
     Snapshot(Progress<Snapshot>),
 }
 
-impl ProgressHandle {
-    pub fn new(node_id: NodeId) -> ProgressHandle {
-        ProgressHandle::Probe(Progress::new(node_id))
+impl NodeProgress {
+    pub fn new(node_id: NodeId) -> NodeProgress {
+        NodeProgress::Probe(Progress::new(node_id))
+    }
+
+    pub fn increment(&mut self, idx: LogIndex) -> bool {
+        match self {
+            NodeProgress::Probe(prog) => prog.increment(idx),
+            NodeProgress::Replicate(prog) => prog.increment(idx),
+            NodeProgress::Snapshot(prog) => prog.increment(idx),
+        }
+    }
+
+    pub fn is_active(self) -> bool {
+        match self {
+            NodeProgress::Probe(prog) => prog.is_active(),
+            NodeProgress::Replicate(prog) => prog.is_active(),
+            NodeProgress::Snapshot(prog) => prog.is_active(),
+        }
     }
 }
 
@@ -78,6 +94,10 @@ impl<T: ProgressState> Progress<T> {
     pub fn reset(&mut self) {
         self.active = false;
         self.state.reset();
+    }
+
+    pub fn is_active(self) -> bool {
+        self.active
     }
 
     pub fn increment(&mut self, index: LogIndex) -> bool {
@@ -196,5 +216,30 @@ impl PendingReplication {
 
         self.pending[next] = Some(id);
         self.count += 1;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::progress::NodeProgress;
+
+    #[test]
+    fn starts_inactive() {
+        let mut progress = NodeProgress::new(0);
+        assert!(!progress.is_active());
+    }
+
+    #[test]
+    fn starts_in_probe() {
+        match NodeProgress::new(0) {
+            NodeProgress::Probe(_) => {},
+            _ => panic!()
+        }
+    }
+
+    #[test]
+    fn increments_to_higher() {
+        let mut progress = NodeProgress::new(0);
+        assert!(progress.increment(666));
     }
 }
