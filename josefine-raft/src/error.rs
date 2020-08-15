@@ -1,4 +1,3 @@
-use actix::prelude::SendError;
 use snafu::Snafu;
 
 #[derive(Debug, Snafu)]
@@ -8,10 +7,4 @@ pub enum RaftError {
     ApplyError,
     #[snafu(display("Error sending message {}", error_msg))]
     MessageError { error_msg: String },
-}
-
-impl <T> From<SendError<T>> for RaftError {
-    fn from(err: SendError<T>) -> Self {
-        RaftError::MessageError { error_msg: err.to_string() }
-    }
 }

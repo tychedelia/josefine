@@ -4,9 +4,6 @@ extern crate josefine_raft;
 use clap::App;
 use clap::Arg;
 
-
-use josefine_raft::JosefineBuilder;
-
 fn main() {
     let matches = App::new("Josefine")
         .version("0.0.1")
@@ -21,7 +18,4 @@ fn main() {
         .get_matches();
 
     let config_path = matches.value_of("config").unwrap();
-    // let _raft = JosefineBuilder::new()
-    //    .with_config_path(config_path)
-    //    .build();
 }

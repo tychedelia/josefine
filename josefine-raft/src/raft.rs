@@ -1,11 +1,9 @@
 use std::{fmt, mem, thread};
-use std::collections::HashMap;
 use std::fmt::{Debug, Formatter};
 use std::net::SocketAddr;
 use std::time::Duration;
 use std::time::Instant;
 
-use actix::{Actor, Arbiter, AsyncContext, Context, Handler, Recipient, Supervised, Supervisor, System, SystemService};
 use slog::Logger;
 
 use crate::candidate::Candidate;
@@ -13,11 +11,9 @@ use crate::config::RaftConfig;
 use crate::error::RaftError;
 use crate::follower::Follower;
 use crate::leader::Leader;
-use crate::listener::TcpListenerActor;
 use crate::log::Log;
-use crate::node::NodeActor;
-use crate::rpc::RpcMessage;
 
+use std::collections::HashMap;
 /// A unique id that uniquely identifies an instance of Raft.
 pub type NodeId = u32;
 
@@ -266,6 +262,9 @@ impl Apply for RaftHandle {
     }
 }
 
+
+pub type NodeMap = HashMap<NodeId, ()>;
+
 /// Applying a command is the basic way the state machine is moved forward. Each role implements
 /// trait to handle how it responds (or does not respond) to particular commands.
 pub trait Apply {
@@ -273,63 +272,5 @@ pub trait Apply {
     /// should occur for only truly exceptional conditions, and are provided to allow the wrapping
     /// server containing this state machine to shut down gracefully.
     fn apply(self, cmd: Command) -> Result<RaftHandle, RaftError>;
-}
-
-pub struct RaftActor {
-    pub raft: Option<RaftHandle>,
-    logger: Logger,
-    config: RaftConfig,
-}
-
-impl RaftActor {
-    pub fn new(config: RaftConfig, logger: Logger, nodes: NodeMap) -> RaftActor {
-        let c = config.clone();
-        let l = logger.new(o!());
-        RaftActor {
-            logger,
-            raft: Some(RaftHandle::new(c, l, nodes)),
-            config,
-        }
-    }
-
-    pub fn unwrap(&mut self) -> RaftHandle {
-        mem::replace(&mut self.raft, None).expect("Unwrap has been called twice in a row")
-    }
-}
-
-pub type NodeMap = HashMap<NodeId, Recipient<RpcMessage>>;
-
-impl Actor for RaftActor {
-    type Context = Context<Self>;
-
-    fn started(&mut self, _ctx: &mut Self::Context) {
-        info!(self.logger, "Starting Raft"; "config" => format!("{:?}", self.config));
-    }
-}
-
-impl SystemService for RaftActor {
-
-}
-
-impl Default for RaftActor {
-    fn default() -> Self {
-        unimplemented!()
-    }
-}
-
-impl Supervised for RaftActor {
-
-}
-
-impl Handler<RpcMessage> for RaftActor {
-    type Result = Result<(), RaftError>;
-
-    fn handle(&mut self, msg: RpcMessage, _ctx: &mut Self::Context) -> Self::Result {
-//        info!(self.logger, "Received message"; "msg" => format!("{:?}", msg));
-        let raft = self.unwrap();
-        let raft = raft.apply(msg.into())?;
-        self.raft = Some(raft);
-        Ok(())
-    }
 }
 

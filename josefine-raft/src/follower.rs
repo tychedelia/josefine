@@ -67,8 +67,8 @@ impl Apply for Raft<Follower> {
 
                 // If we don't have a log at prev index and term, respond false
                 if !self.log.check_term(&prev_log_index, &prev_log_term) {
-                    self.nodes[&leader_id]
-                        .try_send(RpcMessage::RespondAppend(self.state.current_term, self.id, false))?;
+                    self.nodes[&leader_id];
+                    let _ = RpcMessage::RespondAppend(self.state.current_term, self.id, false);
                     return self.apply_self();
                 }
 
@@ -81,8 +81,8 @@ impl Apply for Raft<Follower> {
                     }
 
                     // Respond success
-                    self.nodes[&leader_id]
-                        .try_send(RpcMessage::RespondAppend(self.state.current_term, self.id, true))?
+                    self.nodes[&leader_id];
+                        let _ = RpcMessage::RespondAppend(self.state.current_term, self.id, true);
                 }
 
                 self.apply_self()
@@ -92,19 +92,19 @@ impl Apply for Raft<Follower> {
                 self.role.leader_id = Some(leader_id);
                 self.state.voted_for = Some(leader_id);
 
-                self.nodes[&leader_id]
-                    .try_send(RpcMessage::Heartbeat(self.state.current_term, leader_id))?;
+                self.nodes[&leader_id];
+                    let _ = RpcMessage::Heartbeat(self.state.current_term, leader_id);
 
                 self.apply_self()
             }
             Command::VoteRequest { candidate_id, last_index, last_term, .. } => {
                 if self.can_vote(last_term, last_index) {
-                    self.nodes[&candidate_id]
-                        .try_send(RpcMessage::RespondVote(self.state.current_term, self.id, true))?;
+                    self.nodes[&candidate_id];
+                    let _ = RpcMessage::RespondVote(self.state.current_term, self.id, true);
                     self.state.voted_for = Some(candidate_id);
                 } else {
-                    self.nodes[&candidate_id]
-                        .try_send(RpcMessage::RespondVote(self.state.current_term, self.id, false))?;
+                    self.nodes[&candidate_id];
+                        let _ = RpcMessage::RespondVote(self.state.current_term, self.id, false);
                 }
                 self.apply_self()
             }

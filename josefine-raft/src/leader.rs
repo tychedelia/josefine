@@ -27,7 +27,7 @@ pub struct Leader {
 impl Raft<Leader> {
     pub(crate) fn heartbeat(&self) -> Result<(), RaftError> {
         for (_, node) in &self.nodes {
-            node.try_send(RpcMessage::Heartbeat(self.state.current_term, self.id))?;
+            let _ = RpcMessage::Heartbeat(self.state.current_term, self.id);
         };
 
         Ok(())
@@ -81,14 +81,14 @@ impl Apply for Raft<Leader> {
                             ProgressHandle::Replicate(progress) => {
                                 let entries = self.log.get_range(&progress.next, &(progress.next + crate::progress::MAX_INFLIGHT));
                                 let len = entries.len();
-                                node.try_send(RpcMessage::Append {
+                                let _ = RpcMessage::Append {
                                     term: self.state.current_term,
                                     leader_id: self.id,
                                     prev_log_index: progress.index,
                                     prev_log_term: 0, // TODO(jcm) need to track in progress?
                                     entries: entries.to_vec(),
                                     leader_commit: 0
-                                }).unwrap();
+                                };
 
                                 progress.next = len as u64;
                             }
