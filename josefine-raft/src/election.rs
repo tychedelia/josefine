@@ -35,15 +35,17 @@ impl Election {
     }
 
     pub fn election_status(&self) -> ElectionStatus {
-        let (votes, total) = self.votes.iter()
-            .fold((0, 0), |(mut votes, mut total), (_id, vote)| {
-                if *vote {
-                    votes += 1;
-                }
+        let (votes, total) =
+            self.votes
+                .iter()
+                .fold((0, 0), |(mut votes, mut total), (_id, vote)| {
+                    if *vote {
+                        votes += 1;
+                    }
 
-                total += 1;
-                (votes, total)
-            });
+                    total += 1;
+                    (votes, total)
+                });
 
         if votes >= self.quorum_size() {
             ElectionStatus::Elected

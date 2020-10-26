@@ -1,19 +1,22 @@
-use std::{fmt, mem, thread};
 use std::fmt::{Debug, Formatter};
 use std::net::SocketAddr;
 use std::time::Duration;
 use std::time::Instant;
+use std::{fmt, mem, thread};
 
 use slog::Logger;
 
 use crate::candidate::Candidate;
 use crate::config::RaftConfig;
-use crate::error::RaftError;
+use crate::error::{RaftError, Result};
 use crate::follower::Follower;
 use crate::leader::Leader;
 use crate::log::Log;
 
+use crate::rpc::{Address, Message};
 use std::collections::HashMap;
+use tokio::sync::mpsc::{Sender, UnboundedSender};
+
 /// A unique id that uniquely identifies an instance of Raft.
 pub type NodeId = u32;
 
@@ -28,9 +31,7 @@ pub enum Command {
     /// Move the state machine forward.
     Tick,
     /// Propose a change
-    Propose {
-        
-    },
+    Propose {},
     /// Request that this instance vote for the provide node.
     VoteRequest {
         /// The term of the candidate.
@@ -90,7 +91,7 @@ pub enum Command {
 /// Shared behavior that all roles of the state machine must implement.
 pub trait Role: Debug {
     /// Set the term for the node, reseting the current election.
-    fn term(&mut self, term: u64);
+    fn term(&mut self, term: Term);
     fn role(&self) -> RaftRole;
     fn log(&self) -> &Logger;
 }
@@ -150,11 +151,13 @@ pub struct State {
 impl Debug for State {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let timeout = match (self.election_time, self.election_timeout) {
-            (Some(time), Some(timeout)) => if timeout > time.elapsed() {
-                timeout - time.elapsed()
-            } else {
-                Duration::from_secs(0)
-            },
+            (Some(time), Some(timeout)) => {
+                if timeout > time.elapsed() {
+                    timeout - time.elapsed()
+                } else {
+                    Duration::from_secs(0)
+                }
+            }
             _ => Duration::from_secs(0),
         };
         write!(f, "State {{ current_term: {}, voted_for: {:?}, commit_index: {}, last_applied: {}, timeout: {:?} }}",
@@ -196,6 +199,8 @@ pub struct Raft<T: Role> {
     pub role: T,
     ///
     pub log: Log,
+    ///
+    pub rpc_tx: UnboundedSender<Message>,
 }
 
 // Base methods for general operations (+ debugging and testing).
@@ -220,8 +225,15 @@ impl<T: Role> Raft<T> {
         match cmd {
             Command::Tick => {}
             Command::Heartbeat { .. } => {}
-            _ => debug!(self.role.log(), ""; "role_state" => format!("{:?}", self.role), "state" => format!("{:?}", self.state), "cmd" => format!("{:?}", cmd))
+            _ => {
+                debug!(self.role.log(), ""; "role_state" => format!("{:?}", self.role), "state" => format!("{:?}", self.state), "cmd" => format!("{:?}", cmd))
+            }
         };
+    }
+
+    fn send(&self, to: Address, cmd: Command) -> Result<()> {
+        let msg = Message::new(self.state.current_term, Address::Local, to, cmd);
+        Ok(())
     }
 }
 
@@ -246,24 +258,28 @@ pub enum RaftHandle {
 
 impl RaftHandle {
     /// Obtain a new instance of raft initialized in the default follower state.
-    pub fn new(config: RaftConfig, logger: Logger, nodes: NodeMap) -> RaftHandle {
-        let raft = Raft::new(config, logger, nodes);
+    pub fn new(
+        config: RaftConfig,
+        logger: Logger,
+        nodes: NodeMap,
+        rpc_tx: UnboundedSender<Message>,
+    ) -> RaftHandle {
+        let raft = Raft::new(config, logger, nodes, rpc_tx);
         RaftHandle::Follower(raft.unwrap())
     }
 }
 
 impl Apply for RaftHandle {
-    fn apply(self, cmd: Command) -> Result<RaftHandle, RaftError> {
+    fn apply(self, cmd: Command) -> Result<RaftHandle> {
         match self {
-            RaftHandle::Follower(raft) => { raft.apply(cmd) }
-            RaftHandle::Candidate(raft) => { raft.apply(cmd) }
-            RaftHandle::Leader(raft) => { raft.apply(cmd) }
+            RaftHandle::Follower(raft) => raft.apply(cmd),
+            RaftHandle::Candidate(raft) => raft.apply(cmd),
+            RaftHandle::Leader(raft) => raft.apply(cmd),
         }
     }
 }
 
-
-pub type NodeMap = HashMap<NodeId, ()>;
+pub type NodeMap = HashMap<NodeId, Node>;
 
 /// Applying a command is the basic way the state machine is moved forward. Each role implements
 /// trait to handle how it responds (or does not respond) to particular commands.
@@ -271,6 +287,5 @@ pub trait Apply {
     /// Apply a command to the raft state machine, which may result in a new raft state. Errors
     /// should occur for only truly exceptional conditions, and are provided to allow the wrapping
     /// server containing this state machine to shut down gracefully.
-    fn apply(self, cmd: Command) -> Result<RaftHandle, RaftError>;
+    fn apply(self, cmd: Command) -> Result<RaftHandle>;
 }
-

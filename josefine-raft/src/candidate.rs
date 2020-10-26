@@ -7,11 +7,11 @@ use crate::error::RaftError;
 use crate::follower::Follower;
 use crate::leader::Leader;
 use crate::progress::ReplicationProgress;
-use crate::raft::{Apply, RaftHandle, RaftRole};
 use crate::raft::Command;
 use crate::raft::Raft;
 use crate::raft::Role;
-use crate::rpc::RpcMessage;
+use crate::raft::{Apply, RaftHandle, RaftRole};
+use crate::rpc::Message;
 
 #[derive(Debug)]
 pub struct Candidate {
@@ -28,10 +28,19 @@ impl Raft<Candidate> {
         let term = self.state.current_term;
 
         for (_, node) in &self.nodes {
-            let _ = RpcMessage::RequestVote(self.state.current_term, self.id, self.state.current_term, self.state.commit_index);
+            // let _ = Message::RequestVote(
+            //     self.state.current_term,
+            //     self.id,
+            //     self.state.current_term,
+            //     self.state.commit_index,
+            // );
         }
 
-        self.apply(Command::VoteResponse { from, term, granted: true })
+        self.apply(Command::VoteResponse {
+            from,
+            term,
+            granted: true,
+        })
     }
 }
 
@@ -60,28 +69,32 @@ impl Apply for Raft<Candidate> {
                         ElectionStatus::Elected => {
                             error!(self.role.logger, "This should never happen.");
                             Ok(RaftHandle::Leader(Raft::from(self)))
-                        },
+                        }
                         ElectionStatus::Voting => {
                             info!(self.role.logger, "Election ended with missing votes");
                             self.state.voted_for = None;
                             let raft: Raft<Follower> = Raft::from(self);
                             Ok(raft.apply(Command::Timeout)?)
-                        },
+                        }
                         ElectionStatus::Defeated => {
                             info!(self.role.logger, "Defeated in election.");
                             self.state.voted_for = None;
                             let raft: Raft<Follower> = Raft::from(self);
                             Ok(raft.apply(Command::Timeout)?)
-                        },
-                    }
+                        }
+                    };
                 }
 
-//                info!(self.role.logger, "Transitioning to follower");
+                //                info!(self.role.logger, "Transitioning to follower");
                 Ok(RaftHandle::Candidate(self))
             }
-            Command::VoteRequest { candidate_id, term: _, .. } => {
+            Command::VoteRequest {
+                candidate_id,
+                term: _,
+                ..
+            } => {
                 self.nodes[&candidate_id];
-                let _ = RpcMessage::RespondVote(self.state.current_term, self.id, false);
+                // let _ = Message::RespondVote(self.state.current_term, self.id, false);
                 Ok(RaftHandle::Candidate(self))
             }
             Command::VoteResponse { granted, from, .. } => {
@@ -93,19 +106,21 @@ impl Apply for Raft<Candidate> {
                         let raft = Raft::from(self);
                         raft.heartbeat()?;
                         Ok(RaftHandle::Leader(raft))
-                    },
+                    }
                     ElectionStatus::Voting => {
                         info!(self.role.logger, "We are still voting");
                         Ok(RaftHandle::Candidate(self))
-                    },
+                    }
                     ElectionStatus::Defeated => {
                         info!(self.role.logger, "I was defeated in the election");
                         self.state.voted_for = None;
                         Ok(RaftHandle::Follower(Raft::from(self)))
-                    },
+                    }
                 }
             }
-            Command::AppendEntries { entries: _, term, .. } => {
+            Command::AppendEntries {
+                entries: _, term, ..
+            } => {
                 // While waiting for votes, a candidate may receive an
                 // AppendEntries RPC from another server claiming to be
                 // leader. If the leader’s term (included in its RPC) is at least
@@ -113,9 +128,12 @@ impl Apply for Raft<Candidate> {
                 // recognizes the leader as legitimate and returns to follower
                 // state.
                 if term >= self.state.current_term {
-                    info!(self.role.logger, "Received higher term, transitioning to follower");
+                    info!(
+                        self.role.logger,
+                        "Received higher term, transitioning to follower"
+                    );
                     let raft: Raft<Follower> = Raft::from(self);
-//                    raft.io.append(entries)?;
+                    //                    raft.io.append(entries)?;
                     return Ok(RaftHandle::Follower(raft));
                 }
 
@@ -124,17 +142,22 @@ impl Apply for Raft<Candidate> {
 
                 Ok(RaftHandle::Candidate(self))
             }
-            Command::Heartbeat { term, leader_id: _, .. } => {
+            Command::Heartbeat {
+                term, leader_id: _, ..
+            } => {
                 if term >= self.state.current_term {
-                    info!(self.role.logger, "Received higher term, transitioning to follower");
+                    info!(
+                        self.role.logger,
+                        "Received higher term, transitioning to follower"
+                    );
                     let raft: Raft<Follower> = Raft::from(self);
-//                    raft.io.heartbeat(leader_id);
+                    //                    raft.io.heartbeat(leader_id);
                     return Ok(RaftHandle::Follower(raft));
                 }
 
                 Ok(RaftHandle::Candidate(self))
             }
-            _ => Ok(RaftHandle::Candidate(self))
+            _ => Ok(RaftHandle::Candidate(self)),
         }
     }
 }
@@ -145,10 +168,14 @@ impl From<Raft<Candidate>> for Raft<Follower> {
             id: val.id,
             state: val.state,
             nodes: val.nodes,
-            role: Follower { leader_id: None, logger: val.logger.new(o!("role" => "follower")) },
+            role: Follower {
+                leader_id: None,
+                logger: val.logger.new(o!("role" => "follower")),
+            },
             logger: val.logger,
             config: val.config,
             log: val.log,
+            rpc_tx: val.rpc_tx,
         }
     }
 }
@@ -170,11 +197,10 @@ impl From<Raft<Candidate>> for Raft<Leader> {
             logger: val.logger,
             config: val.config,
             log: val.log,
+            rpc_tx: val.rpc_tx,
         }
     }
 }
 
 #[cfg(test)]
-mod tests {
-
-}
+mod tests {}

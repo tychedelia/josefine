@@ -16,11 +16,7 @@ pub struct Broker {
 
 impl Broker {
     pub fn new(id: u64, host: String, port: String) -> Broker {
-        Broker {
-            id,
-            host,
-            port,
-        }
+        Broker { id, host, port }
     }
 }
 

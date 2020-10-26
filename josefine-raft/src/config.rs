@@ -1,5 +1,5 @@
-use std::net::{IpAddr, Ipv4Addr};
 use std::net::ToSocketAddrs;
+use std::net::{IpAddr, Ipv4Addr};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
@@ -45,8 +45,10 @@ impl RaftConfig {
     pub fn config(config_path: &str) -> RaftConfig {
         let mut settings = config::Config::default();
         settings
-            .merge(config::File::with_name(config_path)).expect("Could not read configuration file")
-            .merge(config::Environment::with_prefix("JOSEFINE")).expect("Could not read environment variables");
+            .merge(config::File::with_name(config_path))
+            .expect("Could not read configuration file")
+            .merge(config::Environment::with_prefix("JOSEFINE"))
+            .expect("Could not read environment variables");
 
         settings.try_into().expect("Could not create configuration")
     }
@@ -54,25 +56,46 @@ impl RaftConfig {
     /// Validates the configuration, ensuring all values make sense.
     pub fn validate(&self) -> Result<(), RaftError> {
         if self.protocol_version > MAX_PROTOCOL_VERSION {
-            return Err(RaftError::ConfigError { file_path: "".to_string(), error_msg: "Invalid protocol version.".to_string() });
+            return Err(RaftError::ConfigError {
+                file_path: "".to_string(),
+                error_msg: "Invalid protocol version.".to_string(),
+            });
         }
         if self.id == 0 {
-            return Err(RaftError::ConfigError { file_path: "".to_string(), error_msg: "Id cannot be zero.".to_string() });
+            return Err(RaftError::ConfigError {
+                file_path: "".to_string(),
+                error_msg: "Id cannot be zero.".to_string(),
+            });
         }
         if self.port < 1023 {
-            return Err(RaftError::ConfigError { file_path: "".to_string(), error_msg: "Port value too low.".to_string() });
+            return Err(RaftError::ConfigError {
+                file_path: "".to_string(),
+                error_msg: "Port value too low.".to_string(),
+            });
         }
         if self.heartbeat_timeout < Duration::from_millis(5) {
-            return Err(RaftError::ConfigError { file_path: "".to_string(), error_msg: "Heartbeat timeout is too low.".to_string() });
+            return Err(RaftError::ConfigError {
+                file_path: "".to_string(),
+                error_msg: "Heartbeat timeout is too low.".to_string(),
+            });
         }
         if self.election_timeout < Duration::from_millis(5) {
-            return Err(RaftError::ConfigError { file_path: "".to_string(), error_msg: "Election timeout is too low.".to_string() });
+            return Err(RaftError::ConfigError {
+                file_path: "".to_string(),
+                error_msg: "Election timeout is too low.".to_string(),
+            });
         }
         if self.commit_timeout < Duration::from_millis(1) {
-            return Err(RaftError::ConfigError { file_path: "".to_string(), error_msg: "Commit timeout is too low.".to_string() });
+            return Err(RaftError::ConfigError {
+                file_path: "".to_string(),
+                error_msg: "Commit timeout is too low.".to_string(),
+            });
         }
         if self.snapshot_interval < Duration::from_millis(5) {
-            return Err(RaftError::ConfigError { file_path: "".to_string(), error_msg: "Snapshot interval is too low.".to_string() });
+            return Err(RaftError::ConfigError {
+                file_path: "".to_string(),
+                error_msg: "Snapshot interval is too low.".to_string(),
+            });
         }
 
         Ok(())
@@ -81,16 +104,11 @@ impl RaftConfig {
 
 impl Default for RaftConfig {
     fn default() -> Self {
-        let ip = resolve("localhost")
-            .unwrap_or_else(|| IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)));
+        let ip = resolve("localhost").unwrap_or_else(|| IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)));
 
         let id = match ip {
-            IpAddr::V4(ipv4) => {
-                ipv4.into()
-            }
-            IpAddr::V6(ipv6) => {
-                ipv6.to_ipv4().unwrap().into()
-            }
+            IpAddr::V4(ipv4) => ipv4.into(),
+            IpAddr::V6(ipv6) => ipv6.to_ipv4().unwrap().into(),
         };
 
         RaftConfig {
@@ -112,10 +130,10 @@ impl Default for RaftConfig {
 }
 
 fn resolve(host: &str) -> Option<IpAddr> {
-    (host, 0).to_socket_addrs()
-        .map(|iter| iter
-            .map(|socket_address| socket_address.ip())
-            .nth(0)).unwrap()
+    (host, 0)
+        .to_socket_addrs()
+        .map(|iter| iter.map(|socket_address| socket_address.ip()).nth(0))
+        .unwrap()
 }
 
 #[cfg(test)]

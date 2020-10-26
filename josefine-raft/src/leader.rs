@@ -7,11 +7,11 @@ use crate::error::RaftError;
 use crate::follower::Follower;
 use crate::progress::NodeProgress;
 use crate::progress::ReplicationProgress;
-use crate::raft::{Apply, NodeId, RaftHandle, RaftRole};
 use crate::raft::Command;
 use crate::raft::Raft;
 use crate::raft::Role;
-use crate::rpc::RpcMessage;
+use crate::raft::{Apply, NodeId, RaftHandle, RaftRole};
+use crate::rpc::Message;
 
 ///
 #[derive(Debug)]
@@ -27,17 +27,17 @@ pub struct Leader {
 impl Raft<Leader> {
     pub(crate) fn heartbeat(&self) -> Result<(), RaftError> {
         for (_, node) in &self.nodes {
-            let _ = RpcMessage::Heartbeat(self.state.current_term, self.id);
-        };
+            // let _ = Message::Heartbeat(self.state.current_term, self.id);
+        }
 
         Ok(())
     }
 
     fn _append_entry(&mut self, _node_id: NodeId, handle: NodeProgress) {
         match handle {
-            NodeProgress::Probe(_) => {},
-            NodeProgress::Replicate(_) => {},
-            NodeProgress::Snapshot(_) => {},
+            NodeProgress::Probe(_) => {}
+            NodeProgress::Replicate(_) => {}
+            NodeProgress::Snapshot(_) => {}
         };
     }
 
@@ -51,7 +51,8 @@ impl Raft<Leader> {
 }
 
 impl Role for Leader {
-    fn term(&mut self, _term: u64) {
+    fn term(&mut self, term: u64) {
+        unimplemented!()
     }
 
     fn role(&self) -> RaftRole {
@@ -79,16 +80,19 @@ impl Apply for Raft<Leader> {
                     if let Some(mut progress) = self.role.progress.get_mut(*node_id) {
                         match &mut progress {
                             NodeProgress::Replicate(progress) => {
-                                let entries = self.log.get_range(&progress.next, &(progress.next + crate::progress::MAX_INFLIGHT));
+                                let entries = self.log.get_range(
+                                    &progress.next,
+                                    &(progress.next + crate::progress::MAX_INFLIGHT),
+                                );
                                 let len = entries.len();
-                                let _ = RpcMessage::Append {
-                                    term: self.state.current_term,
-                                    leader_id: self.id,
-                                    prev_log_index: progress.index,
-                                    prev_log_term: 0, // TODO(jcm) need to track in progress?
-                                    entries: entries.to_vec(),
-                                    leader_commit: 0
-                                };
+                                // let _ = Message::Append {
+                                //     term: self.state.current_term,
+                                //     leader_id: self.id,
+                                //     prev_log_index: progress.index,
+                                //     prev_log_term: 0, // TODO(jcm) need to track in progress?
+                                //     entries: entries.to_vec(),
+                                //     leader_commit: 0,
+                                // };
 
                                 progress.next = len as u64;
                             }
@@ -105,7 +109,7 @@ impl Apply for Raft<Leader> {
                         NodeProgress::Replicate(progress) => {
                             progress.increment(index);
                         }
-                        _ => panic!()
+                        _ => panic!(),
                     }
                 }
 
@@ -121,7 +125,7 @@ impl Apply for Raft<Leader> {
 
                 Ok(RaftHandle::Leader(self))
             }
-            _ => Ok(RaftHandle::Leader(self))
+            _ => Ok(RaftHandle::Leader(self)),
         }
     }
 }
@@ -132,10 +136,14 @@ impl From<Raft<Leader>> for Raft<Follower> {
             id: val.id,
             state: val.state,
             nodes: val.nodes,
-            role: Follower { leader_id: None, logger: val.logger.new(o!("role" => "follower"))  },
+            role: Follower {
+                leader_id: None,
+                logger: val.logger.new(o!("role" => "follower")),
+            },
             logger: val.logger,
             config: val.config,
             log: val.log,
+            rpc_tx: val.rpc_tx,
         }
     }
 }

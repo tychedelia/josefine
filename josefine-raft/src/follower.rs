@@ -12,7 +12,8 @@ use crate::error::RaftError;
 use crate::log::Log;
 use crate::raft::{Apply, LogIndex, NodeMap, RaftHandle, RaftRole, Term};
 use crate::raft::{Command, NodeId, Raft, Role, State};
-use crate::rpc::RpcMessage;
+use crate::rpc::Message;
+use tokio::sync::mpsc::{unbounded_channel, Sender, UnboundedSender};
 
 #[derive(Debug)]
 pub struct Follower {
@@ -45,7 +46,13 @@ impl Apply for Raft<Follower> {
 
                 self.apply_self()
             }
-            Command::AppendEntries { entries, leader_id, term, prev_log_index, prev_log_term } => {
+            Command::AppendEntries {
+                entries,
+                leader_id,
+                term,
+                prev_log_index,
+                prev_log_term,
+            } => {
                 // If we haven't voted and the rpc term is greater, set term to that term.
                 if self.state.voted_for.is_none() && term >= self.state.current_term {
                     self.term(term);
@@ -68,7 +75,7 @@ impl Apply for Raft<Follower> {
                 // If we don't have a log at prev index and term, respond false
                 if !self.log.check_term(&prev_log_index, &prev_log_term) {
                     self.nodes[&leader_id];
-                    let _ = RpcMessage::RespondAppend(self.state.current_term, self.id, false);
+                    // let _ = Message::new(self.state.current_term, self.id, false);
                     return self.apply_self();
                 }
 
@@ -82,7 +89,7 @@ impl Apply for Raft<Follower> {
 
                     // Respond success
                     self.nodes[&leader_id];
-                        let _ = RpcMessage::RespondAppend(self.state.current_term, self.id, true);
+                    // let _ = Message::RespondAppend(self.state.current_term, self.id, true);
                 }
 
                 self.apply_self()
@@ -93,18 +100,23 @@ impl Apply for Raft<Follower> {
                 self.state.voted_for = Some(leader_id);
 
                 self.nodes[&leader_id];
-                    let _ = RpcMessage::Heartbeat(self.state.current_term, leader_id);
+                // let _ = Message::Heartbeat(self.state.current_term, leader_id);
 
                 self.apply_self()
             }
-            Command::VoteRequest { candidate_id, last_index, last_term, .. } => {
+            Command::VoteRequest {
+                candidate_id,
+                last_index,
+                last_term,
+                ..
+            } => {
                 if self.can_vote(last_term, last_index) {
                     self.nodes[&candidate_id];
-                    let _ = RpcMessage::RespondVote(self.state.current_term, self.id, true);
+                    // let _ = Message::RespondVote(self.state.current_term, self.id, true);
                     self.state.voted_for = Some(candidate_id);
                 } else {
                     self.nodes[&candidate_id];
-                        let _ = RpcMessage::RespondVote(self.state.current_term, self.id, false);
+                    // let _ = Message::RespondVote(self.state.current_term, self.id, false);
                 }
                 self.apply_self()
             }
@@ -117,7 +129,7 @@ impl Apply for Raft<Follower> {
 
                 self.apply_self()
             }
-            _ => self.apply_self()
+            _ => self.apply_self(),
         }
     }
 }
@@ -133,7 +145,12 @@ impl Raft<Follower> {
     /// * `logger` - An optional logger implementation.
     /// * `nodes` - An optional map of nodes present in the cluster.
     ///
-    pub fn new(config: RaftConfig, logger: Logger, nodes: NodeMap) -> Result<Raft<Follower>, RaftError> {
+    pub fn new(
+        config: RaftConfig,
+        logger: Logger,
+        nodes: NodeMap,
+        rpc_tx: UnboundedSender<Message>,
+    ) -> Result<Raft<Follower>, RaftError> {
         config.validate()?;
 
         let mut raft = Raft {
@@ -147,6 +164,7 @@ impl Raft<Follower> {
             },
             logger,
             log: Log::new(),
+            rpc_tx,
         };
 
         raft.init();
@@ -158,12 +176,17 @@ impl Raft<Follower> {
     }
 
     fn can_vote(&self, last_term: Term, last_index: LogIndex) -> bool {
-        !(self.state.voted_for.is_some() || self.state.current_term > last_term || self.state.commit_index > last_index)
+        !(self.state.voted_for.is_some()
+            || self.state.current_term > last_term
+            || self.state.commit_index > last_index)
     }
 
     fn get_randomized_timeout(&self) -> Duration {
         let _prev_timeout = self.state.election_timeout;
-        let timeout = rand::thread_rng().gen_range(self.state.min_election_timeout, self.state.max_election_timeout);
+        let timeout = rand::thread_rng().gen_range(
+            self.state.min_election_timeout,
+            self.state.max_election_timeout,
+        );
         Duration::from_millis(timeout as u64)
     }
 
@@ -187,10 +210,14 @@ impl From<Raft<Follower>> for Raft<Candidate> {
             id: val.id,
             state: val.state,
             nodes: val.nodes,
-            role: Candidate { election, logger: val.logger.new(o!("role" => "candidate")) },
+            role: Candidate {
+                election,
+                logger: val.logger.new(o!("role" => "candidate")),
+            },
             logger: val.logger,
             config: val.config,
             log: val.log,
+            rpc_tx: val.rpc_tx,
         }
     }
 }
@@ -207,6 +234,7 @@ mod tests {
     use super::Raft;
     use super::RaftConfig;
     use super::RaftHandle;
+    use tokio::sync::mpsc;
 
     #[test]
     fn follower_to_leader_single_node_cluster() {
@@ -233,6 +261,7 @@ mod tests {
     fn new_follower() -> Raft<Follower> {
         let config = RaftConfig::default();
         let log = get_root_logger();
-        Raft::new(config, log.new(o!()), HashMap::new()).unwrap()
+        let (rpc_tx, rpc_rx) = mpsc::unbounded_channel();
+        Raft::new(config, log.new(o!()), HashMap::new(), rpc_tx).unwrap()
     }
 }

@@ -4,11 +4,11 @@ extern crate slog_async;
 extern crate slog_term;
 
 mod entry;
-mod log;
 mod index;
+mod log;
+mod partition;
 mod segment;
 mod server;
-mod partition;
 
 #[cfg(test)]
 mod tests {

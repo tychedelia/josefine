@@ -1,16 +1,13 @@
-
 use std::fs::OpenOptions;
 
 use std::io::Write;
 use std::path::PathBuf;
-
 
 use memmap::MmapMut;
 
 use crate::entry::Entry;
 
 const MAX_BYTES_INDEX: u64 = 10 * 1024 * 1024;
-
 
 pub struct Index {
     base_offset: u64,
@@ -37,7 +34,9 @@ impl Index {
     }
 
     pub fn write_at(&mut self, bytes: &[u8], offset: u64) {
-        (&mut self.mmap[offset as usize..]).write_all(bytes).unwrap();
+        (&mut self.mmap[offset as usize..])
+            .write_all(bytes)
+            .unwrap();
     }
 
     pub fn write_entry(&mut self, entry: Entry) {
@@ -55,7 +54,10 @@ impl Index {
     }
 
     pub fn find_entry(&self, offset: u64) -> Option<Entry> {
-        let idx = self.mmap.windows(16).position(|x| Entry::from(x).offset == offset)?;
+        let idx = self
+            .mmap
+            .windows(16)
+            .position(|x| Entry::from(x).offset == offset)?;
         let entry = Entry::from(&self.mmap[idx..idx + 16]);
         Some(entry)
     }
@@ -67,7 +69,7 @@ impl Index {
 
 #[cfg(test)]
 mod tests {
-    
+
     use std::env;
     use std::fs;
     use std::fs::OpenOptions;

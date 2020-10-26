@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
-use crate::raft::{LogIndex, NodeId};
-use crate::rpc::RpcMessage;
+use crate::raft::{LogIndex, NodeId, NodeMap};
+use crate::rpc::Message;
 
 #[derive(Debug)]
 pub struct ReplicationProgress {
@@ -9,14 +9,12 @@ pub struct ReplicationProgress {
 }
 
 impl ReplicationProgress {
-    pub fn new(nodes: &HashMap<NodeId, ()>) -> ReplicationProgress {
+    pub fn new(nodes: &NodeMap) -> ReplicationProgress {
         let mut progress = HashMap::new();
         for (id, _) in nodes {
             progress.insert(*id, NodeProgress::Probe(Progress::new(*id)));
         }
-        ReplicationProgress {
-            progress,
-        }
+        ReplicationProgress { progress }
     }
 
     pub fn get(&self, node_id: NodeId) -> Option<&NodeProgress> {
@@ -28,7 +26,8 @@ impl ReplicationProgress {
     }
 
     pub fn insert(&mut self, node_id: NodeId) {
-        self.progress.insert(node_id, NodeProgress::Probe(Progress::new(node_id)));
+        self.progress
+            .insert(node_id, NodeProgress::Probe(Progress::new(node_id)));
     }
 
     pub fn committed_index(&self) -> LogIndex {
@@ -43,8 +42,6 @@ impl ReplicationProgress {
         indices[indices.len() / 2]
     }
 }
-
-
 
 #[derive(Debug)]
 pub enum NodeProgress {
@@ -131,9 +128,7 @@ impl Progress<Probe> {
     fn new(node_id: NodeId) -> Progress<Probe> {
         Progress {
             node_id,
-            state: Probe {
-                paused: false
-            },
+            state: Probe { paused: false },
             active: false,
             index: 0,
             next: 0,
@@ -145,9 +140,7 @@ impl From<Progress<Replicate>> for Progress<Probe> {
     fn from(progress: Progress<Replicate>) -> Self {
         Progress {
             node_id: progress.node_id,
-            state: Probe {
-                paused: false
-            },
+            state: Probe { paused: false },
             active: false,
             index: progress.index,
             next: progress.next,
@@ -174,12 +167,10 @@ impl Progress<Snapshot> {
 }
 
 #[derive(Debug)]
-pub struct Replicate {
-}
+pub struct Replicate {}
 
 impl ProgressState for Replicate {
-    fn reset(&mut self) {
-    }
+    fn reset(&mut self) {}
 }
 
 impl Progress<Replicate> {}
@@ -232,8 +223,8 @@ mod tests {
     #[test]
     fn starts_in_probe() {
         match NodeProgress::new(0) {
-            NodeProgress::Probe(_) => {},
-            _ => panic!()
+            NodeProgress::Probe(_) => {}
+            _ => panic!(),
         }
     }
 

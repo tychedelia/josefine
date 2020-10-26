@@ -5,14 +5,12 @@ use crate::raft::LogIndex;
 use crate::raft::Term;
 
 pub struct Log {
-    data: Vec<Entry>
+    data: Vec<Entry>,
 }
 
 impl Default for Log {
     fn default() -> Self {
-        Log {
-            data: vec![]
-        }
+        Log { data: vec![] }
     }
 }
 
@@ -32,7 +30,7 @@ impl Log {
             } else {
                 false
             }
-         } else {
+        } else {
             false
         }
     }
@@ -49,5 +47,3 @@ impl Log {
         &self.data[Self::get_index(start)..Self::get_index(end)]
     }
 }
-
-

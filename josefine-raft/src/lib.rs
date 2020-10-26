@@ -25,13 +25,13 @@ use slog::Logger;
 
 use crate::config::RaftConfig;
 
-mod log;
-mod error;
-mod rpc;
-mod follower;
 mod candidate;
-mod leader;
 mod election;
+mod error;
+mod follower;
+mod leader;
+mod log;
+mod rpc;
 
 /// [Raft](raft.github.io) is a state machine for replicated consensus.
 ///
@@ -42,11 +42,11 @@ pub mod raft;
 
 /// Raft can be configured with a variety of options.
 pub mod config;
-mod progress;
 mod logger;
+mod progress;
+mod server;
 
-pub struct JosefineRaft {
-}
+pub struct JosefineRaft {}
 
 impl JosefineRaft {
     pub fn run(self) -> i32 {

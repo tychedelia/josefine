@@ -80,7 +80,8 @@ mod test {
         path.push("0.log");
         let mut f = File::open(&path).expect("Log file exists.");
         let mut contents = String::new();
-        f.read_to_string(&mut contents).expect("Read contents into string.");
+        f.read_to_string(&mut contents)
+            .expect("Read contents into string.");
         assert_eq!(contents, "onetwothree");
     }
 }
