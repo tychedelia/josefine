@@ -41,3 +41,10 @@ impl From<serde_json::error::Error> for RaftError {
         unimplemented!()
     }
 }
+
+impl From<std::net::AddrParseError> for RaftError {
+    fn from(_: std::net::AddrParseError) -> Self {
+        unimplemented!()
+    }
+
+}

@@ -18,7 +18,7 @@ impl TcpReceiveTask {
             println!("connection {:?}", socket);
             let peer_in_tx = in_tx.clone();
             tokio::spawn(async move {
-                match Self::receive(socket, peer_in_tx).await {
+                match Self::receive_messages(socket, peer_in_tx).await {
                     Ok(()) => {}, // debug!("Raft peer {} disconnected", peer),
                     Err(err) => println!("error: {:?}", err.to_string()),
                 };
@@ -27,12 +27,11 @@ impl TcpReceiveTask {
         Ok(())
     }
 
-    async fn receive(socket: TcpStream, in_tx: UnboundedSender<Message>, ) -> Result<()> {
+    async fn receive_messages(socket: TcpStream, in_tx: UnboundedSender<Message>, ) -> Result<()> {
         // identify frames with a header indicating length
         let length_delimited = FramedRead::new(socket, LengthDelimitedCodec::new());
         let mut stream = tokio_serde::SymmetricallyFramed::new( length_delimited, tokio_serde::formats::SymmetricalJson::default());
         while let Some(message) = stream.try_next().await? {
-
             in_tx.send(message)?;
         }
         Ok(())

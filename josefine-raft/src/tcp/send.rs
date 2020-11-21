@@ -12,19 +12,17 @@ use std::collections::HashMap;
 use tokio_serde::SymmetricallyFramed;
 use slog::Logger;
 use std::sync::Arc;
-use crate::config::RaftConfig;
 
-pub struct TcpSendTask {
-}
+pub struct TcpSendTask {}
 
 impl TcpSendTask {
     /// Create a new send task for the given nodes.
     ///
     /// * `nodes` - Nodes messages will be sent to.
-    pub async fn new(self, config: Arc<RaftConfig>, mut out_rx: UnboundedReceiver<Message>) -> Result<()> {
+    pub async fn new(id: NodeId, nodes: Vec<Node>, mut out_rx: UnboundedReceiver<Message>) -> Result<()> {
         let mut node_txs: HashMap<NodeId, mpsc::Sender<Message>> = HashMap::new();
 
-        for (node) in config.nodes.iter() {
+        for (node) in nodes.iter() {
             let (tx, rx) = mpsc::channel::<Message>(1000);
             node_txs.insert(node.id, tx);
             tokio::spawn(Self::connect_and_send(*node, rx));
@@ -32,7 +30,7 @@ impl TcpSendTask {
 
         while let Some(mut message) = out_rx.next().await {
             if message.from == Address::Local {
-                message.from = Address::Peer(config.id)
+                message.from = Address::Peer(id)
             }
             let to = match &message.to {
                 Address::Peers => node_txs.keys().cloned().collect(),
@@ -51,12 +49,11 @@ impl TcpSendTask {
                         }
                         Err(error) => return Err(error.into()),
                     },
-                    None => {},//error!("Received outbound message for unknown peer {}", id),
+                    None => {}//error!("Received outbound message for unknown peer {}", id),
                 }
             }
         }
         Ok(())
-
     }
 
     /// Create a new send task for a given node.
@@ -86,11 +83,44 @@ impl TcpSendTask {
     async fn send_messages(socket: TcpStream, out_rx: &mut mpsc::Receiver<Message>) -> Result<()> {
         // identify frames with a header indicating length
         let length_delimited = FramedWrite::new(socket, LengthDelimitedCodec::new());
-        let mut stream = tokio_serde::SymmetricallyFramed::new( length_delimited, tokio_serde::formats::SymmetricalJson::default());
+        let mut stream = tokio_serde::SymmetricallyFramed::new(length_delimited, tokio_serde::formats::SymmetricalJson::default());
 
         while let Some(message) = out_rx.next().await {
             stream.send(message).await?;
         }
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::raft::Command;
+    use tokio_util::codec::FramedRead;
+    use futures::StreamExt;
+    use bytes::Buf;
+
+    #[tokio::test]
+    async fn send_message() -> Result<()> {
+        let mut listener = TcpListener::bind("127.0.0.1:8080").await?;
+        let (tx, rx) = mpsc::unbounded_channel();
+
+        tokio::spawn(TcpSendTask::new(1, vec![Node { id: 2, addr: "127.0.0.1:8080".parse()? }], rx));
+
+        let out_msg = Message::new(1, Address::Peer(1), Address::Peer(2), Command::Tick);
+        let out_msg2 = Message::new(1, Address::Peer(1), Address::Peer(2), Command::Tick);
+        tx.send(out_msg)?;
+
+        let stream = listener.next().await.unwrap()?;
+        let mut frame = FramedRead::new(stream, LengthDelimitedCodec::new());
+        match frame.next().await {
+            Some(Ok(bytes)) => {
+                let in_msg = serde_json::from_slice(bytes.bytes())?;
+                assert_eq!(out_msg2, in_msg);
+            }
+            _ => panic!()
+        };
+
         Ok(())
     }
 }
