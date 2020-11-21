@@ -26,7 +26,7 @@ pub type Term = u64;
 pub type LogIndex = u64;
 
 /// Commands that can be applied to the state machine.
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum Command {
     /// Move the state machine forward.
     Tick,
@@ -96,7 +96,7 @@ pub trait Role: Debug {
     fn log(&self) -> &Logger;
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, PartialEq, Deserialize, Debug, Clone)]
 pub enum EntryType {
     Entry { data: Vec<u8> },
     Config {},
@@ -104,7 +104,7 @@ pub enum EntryType {
 }
 
 /// An entry in the commit log.
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Entry {
     /// The type of the entry
     pub entry_type: EntryType,

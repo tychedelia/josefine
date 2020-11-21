@@ -45,6 +45,7 @@ pub mod config;
 mod logger;
 mod progress;
 mod server;
+mod tcp;
 
 pub struct JosefineRaft {}
 
