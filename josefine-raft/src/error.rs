@@ -1,6 +1,6 @@
+use crate::rpc::Message;
 use snafu::Snafu;
 use std::sync::mpsc::TrySendError;
-use crate::rpc::Message;
 
 pub type Result<T> = std::result::Result<T, RaftError>;
 
@@ -20,7 +20,9 @@ pub enum RaftError {
 
 impl From<std::io::Error> for RaftError {
     fn from(err: std::io::Error) -> Self {
-        return RaftError::MessageError { error_msg: err.to_string() }
+        return RaftError::MessageError {
+            error_msg: err.to_string(),
+        };
     }
 }
 
@@ -46,5 +48,4 @@ impl From<std::net::AddrParseError> for RaftError {
     fn from(_: std::net::AddrParseError) -> Self {
         unimplemented!()
     }
-
 }

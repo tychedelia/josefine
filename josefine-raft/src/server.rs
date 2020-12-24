@@ -3,12 +3,13 @@ use crate::error::Result;
 use crate::logger::get_root_logger;
 use crate::raft::{Apply, Command, NodeId, NodeMap, RaftHandle};
 use crate::rpc::{Address, Message};
+use futures::Stream;
 use slog::Logger;
 use std::collections::HashMap;
-use tokio::stream::StreamExt;
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::time::Duration;
+use tokio_stream::StreamExt;
 
 /// step duration
 const TICK: Duration = Duration::from_millis(100);
@@ -40,7 +41,7 @@ impl Server {
             tokio::select! {
                 _ = step_interval.tick() => raft = raft.apply(Command::Tick)?,
 
-                Some(msg) = rpc_rx.next() => {
+                Some(msg) = rpc_rx.recv() => {
                     match msg {
                         Message { to: Address::Peer(_), .. } => (),
                         _ => panic!()
