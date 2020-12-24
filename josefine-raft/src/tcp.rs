@@ -16,7 +16,12 @@ async fn receive_task(listener: TcpListener, in_tx: UnboundedSender<Message>) ->
     while let Some((s, _addr)) = s.next().await.transpose()? {
         println!("{:?}", s);
         let peer_in_tx = in_tx.clone();
-        tokio::spawn(async move { stream_messages(s, peer_in_tx) });
+        tokio::spawn(async move {
+            match stream_messages(s, peer_in_tx).await {
+                Ok(()) => { println!("!") }
+                Err(_) => { println!("err") }
+            }
+        });
     }
 
     Ok(())
@@ -129,12 +134,11 @@ mod tests {
 
     #[tokio::test]
     async fn read_message() -> Result<()> {
-        let listener = TcpListener::bind("127.0.0.1:8081").await?;
+        let listener = TcpListener::bind("127.0.0.1:8084").await?;
         let (tx, mut rx) = mpsc::unbounded_channel();
 
         tokio::spawn(receive_task(listener, tx));
-
-        let mut stream = TcpStream::connect("127.0.0.1:8081").await?;
+        let mut stream = TcpStream::connect("127.0.0.1:8084").await?;
         let out_msg = Message::new(1, Address::Peer(1), Address::Peer(2), Command::Tick);
 
         let mut frame = FramedWrite::new(stream, LengthDelimitedCodec::new());
@@ -142,17 +146,19 @@ mod tests {
             .send(Bytes::from(serde_json::to_string(&out_msg)?))
             .await?;
 
-        let mut s = stream::UnboundedReceiverStream(rx);
-        match s.next().await {
+        match rx.recv().await {
             Some(in_msg) => assert_eq!(out_msg, in_msg),
             _ => panic!(),
         }
+
         Ok(())
     }
 
     use super::*;
     use futures::StreamExt;
     use tokio_util::codec::FramedRead;
+    use std::thread::Thread;
+
     #[tokio::test]
     async fn send_message() -> Result<()> {
         let mut listener = TcpListener::bind("127.0.0.1:8080").await?;
