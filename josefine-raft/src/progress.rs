@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::raft::{LogIndex, NodeId, NodeMap};
-use crate::rpc::Message;
+
 
 #[derive(Debug)]
 pub struct ReplicationProgress {
@@ -216,7 +216,7 @@ mod tests {
 
     #[test]
     fn starts_inactive() {
-        let mut progress = NodeProgress::new(0);
+        let progress = NodeProgress::new(0);
         assert!(!progress.is_active());
     }
 

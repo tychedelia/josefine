@@ -13,7 +13,7 @@ use crate::log::Log;
 use crate::raft::{Apply, LogIndex, NodeMap, RaftHandle, RaftRole, Term};
 use crate::raft::{Command, NodeId, Raft, Role, State};
 use crate::rpc::Message;
-use tokio::sync::mpsc::{unbounded_channel, Sender, UnboundedSender};
+use tokio::sync::mpsc::{UnboundedSender};
 
 #[derive(Debug)]
 pub struct Follower {
@@ -261,7 +261,7 @@ mod tests {
     fn new_follower() -> Raft<Follower> {
         let config = RaftConfig::default();
         let log = get_root_logger();
-        let (rpc_tx, rpc_rx) = mpsc::unbounded_channel();
+        let (rpc_tx, _rpc_rx) = mpsc::unbounded_channel();
         Raft::new(config, log.new(o!()), HashMap::new(), rpc_tx).unwrap()
     }
 }

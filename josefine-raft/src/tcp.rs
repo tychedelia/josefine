@@ -3,7 +3,7 @@ use crate::raft::{Node, NodeId};
 use crate::rpc::{Address, Message};
 use futures::SinkExt;
 use std::collections::HashMap;
-use std::net::SocketAddr;
+
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::{Receiver, UnboundedReceiver, UnboundedSender};
@@ -46,7 +46,7 @@ async fn send_task(
 ) -> Result<()> {
     let mut node_txs: HashMap<NodeId, mpsc::Sender<Message>> = HashMap::new();
 
-    for (node) in nodes.iter() {
+    for node in nodes.iter() {
         let (tx, rx) = mpsc::channel::<Message>(1000);
         node_txs.insert(node.id, tx);
         tokio::spawn(connect_and_send(*node, rx));
@@ -60,7 +60,7 @@ async fn send_task(
         let to = match &message.to {
             Address::Peers => node_txs.keys().cloned().collect(),
             Address::Peer(peer) => vec![*peer],
-            addr => {
+            _addr => {
                 // error!("Received outbound message for non-TCP address {:?}", addr);
                 continue;
             }
@@ -91,10 +91,10 @@ async fn connect_and_send(node: Node, mut out_rx: Receiver<Message>) -> Result<(
             Ok(socket) => {
                 match send_messages(socket, &mut out_rx).await {
                     Ok(()) => break Ok(()),
-                    Err(err) => {} //debug!("Failed sending to Raft peer {}: {}", node.addr, err),
+                    Err(_err) => {} //debug!("Failed sending to Raft peer {}: {}", node.addr, err),
                 }
             }
-            Err(err) => {} //debug!("Failed connecting to Raft peer {}: {}", node.addr, err),
+            Err(_err) => {} //debug!("Failed connecting to Raft peer {}: {}", node.addr, err),
         }
         // TODO: use back-off
         tokio::time::sleep(Duration::from_millis(1000)).await;
@@ -125,9 +125,9 @@ mod tests {
     use super::*;
     use crate::raft::Command;
     use crate::rpc::Address;
-    use bytes::{Bytes, BytesMut, Buf, BufMut};
+    use bytes::{Bytes};
     use futures::SinkExt;
-    use tokio::io::AsyncWriteExt;
+    
     use tokio::net::TcpListener;
     use tokio::sync::mpsc;
     use tokio_util::codec::FramedWrite;
@@ -138,7 +138,7 @@ mod tests {
         let (tx, mut rx) = mpsc::unbounded_channel();
 
         tokio::spawn(receive_task(listener, tx));
-        let mut stream = TcpStream::connect("127.0.0.1:8084").await?;
+        let stream = TcpStream::connect("127.0.0.1:8084").await?;
         let out_msg = Message::new(1, Address::Peer(1), Address::Peer(2), Command::Tick);
 
         let mut frame = FramedWrite::new(stream, LengthDelimitedCodec::new());
@@ -154,14 +154,14 @@ mod tests {
         Ok(())
     }
 
-    use super::*;
+    
     use futures::StreamExt;
     use tokio_util::codec::FramedRead;
-    use std::thread::Thread;
+    
 
     #[tokio::test]
     async fn send_message() -> Result<()> {
-        let mut listener = TcpListener::bind("127.0.0.1:8080").await?;
+        let listener = TcpListener::bind("127.0.0.1:8080").await?;
         let (tx, rx) = mpsc::unbounded_channel();
 
         tokio::spawn(send_task(
@@ -178,7 +178,7 @@ mod tests {
         tx.send(out_msg)?;
 
         let mut stream = stream::ListenerStream(listener);
-        let (mut stream, _addr) = stream.next().await.unwrap()?;
+        let (stream, _addr) = stream.next().await.unwrap()?;
         let mut frame = FramedRead::new(stream, LengthDelimitedCodec::new());
         match frame.next().await {
             Some(Ok(mut bytes)) => {

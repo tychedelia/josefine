@@ -2,20 +2,20 @@ use std::fmt::{Debug, Formatter};
 use std::net::SocketAddr;
 use std::time::Duration;
 use std::time::Instant;
-use std::{fmt, mem, thread};
+use std::{fmt};
 
 use slog::Logger;
 
 use crate::candidate::Candidate;
 use crate::config::RaftConfig;
-use crate::error::{RaftError, Result};
+use crate::error::{Result};
 use crate::follower::Follower;
 use crate::leader::Leader;
 use crate::log::Log;
 
 use crate::rpc::{Address, Message};
 use std::collections::HashMap;
-use tokio::sync::mpsc::{Sender, UnboundedSender};
+use tokio::sync::mpsc::{UnboundedSender};
 
 /// A unique id that uniquely identifies an instance of Raft.
 pub type NodeId = u32;
@@ -232,7 +232,7 @@ impl<T: Role> Raft<T> {
     }
 
     fn send(&self, to: Address, cmd: Command) -> Result<()> {
-        let msg = Message::new(self.state.current_term, Address::Local, to, cmd);
+        let _msg = Message::new(self.state.current_term, Address::Local, to, cmd);
         Ok(())
     }
 }

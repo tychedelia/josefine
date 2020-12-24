@@ -1,6 +1,6 @@
 use crate::rpc::Message;
 use snafu::Snafu;
-use std::sync::mpsc::TrySendError;
+
 
 pub type Result<T> = std::result::Result<T, RaftError>;
 

@@ -1,11 +1,11 @@
 use crate::config::RaftConfig;
 use crate::error::Result;
 use crate::logger::get_root_logger;
-use crate::raft::{Apply, Command, NodeId, NodeMap, RaftHandle};
+use crate::raft::{Apply, Command, NodeMap, RaftHandle};
 use crate::rpc::{Address, Message};
-use futures::Stream;
-use slog::Logger;
-use std::collections::HashMap;
+
+
+
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::time::Duration;
@@ -20,14 +20,14 @@ struct Server {
 
 impl Server {
     pub async fn new(config: RaftConfig) {
-        let (rpc_tx, rpc_rx) = mpsc::unbounded_channel();
+        let (rpc_tx, _rpc_rx) = mpsc::unbounded_channel();
         let nodes: NodeMap = config
             .clone()
             .nodes
             .into_iter()
             .map(|node| (node.id, node))
             .collect();
-        let handle = RaftHandle::new(config, get_root_logger().new(o!()), nodes, rpc_tx);
+        let _handle = RaftHandle::new(config, get_root_logger().new(o!()), nodes, rpc_tx);
     }
 
     pub async fn run(self) {}

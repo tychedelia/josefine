@@ -1,6 +1,6 @@
 use std::net::ToSocketAddrs;
 use std::net::{IpAddr, Ipv4Addr};
-use std::path::{Path, PathBuf};
+use std::path::{PathBuf};
 use std::time::Duration;
 
 use crate::error::RaftError;
