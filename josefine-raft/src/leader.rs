@@ -26,9 +26,9 @@ pub struct Leader {
 
 impl Raft<Leader> {
     pub(crate) fn heartbeat(&self) -> Result<(), RaftError> {
-        for (_, _node) in &self.nodes {
+        // for node in &self.config.nodes {
             // let _ = Message::Heartbeat(self.state.current_term, self.id);
-        }
+        // }
 
         Ok(())
     }
@@ -76,8 +76,8 @@ impl Apply for Raft<Leader> {
                     self.reset_heartbeat_timer();
                 }
 
-                for (node_id, _node) in &self.nodes {
-                    if let Some(mut progress) = self.role.progress.get_mut(*node_id) {
+                for node in &self.config.nodes {
+                    if let Some(mut progress) = self.role.progress.get_mut(node.id) {
                         match &mut progress {
                             NodeProgress::Replicate(progress) => {
                                 let entries = self.log.get_range(
@@ -135,7 +135,6 @@ impl From<Raft<Leader>> for Raft<Follower> {
         Raft {
             id: val.id,
             state: val.state,
-            nodes: val.nodes,
             role: Follower {
                 leader_id: None,
                 logger: val.logger.new(o!("role" => "follower")),

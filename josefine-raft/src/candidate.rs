@@ -27,14 +27,14 @@ impl Raft<Candidate> {
         let from = self.id;
         let term = self.state.current_term;
 
-        for (_, _node) in &self.nodes {
+        // for (_, _node) in &self.nodes {
             // let _ = Message::RequestVote(
             //     self.state.current_term,
             //     self.id,
             //     self.state.current_term,
             //     self.state.commit_index,
             // );
-        }
+        // }
 
         self.apply(Command::VoteResponse {
             from,
@@ -93,7 +93,6 @@ impl Apply for Raft<Candidate> {
                 term: _,
                 ..
             } => {
-                self.nodes[&candidate_id];
                 // let _ = Message::RespondVote(self.state.current_term, self.id, false);
                 Ok(RaftHandle::Candidate(self))
             }
@@ -167,7 +166,6 @@ impl From<Raft<Candidate>> for Raft<Follower> {
         Raft {
             id: val.id,
             state: val.state,
-            nodes: val.nodes,
             role: Follower {
                 leader_id: None,
                 logger: val.logger.new(o!("role" => "follower")),
@@ -183,11 +181,10 @@ impl From<Raft<Candidate>> for Raft<Follower> {
 impl From<Raft<Candidate>> for Raft<Leader> {
     fn from(val: Raft<Candidate>) -> Raft<Leader> {
         info!(val.role.logger, "Becoming the leader");
-        let progress = ReplicationProgress::new(&val.nodes);
+        let progress = ReplicationProgress::new(&val.config.nodes);
         Raft {
             id: val.id,
             state: val.state,
-            nodes: val.nodes,
             role: Leader {
                 logger: val.logger.new(o!("role" => "leader")),
                 progress,

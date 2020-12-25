@@ -11,7 +11,7 @@ use tokio::time::Duration;
 use tokio_stream::StreamExt;
 use tokio_util::codec::{FramedRead, FramedWrite, LengthDelimitedCodec};
 
-async fn receive_task(listener: TcpListener, in_tx: UnboundedSender<Message>) -> Result<()> {
+pub async fn receive_task(listener: TcpListener, in_tx: UnboundedSender<Message>) -> Result<()> {
     let mut s = stream::ListenerStream(listener);
     while let Some((s, _addr)) = s.next().await.transpose()? {
         println!("{:?}", s);
@@ -39,7 +39,7 @@ async fn stream_messages(stream: TcpStream, in_tx: UnboundedSender<Message>) -> 
     Ok(())
 }
 
-async fn send_task(
+pub async fn send_task(
     id: NodeId,
     nodes: Vec<Node>,
     out_rx: UnboundedReceiver<Message>,

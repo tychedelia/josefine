@@ -190,8 +190,6 @@ pub struct Raft<T: Role> {
     pub(crate) logger: Logger,
     /// Configuration for this instance.
     pub config: RaftConfig,
-    /// A map of known nodes in the cluster.
-    pub nodes: NodeMap,
     /// Volatile and persistent state for the state machine. Note that specific additional per-role
     /// state may be contained in that role.
     pub state: State,
@@ -243,10 +241,13 @@ pub enum RaftRole {
     Leader,
 }
 
-/// Since applying command to the state machine can potentially result in any state transition,
-/// the result that we get back needs to be general to the possible return types -- easiest
-/// way here is just to store the differently sized structs per state in an enum, which will be
-/// sized to the largest variant.
+/// Handle to some variant of the state machine. Commands should always be dispatched to the
+/// state machine via [`Apply`]. The concrete variant of the state machine should not be matched
+/// on directly, as state transitions are handled entirely .
+// Since applying command to the state machine can potentially result in any state transition,
+// the result that we get back needs to be general to the possible return types -- easiest
+// way here is just to store the differently sized structs per state in an enum, which will be
+// sized to the largest variant.
 pub enum RaftHandle {
     /// An instance of the state machine in the follower role.
     Follower(Raft<Follower>),
@@ -261,10 +262,9 @@ impl RaftHandle {
     pub fn new(
         config: RaftConfig,
         logger: Logger,
-        nodes: NodeMap,
         rpc_tx: UnboundedSender<Message>,
     ) -> RaftHandle {
-        let raft = Raft::new(config, logger, nodes, rpc_tx);
+        let raft = Raft::new(config, logger, rpc_tx);
         RaftHandle::Follower(raft.unwrap())
     }
 }
@@ -278,8 +278,6 @@ impl Apply for RaftHandle {
         }
     }
 }
-
-pub type NodeMap = HashMap<NodeId, Node>;
 
 /// Applying a command is the basic way the state machine is moved forward. Each role implements
 /// trait to handle how it responds (or does not respond) to particular commands.
