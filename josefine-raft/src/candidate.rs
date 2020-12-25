@@ -11,7 +11,7 @@ use crate::raft::Command;
 use crate::raft::Raft;
 use crate::raft::Role;
 use crate::raft::{Apply, RaftHandle, RaftRole};
-use crate::rpc::Message;
+
 
 #[derive(Debug)]
 pub struct Candidate {
@@ -27,7 +27,7 @@ impl Raft<Candidate> {
         let from = self.id;
         let term = self.state.current_term;
 
-        for (_, node) in &self.nodes {
+        for (_, _node) in &self.nodes {
             // let _ = Message::RequestVote(
             //     self.state.current_term,
             //     self.id,

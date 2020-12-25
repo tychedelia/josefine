@@ -21,9 +21,9 @@ extern crate slog;
 extern crate slog_async;
 extern crate slog_term;
 
-use slog::Logger;
 
-use crate::config::RaftConfig;
+
+
 
 mod candidate;
 mod election;
@@ -45,6 +45,7 @@ pub mod config;
 mod logger;
 mod progress;
 mod server;
+mod tcp;
 
 pub struct JosefineRaft {}
 

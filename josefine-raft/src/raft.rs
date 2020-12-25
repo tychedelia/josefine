@@ -2,20 +2,20 @@ use std::fmt::{Debug, Formatter};
 use std::net::SocketAddr;
 use std::time::Duration;
 use std::time::Instant;
-use std::{fmt, mem, thread};
+use std::{fmt};
 
 use slog::Logger;
 
 use crate::candidate::Candidate;
 use crate::config::RaftConfig;
-use crate::error::{RaftError, Result};
+use crate::error::{Result};
 use crate::follower::Follower;
 use crate::leader::Leader;
 use crate::log::Log;
 
 use crate::rpc::{Address, Message};
 use std::collections::HashMap;
-use tokio::sync::mpsc::{Sender, UnboundedSender};
+use tokio::sync::mpsc::{UnboundedSender};
 
 /// A unique id that uniquely identifies an instance of Raft.
 pub type NodeId = u32;
@@ -26,7 +26,7 @@ pub type Term = u64;
 pub type LogIndex = u64;
 
 /// Commands that can be applied to the state machine.
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum Command {
     /// Move the state machine forward.
     Tick,
@@ -96,7 +96,7 @@ pub trait Role: Debug {
     fn log(&self) -> &Logger;
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, PartialEq, Deserialize, Debug, Clone)]
 pub enum EntryType {
     Entry { data: Vec<u8> },
     Config {},
@@ -104,7 +104,7 @@ pub enum EntryType {
 }
 
 /// An entry in the commit log.
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Entry {
     /// The type of the entry
     pub entry_type: EntryType,
@@ -232,7 +232,7 @@ impl<T: Role> Raft<T> {
     }
 
     fn send(&self, to: Address, cmd: Command) -> Result<()> {
-        let msg = Message::new(self.state.current_term, Address::Local, to, cmd);
+        let _msg = Message::new(self.state.current_term, Address::Local, to, cmd);
         Ok(())
     }
 }
