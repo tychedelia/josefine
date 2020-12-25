@@ -86,6 +86,8 @@ pub enum Command {
     Timeout,
     /// Don't do anything.
     Noop,
+    /// Force shutdown
+    Exit,
 }
 
 /// Shared behavior that all roles of the state machine must implement.
@@ -224,7 +226,7 @@ impl<T: Role> Raft<T> {
             Command::Tick => {}
             Command::Heartbeat { .. } => {}
             _ => {
-                debug!(self.role.log(), ""; "role_state" => format!("{:?}", self.role), "state" => format!("{:?}", self.state), "cmd" => format!("{:?}", cmd))
+                info!(self.role.log(), ""; "role_state" => format!("{:?}", self.role), "state" => format!("{:?}", self.state), "cmd" => format!("{:?}", cmd))
             }
         };
     }

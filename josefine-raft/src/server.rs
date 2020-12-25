@@ -11,6 +11,7 @@ use tokio_stream::StreamExt;
 use futures::FutureExt;
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
+use slog::Logger;
 
 /// step duration
 const TICK: Duration = Duration::from_millis(100);
@@ -18,6 +19,7 @@ const TICK: Duration = Duration::from_millis(100);
 struct Server {
     config: RaftConfig,
     raft: RaftHandle,
+    log: Logger,
 }
 
 impl Server {
@@ -26,7 +28,8 @@ impl Server {
         let raft = RaftHandle::new(config.clone(), get_root_logger().new(o!()), rpc_tx);
         Server {
             config,
-            raft
+            raft,
+            log: get_root_logger().new(o!()),
         }
     }
 
@@ -41,7 +44,7 @@ impl Server {
         tokio::spawn(task);
         let (task, tcp_sender) = tcp::send_task(self.config.id, self.config.clone().nodes, tcp_out_rx).remote_handle();
         tokio::spawn(task);
-        let (task, eventloop) = event_loop(self.raft,  rpc_rx, tcp_in_rx).remote_handle();
+        let (task, eventloop) = event_loop(self.log.new(o!()), self.raft,  rpc_rx, tcp_in_rx).remote_handle();
         tokio::spawn(task);
 
         tokio::try_join!(tcp_receiver, tcp_sender, eventloop)?;
@@ -50,11 +53,13 @@ impl Server {
 }
 
 async fn event_loop(
+    mut log: Logger,
     mut raft: RaftHandle,
     mut rpc_rx: UnboundedReceiver<Message>,
     mut tcp_rx: UnboundedReceiver<Message>,
-) -> Result<()> {
+) -> Result<RaftHandle> {
     let mut step_interval = tokio::time::interval(TICK);
+    info!(log, "starting event loop");
 
     loop {
         tokio::select! {
@@ -65,11 +70,45 @@ async fn event_loop(
                 // outgoing messages from raft
                 Some(msg) = rpc_rx.recv() => {
                     match msg {
-                        Message { to: Address::Peer(_), .. } => (),
-                        _ => panic!()
+                        Message { command: Command::Exit, .. } => break,
+                //         Message { to: Address::Peer(_), .. } => (),
+                        _ => panic!("incomplete match")
                     }
                 }
                 // TODO: client connections
             }
+    }
+
+    Ok(raft)
+}
+
+#[cfg(test)]
+mod tests {
+    use tokio::sync::mpsc;
+    use crate::raft::{RaftHandle, Command};
+    use crate::config::RaftConfig;
+    use crate::logger::get_root_logger;
+    use crate::error::Result;
+    use crate::rpc::{Message, Address};
+    use futures_util::core_reexport::time::Duration;
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+    async fn event_loop() -> Result<()> {
+        let (rpc_tx, rpc_rx) = mpsc::unbounded_channel();
+        let raft = RaftHandle::new(RaftConfig::default(), get_root_logger().new(o!()), rpc_tx.clone());
+
+        let (tcp_tx, tcp_rx) = mpsc::unbounded_channel();
+        let event_loop = super::event_loop(get_root_logger().new(o!()), raft, rpc_rx, tcp_rx);
+        let raft = tokio::spawn(event_loop);
+        std::thread::sleep(Duration::from_secs(2));
+
+        rpc_tx.send(Message::new(0, Address::Local, Address::Local, Command::Exit))?;
+        let raft = tokio::try_join!(raft)?.0?;
+        if let RaftHandle::Leader(raft) = raft {
+
+        } else {
+            panic!("was not elected leader");
+        }
+        Ok(())
     }
 }

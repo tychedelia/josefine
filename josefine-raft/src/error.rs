@@ -1,5 +1,6 @@
 use crate::rpc::Message;
 use snafu::Snafu;
+use tokio::task::JoinError;
 
 
 pub type Result<T> = std::result::Result<T, RaftError>;
@@ -11,7 +12,10 @@ pub enum RaftError {
         file_path: String,
         error_msg: String,
     },
-    ApplyError,
+    #[snafu(display("Error sending message {}", error_msg))]
+    ApplyError {
+        error_msg: String,
+    },
     #[snafu(display("Error sending message {}", error_msg))]
     MessageError {
         error_msg: String,
@@ -47,5 +51,13 @@ impl From<serde_json::error::Error> for RaftError {
 impl From<std::net::AddrParseError> for RaftError {
     fn from(_: std::net::AddrParseError) -> Self {
         unimplemented!()
+    }
+}
+
+impl From<tokio::task::JoinError> for RaftError {
+    fn from(err: tokio::task::JoinError) -> Self {
+        RaftError::ApplyError {
+            error_msg: err.to_string()
+        }
     }
 }
