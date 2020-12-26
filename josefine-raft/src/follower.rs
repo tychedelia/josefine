@@ -249,10 +249,12 @@ mod tests {
     use super::RaftConfig;
     use super::RaftHandle;
     use tokio::sync::mpsc;
+    use tokio::sync::mpsc::UnboundedReceiver;
+    use crate::rpc::Message;
 
     #[test]
     fn follower_to_leader_single_node_cluster() {
-        let follower = new_follower();
+        let (rx, follower) = new_follower();
         let id = follower.id;
         match follower.apply(Command::Timeout).unwrap() {
             RaftHandle::Follower(_) => panic!(),
@@ -263,7 +265,7 @@ mod tests {
 
     #[test]
     fn follower_noop() {
-        let follower = new_follower();
+        let (rx, follower) = new_follower();
         let id = follower.id;
         match follower.apply(Command::Noop).unwrap() {
             RaftHandle::Follower(follower) => assert_eq!(id, follower.id),
@@ -272,10 +274,10 @@ mod tests {
         }
     }
 
-    fn new_follower() -> Raft<Follower> {
+    fn new_follower() -> (UnboundedReceiver<Message>, Raft<Follower>) {
         let config = RaftConfig::default();
         let log = get_root_logger();
-        let (rpc_tx, _rpc_rx) = mpsc::unbounded_channel();
-        Raft::new(config, log.new(o!()), rpc_tx).unwrap()
+        let (rpc_tx, rpc_rx) = mpsc::unbounded_channel();
+        (rpc_rx, Raft::new(config, log.new(o!()), rpc_tx).unwrap())
     }
 }
