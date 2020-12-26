@@ -4,13 +4,13 @@ use crate::rpc::{Address, Message};
 use futures::SinkExt;
 use std::collections::HashMap;
 
+use slog::Logger;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::{Receiver, UnboundedReceiver, UnboundedSender};
 use tokio::time::Duration;
 use tokio_stream::StreamExt;
 use tokio_util::codec::{FramedRead, FramedWrite, LengthDelimitedCodec};
-use slog::Logger;
 
 pub async fn receive_task(
     log: Logger,
@@ -40,7 +40,11 @@ pub async fn receive_task(
     Ok(())
 }
 
-async fn stream_messages(log: Logger, stream: TcpStream, in_tx: UnboundedSender<Message>) -> Result<()> {
+async fn stream_messages(
+    log: Logger,
+    stream: TcpStream,
+    in_tx: UnboundedSender<Message>,
+) -> Result<()> {
     let length_delimited = FramedRead::new(stream, LengthDelimitedCodec::new());
     let mut stream = tokio_serde::SymmetricallyFramed::new(
         length_delimited,
@@ -56,7 +60,7 @@ async fn stream_messages(log: Logger, stream: TcpStream, in_tx: UnboundedSender<
 
 pub async fn send_task(
     log: Logger,
-    shutdown: tokio::sync::broadcast::Receiver<()>,
+    _shutdown: tokio::sync::broadcast::Receiver<()>,
     id: NodeId,
     nodes: Vec<Node>,
     out_rx: UnboundedReceiver<Message>,
@@ -91,7 +95,7 @@ pub async fn send_task(
                     }
                     Err(error) => return Err(error.into()),
                 },
-                None => error!(log, "received outbound message for non-TCP address"; " id" => id)
+                None => error!(log, "received outbound message for non-TCP address"; " id" => id),
             }
         }
     }
@@ -142,7 +146,7 @@ mod tests {
     use super::*;
     use crate::raft::Command;
     use crate::rpc::Address;
-    use bytes::{Bytes};
+    use bytes::Bytes;
     use futures::SinkExt;
 
     use tokio::net::TcpListener;
@@ -153,8 +157,13 @@ mod tests {
     async fn read_message() -> Result<()> {
         let listener = TcpListener::bind("127.0.0.1:8084").await?;
         let (tx, mut rx) = mpsc::unbounded_channel();
-        let (shutdown_tx, shutdown_rx) = tokio::sync::broadcast::channel(1);
-        tokio::spawn(receive_task(get_root_logger().new(o!()), shutdown_tx.subscribe(), listener, tx));
+        let (shutdown_tx, _shutdown_rx) = tokio::sync::broadcast::channel(1);
+        tokio::spawn(receive_task(
+            get_root_logger().new(o!()),
+            shutdown_tx.subscribe(),
+            listener,
+            tx,
+        ));
         let stream = TcpStream::connect("127.0.0.1:8084").await?;
         let out_msg = Message::new(1, Address::Peer(1), Address::Peer(2), Command::Tick);
 
@@ -171,17 +180,15 @@ mod tests {
         Ok(())
     }
 
-
+    use crate::logger::get_root_logger;
     use futures::StreamExt;
     use tokio_util::codec::FramedRead;
-    use crate::logger::get_root_logger;
-
 
     #[tokio::test]
     async fn send_message() -> Result<()> {
         let listener = TcpListener::bind("127.0.0.1:8080").await?;
         let (tx, rx) = mpsc::unbounded_channel();
-        let (shutdown_tx, shutdown_rx) = tokio::sync::broadcast::channel(1);
+        let (shutdown_tx, _shutdown_rx) = tokio::sync::broadcast::channel(1);
         tokio::spawn(send_task(
             get_root_logger().new(o!()),
             shutdown_tx.subscribe(),
@@ -218,11 +225,11 @@ mod stream {
     use std::net::SocketAddr;
     use std::pin::Pin;
     use tokio::net::{TcpListener, TcpStream};
-    use tokio::sync::mpsc::{UnboundedReceiver, Receiver};
+    use tokio::sync::mpsc::{Receiver, UnboundedReceiver};
     use tokio_stream::Stream;
     pub struct ReceiverStream<'a, T>(pub &'a mut Receiver<T>);
 
-    impl <'a> Stream for ReceiverStream<'a, Message> {
+    impl<'a> Stream for ReceiverStream<'a, Message> {
         type Item = Message;
 
         fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {

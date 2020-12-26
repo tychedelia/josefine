@@ -14,7 +14,7 @@ use crate::leader::Leader;
 use crate::log::Log;
 
 use crate::rpc::{Address, Message};
-use std::collections::HashMap;
+
 use tokio::sync::mpsc::UnboundedSender;
 
 /// A unique id that uniquely identifies an instance of Raft.

@@ -1,6 +1,5 @@
 use crate::rpc::Message;
 use snafu::Snafu;
-use tokio::task::JoinError;
 
 pub type Result<T> = std::result::Result<T, RaftError>;
 

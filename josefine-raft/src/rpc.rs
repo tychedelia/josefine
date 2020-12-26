@@ -1,4 +1,4 @@
-use crate::raft::{Command, Entry, LogIndex, Node, NodeId, Term};
+use crate::raft::{Command, NodeId, Term};
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub enum Address {

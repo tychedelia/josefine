@@ -23,9 +23,8 @@ extern crate slog_term;
 
 use crate::config::RaftConfig;
 use crate::raft::RaftHandle;
-use crate::server::Server;
+
 use futures_util::core_reexport::time::Duration;
-use std::path::Path;
 
 mod candidate;
 mod election;

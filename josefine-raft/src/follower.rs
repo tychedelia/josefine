@@ -238,7 +238,6 @@ impl From<Raft<Follower>> for Raft<Candidate> {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
 
     use crate::follower::Follower;
     use crate::logger::get_root_logger;
@@ -248,13 +247,13 @@ mod tests {
     use super::Raft;
     use super::RaftConfig;
     use super::RaftHandle;
+    use crate::rpc::Message;
     use tokio::sync::mpsc;
     use tokio::sync::mpsc::UnboundedReceiver;
-    use crate::rpc::Message;
 
     #[test]
     fn follower_to_leader_single_node_cluster() {
-        let (rx, follower) = new_follower();
+        let (_rx, follower) = new_follower();
         let id = follower.id;
         match follower.apply(Command::Timeout).unwrap() {
             RaftHandle::Follower(_) => panic!(),
@@ -265,7 +264,7 @@ mod tests {
 
     #[test]
     fn follower_noop() {
-        let (rx, follower) = new_follower();
+        let (_rx, follower) = new_follower();
         let id = follower.id;
         match follower.apply(Command::Noop).unwrap() {
             RaftHandle::Follower(follower) => assert_eq!(id, follower.id),

@@ -11,7 +11,6 @@ use tokio::net::TcpListener;
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use tokio::time::Duration;
-use tokio_stream::StreamExt;
 
 /// step duration
 const TICK: Duration = Duration::from_millis(100);
@@ -31,15 +30,20 @@ impl Server {
 
     pub async fn run(self, duration: Option<Duration>) -> Result<RaftHandle> {
         // shutdown broadcaster
-        let (shutdown_tx, shutdown_rx) = tokio::sync::broadcast::channel(1);
+        let (shutdown_tx, _shutdown_rx) = tokio::sync::broadcast::channel(1);
 
         // tcp receive
         let socket_addr = SocketAddr::new(self.config.ip, self.config.port);
         let listener = TcpListener::bind(socket_addr).await?;
         let (rpc_tx, rpc_rx) = mpsc::unbounded_channel();
         let (tcp_in_tx, tcp_in_rx) = mpsc::unbounded_channel::<Message>();
-        let (task, tcp_receiver) =
-            tcp::receive_task(self.log.new(o!()), shutdown_tx.subscribe(), listener, tcp_in_tx).remote_handle();
+        let (task, tcp_receiver) = tcp::receive_task(
+            self.log.new(o!()),
+            shutdown_tx.subscribe(),
+            listener,
+            tcp_in_tx,
+        )
+        .remote_handle();
         tokio::spawn(task);
 
         // tcp send
@@ -117,8 +121,8 @@ mod tests {
     use crate::config::RaftConfig;
     use crate::error::Result;
     use crate::logger::get_root_logger;
-    use crate::raft::{Command, RaftHandle};
-    use crate::rpc::{Address, Message};
+    use crate::raft::RaftHandle;
+
     use futures_util::core_reexport::time::Duration;
     use tokio::sync::mpsc;
 
@@ -131,9 +135,9 @@ mod tests {
             rpc_tx.clone(),
         );
 
-        let (tcp_in_tx, tcp_in_rx) = mpsc::unbounded_channel();
-        let (tcp_out_tx, tcp_out_rx) = mpsc::unbounded_channel();
-        let (shutdown_tx, shutdown_rx) = tokio::sync::broadcast::channel(1);
+        let (_tcp_in_tx, tcp_in_rx) = mpsc::unbounded_channel();
+        let (tcp_out_tx, _tcp_out_rx) = mpsc::unbounded_channel();
+        let (shutdown_tx, _shutdown_rx) = tokio::sync::broadcast::channel(1);
         let event_loop = super::event_loop(
             get_root_logger().new(o!()),
             shutdown_tx.subscribe(),
@@ -147,7 +151,7 @@ mod tests {
         shutdown_tx.send(());
 
         let raft = tokio::try_join!(raft)?.0?;
-        if let RaftHandle::Leader(raft) = raft {
+        if let RaftHandle::Leader(_raft) = raft {
         } else {
             panic!("was not elected leader");
         }

@@ -4,9 +4,9 @@ use futures_util::core_reexport::time::Duration;
 use josefine_raft::config::RaftConfig;
 use josefine_raft::raft::{Node, RaftHandle};
 use josefine_raft::JosefineRaft;
-use std::net::{IpAddr, SocketAddr};
-use std::thread::JoinHandle;
 use std::collections::HashMap;
+use std::net::SocketAddr;
+use std::thread::JoinHandle;
 
 fn new_cluster(ids: Vec<u32>) -> Vec<JosefineRaft> {
     ids.iter()
@@ -49,21 +49,14 @@ fn it_elects() {
         .map(|join| join.join().expect("couldn't join").expect("was not err"))
         .collect();
 
-    let counts = nodes.into_iter()
-        .fold(HashMap::new(), |mut xs, x| {
-            match x {
-                RaftHandle::Follower(n) => {
-                    *xs.entry("follower").or_insert(0) += 1
-                },
-                RaftHandle::Candidate(n) => {
-                    *xs.entry("candidate").or_insert(0) += 1
-                },
-                RaftHandle::Leader(n) => {
-                    *xs.entry("leader").or_insert(0) += 1
-                },
-            }
-            xs
-        });
+    let counts = nodes.into_iter().fold(HashMap::new(), |mut xs, x| {
+        match x {
+            RaftHandle::Follower(_n) => *xs.entry("follower").or_insert(0) += 1,
+            RaftHandle::Candidate(_n) => *xs.entry("candidate").or_insert(0) += 1,
+            RaftHandle::Leader(_n) => *xs.entry("leader").or_insert(0) += 1,
+        }
+        xs
+    });
 
     assert_eq!(2, *counts.get("follower").unwrap());
     assert_eq!(1, *counts.get("leader").unwrap());
