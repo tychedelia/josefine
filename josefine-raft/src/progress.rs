@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
-use crate::raft::{LogIndex, NodeId, Node};
-
+use crate::raft::{LogIndex, Node, NodeId};
 
 #[derive(Debug)]
 pub struct ReplicationProgress {

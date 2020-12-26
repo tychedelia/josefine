@@ -12,7 +12,6 @@ use crate::raft::Raft;
 use crate::raft::Role;
 use crate::raft::{Apply, NodeId, RaftHandle, RaftRole};
 
-
 ///
 #[derive(Debug)]
 pub struct Leader {
@@ -26,10 +25,10 @@ pub struct Leader {
 
 impl Raft<Leader> {
     pub(crate) fn heartbeat(&self) -> Result<(), RaftError> {
-        // for node in &self.config.nodes {
-            // let _ = Message::Heartbeat(self.state.current_term, self.id);
-        // }
-
+        self.send_all(Command::Heartbeat {
+            term: self.state.current_term,
+            leader_id: self.id,
+        })?;
         Ok(())
     }
 

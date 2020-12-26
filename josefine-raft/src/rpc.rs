@@ -1,14 +1,3 @@
-
-
-
-
-
-
-
-
-
-
-
 use crate::raft::{Command, Entry, LogIndex, Node, NodeId, Term};
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]

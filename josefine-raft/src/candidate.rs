@@ -11,7 +11,7 @@ use crate::raft::Command;
 use crate::raft::Raft;
 use crate::raft::Role;
 use crate::raft::{Apply, RaftHandle, RaftRole};
-
+use crate::rpc::{Address, Message};
 
 #[derive(Debug)]
 pub struct Candidate {
@@ -27,15 +27,16 @@ impl Raft<Candidate> {
         let from = self.id;
         let term = self.state.current_term;
 
-        // for (_, _node) in &self.nodes {
-            // let _ = Message::RequestVote(
-            //     self.state.current_term,
-            //     self.id,
-            //     self.state.current_term,
-            //     self.state.commit_index,
-            // );
-        // }
+        for node in &self.config.nodes {
+            self.send_all(Command::VoteRequest {
+                term,
+                candidate_id: from,
+                last_term: term,
+                last_index: self.state.last_applied,
+            })?;
+        }
 
+        // Vote for self,
         self.apply(Command::VoteResponse {
             from,
             term,
@@ -85,7 +86,6 @@ impl Apply for Raft<Candidate> {
                     };
                 }
 
-                //                info!(self.role.logger, "Transitioning to follower");
                 Ok(RaftHandle::Candidate(self))
             }
             Command::VoteRequest {
@@ -93,7 +93,15 @@ impl Apply for Raft<Candidate> {
                 term: _,
                 ..
             } => {
-                // let _ = Message::RespondVote(self.state.current_term, self.id, false);
+                self.send(
+                    Address::Peer(candidate_id),
+                    Command::VoteResponse {
+                        from: self.id,
+                        term: self.state.current_term,
+                        granted: false,
+                    },
+                )?;
+
                 Ok(RaftHandle::Candidate(self))
             }
             Command::VoteResponse { granted, from, .. } => {

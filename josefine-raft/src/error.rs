@@ -2,7 +2,6 @@ use crate::rpc::Message;
 use snafu::Snafu;
 use tokio::task::JoinError;
 
-
 pub type Result<T> = std::result::Result<T, RaftError>;
 
 #[derive(Debug, Snafu)]
@@ -13,26 +12,26 @@ pub enum RaftError {
         error_msg: String,
     },
     #[snafu(display("Error sending message {}", error_msg))]
-    ApplyError {
-        error_msg: String,
-    },
+    ApplyError { error_msg: String },
     #[snafu(display("Error sending message {}", error_msg))]
-    MessageError {
-        error_msg: String,
-    },
+    MessageError { error_msg: String },
+    #[snafu(display("Unknown internal error {}", error_msg))]
+    Internal { error_msg: String },
 }
 
 impl From<std::io::Error> for RaftError {
     fn from(err: std::io::Error) -> Self {
-        return RaftError::MessageError {
+        RaftError::MessageError {
             error_msg: err.to_string(),
-        };
+        }
     }
 }
 
 impl From<tokio::sync::mpsc::error::SendError<Message>> for RaftError {
-    fn from(_: tokio::sync::mpsc::error::SendError<Message>) -> Self {
-        unimplemented!()
+    fn from(err: tokio::sync::mpsc::error::SendError<Message>) -> Self {
+        RaftError::MessageError {
+            error_msg: err.to_string(),
+        }
     }
 }
 
@@ -57,7 +56,13 @@ impl From<std::net::AddrParseError> for RaftError {
 impl From<tokio::task::JoinError> for RaftError {
     fn from(err: tokio::task::JoinError) -> Self {
         RaftError::ApplyError {
-            error_msg: err.to_string()
+            error_msg: err.to_string(),
         }
+    }
+}
+
+impl From<tokio::sync::oneshot::error::TryRecvError> for RaftError {
+    fn from(_: tokio::sync::oneshot::error::TryRecvError) -> Self {
+        unimplemented!()
     }
 }

@@ -10,10 +10,11 @@ use crate::config::RaftConfig;
 use crate::election::Election;
 use crate::error::RaftError;
 use crate::log::Log;
+use crate::raft::Command::VoteResponse;
 use crate::raft::{Apply, LogIndex, RaftHandle, RaftRole, Term};
 use crate::raft::{Command, NodeId, Raft, Role, State};
-use crate::rpc::Message;
-use tokio::sync::mpsc::{UnboundedSender};
+use crate::rpc::{Address, Message};
+use tokio::sync::mpsc::UnboundedSender;
 
 #[derive(Debug)]
 pub struct Follower {
@@ -98,10 +99,13 @@ impl Apply for Raft<Follower> {
                 self.set_election_timeout();
                 self.role.leader_id = Some(leader_id);
                 self.state.voted_for = Some(leader_id);
-
-                // self.nodes[&leader_id];
-                // let _ = Message::Heartbeat(self.state.current_term, leader_id);
-
+                self.send(
+                    Address::Peer(leader_id),
+                    Command::Heartbeat {
+                        term: self.state.current_term,
+                        leader_id,
+                    },
+                )?;
                 self.apply_self()
             }
             Command::VoteRequest {
@@ -111,12 +115,24 @@ impl Apply for Raft<Follower> {
                 ..
             } => {
                 if self.can_vote(last_term, last_index) {
-                    // self.nodes[&candidate_id];
-                    // let _ = Message::RespondVote(self.state.current_term, self.id, true);
+                    self.send(
+                        Address::Peer(candidate_id),
+                        VoteResponse {
+                            term: self.state.current_term,
+                            from: self.id,
+                            granted: true,
+                        },
+                    )?;
                     self.state.voted_for = Some(candidate_id);
                 } else {
-                    // self.nodes[&candidate_id];
-                    // let _ = Message::RespondVote(self.state.current_term, self.id, false);
+                    self.send(
+                        Address::Peer(candidate_id),
+                        VoteResponse {
+                            term: self.state.current_term,
+                            from: self.id,
+                            granted: false,
+                        },
+                    )?;
                 }
                 self.apply_self()
             }
@@ -151,6 +167,7 @@ impl Raft<Follower> {
         rpc_tx: UnboundedSender<Message>,
     ) -> Result<Raft<Follower>, RaftError> {
         config.validate()?;
+        let logger = logger.new(o!("id" => config.id));
 
         let mut raft = Raft {
             id: config.id,
