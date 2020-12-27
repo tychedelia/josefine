@@ -83,7 +83,7 @@ impl Apply for Raft<Leader> {
                                     &progress.next,
                                     &(progress.next + crate::progress::MAX_INFLIGHT),
                                 );
-                                let len = entries.len();
+                                let len = entries.count();
                                 // let _ = Message::Append {
                                 //     term: self.state.current_term,
                                 //     leader_id: self.id,

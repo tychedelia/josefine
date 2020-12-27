@@ -9,7 +9,7 @@ use crate::candidate::Candidate;
 use crate::config::RaftConfig;
 use crate::election::Election;
 use crate::error::RaftError;
-use crate::log::Log;
+use crate::log::{Log, EntryType};
 use crate::raft::Command::VoteResponse;
 use crate::raft::{Apply, LogIndex, RaftHandle, RaftRole, Term};
 use crate::raft::{Command, NodeId, Raft, Role, State};
@@ -74,7 +74,7 @@ impl Apply for Raft<Follower> {
                 }
 
                 // If we don't have a log at prev index and term, respond false
-                if !self.log.check_term(&prev_log_index, &prev_log_term) {
+                if !self.log.check_term(&prev_log_index, &prev_log_term)? {
                     // self.nodes[&leader_id];
                     // let _ = Message::new(self.state.current_term, self.id, false);
                     return self.apply_self();
@@ -82,10 +82,13 @@ impl Apply for Raft<Follower> {
 
                 // If there are entries...
                 if !entries.is_empty() {
-                    for entry in entries {
-                        let index = entry.index;
-                        self.log.append(entry); // append the entry
-                        self.state.last_applied = index; // update our last applied
+                    for data in entries {
+                        let entry = self.log.append(
+                            self.state.current_term,
+                            self.state.last_applied + 1,
+                            EntryType::Entry { data }
+                        )?; // append the entry
+                        self.state.last_applied = entry.index; // update our last applied
                     }
 
                     // Respond success

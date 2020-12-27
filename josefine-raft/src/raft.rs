@@ -59,7 +59,7 @@ pub enum Command {
         /// The id of the node sending entries.
         leader_id: NodeId,
         /// The entries to append to our commit log.
-        entries: Vec<Entry>,
+        entries: Vec<Vec<u8>>,
         /// The last log index preceeding new entries.
         prev_log_index: LogIndex,
         /// The log term preceeding new entries.
@@ -94,24 +94,6 @@ pub trait Role: Debug {
     fn term(&mut self, term: Term);
     fn role(&self) -> RaftRole;
     fn log(&self) -> &Logger;
-}
-
-#[derive(Serialize, PartialEq, Deserialize, Debug, Clone)]
-pub enum EntryType {
-    Entry { data: Vec<u8> },
-    Config {},
-    Command { command: Command },
-}
-
-/// An entry in the commit log.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct Entry {
-    /// The type of the entry
-    pub entry_type: EntryType,
-    /// The term of the entry.
-    pub term: Term,
-    /// The index of the entry within the commit log.
-    pub index: LogIndex,
 }
 
 /// Contains information about nodes in raft cluster.

@@ -25,6 +25,7 @@ use crate::config::RaftConfig;
 use crate::raft::RaftHandle;
 
 use futures_util::core_reexport::time::Duration;
+use crate::fsm::StateMachine;
 
 mod candidate;
 mod election;
@@ -47,6 +48,8 @@ mod logger;
 mod progress;
 mod server;
 mod tcp;
+mod fsm;
+mod store;
 
 pub struct JosefineRaft {
     server: server::Server,
@@ -67,10 +70,10 @@ impl JosefineRaft {
     }
 
     pub async fn run(self) -> error::Result<RaftHandle> {
-        self.server.run(None).await
+        self.server.run(Box::new(crate::fsm::TestState { last_index: 0 }), None).await
     }
 
     pub async fn run_for(self, duration: Duration) -> error::Result<RaftHandle> {
-        self.server.run(Some(duration)).await
+        self.server.run(Box::new(crate::fsm::TestState { last_index: 0 }), Some(duration)).await
     }
 }

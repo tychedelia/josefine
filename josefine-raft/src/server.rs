@@ -9,8 +9,9 @@ use slog::Logger;
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
 use tokio::sync::mpsc;
-use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
+use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel};
 use tokio::time::Duration;
+use crate::fsm::{Event, StateMachine};
 
 /// step duration
 const TICK: Duration = Duration::from_millis(100);
@@ -28,7 +29,7 @@ impl Server {
         }
     }
 
-    pub async fn run(self, duration: Option<Duration>) -> Result<RaftHandle> {
+    pub async fn run(self, state: Box<dyn StateMachine>, duration: Option<Duration>) -> Result<RaftHandle> {
         // shutdown broadcaster
         let (shutdown_tx, _shutdown_rx) = tokio::sync::broadcast::channel(1);
 
@@ -58,6 +59,11 @@ impl Server {
         .remote_handle();
         tokio::spawn(task);
 
+        // state machine
+        let (state_tx, state_rx) = mpsc::unbounded_channel::<Event>();
+        let (task, state_listener) = crate::fsm::event_listener(self.log.new(o!()), shutdown_tx.subscribe(), state_rx, state).remote_handle();
+        tokio::spawn(task);
+
         // main event loop
         let raft = RaftHandle::new(self.log.new(o!()), self.config, rpc_tx.clone());
         let (task, event_loop) = event_loop(
@@ -76,7 +82,7 @@ impl Server {
             shutdown_tx.send(());
         }
 
-        let (_, _, raft) = tokio::try_join!(tcp_receiver, tcp_sender, event_loop)?;
+        let (_, _, _, raft) = tokio::try_join!(tcp_receiver, tcp_sender, state_listener, event_loop)?;
         Ok(raft)
     }
 }
