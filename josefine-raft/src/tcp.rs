@@ -10,36 +10,53 @@ use tokio::sync::mpsc::{Receiver, UnboundedReceiver, UnboundedSender};
 use tokio::time::Duration;
 use tokio_stream::StreamExt;
 use tokio_util::codec::{FramedRead, FramedWrite, LengthDelimitedCodec};
+use slog::Logger;
 
-async fn receive_task(listener: TcpListener, in_tx: UnboundedSender<Message>) -> Result<()> {
-    let mut s = stream::ListenerStream(listener);
-    while let Some((s, _addr)) = s.next().await.transpose()? {
-        println!("{:?}", s);
-        let peer_in_tx = in_tx.clone();
-        tokio::spawn(async move {
-            match stream_messages(s, peer_in_tx).await {
-                Ok(()) => { println!("!") }
-                Err(_) => { println!("err") }
+pub async fn receive_task(
+    log: Logger,
+    mut shutdown: tokio::sync::broadcast::Receiver<()>,
+    listener: TcpListener,
+    in_tx: UnboundedSender<Message>,
+) -> Result<()> {
+    loop {
+        tokio::select! {
+            _ = shutdown.recv() => break,
+
+            Ok((s, addr)) = listener.accept() => {
+                let log = log.new(o!("addr" => format!("{:?}", addr)));
+                info!(log, "peer connected");
+                let peer_in_tx = in_tx.clone();
+                tokio::spawn(async move {
+                    match stream_messages(log.clone(), s, peer_in_tx).await {
+                        Ok(()) => { info!(log, "peer disconnected") }
+                        Err(_) => { error!(log, "error reading from peer") }
+                    }
+                });
             }
-        });
+        }
     }
 
+    info!(log, "receive complete");
     Ok(())
 }
 
-async fn stream_messages(stream: TcpStream, in_tx: UnboundedSender<Message>) -> Result<()> {
+async fn stream_messages(log: Logger, stream: TcpStream, in_tx: UnboundedSender<Message>) -> Result<()> {
     let length_delimited = FramedRead::new(stream, LengthDelimitedCodec::new());
     let mut stream = tokio_serde::SymmetricallyFramed::new(
         length_delimited,
         tokio_serde::formats::SymmetricalJson::default(),
     );
+
     while let Some(message) = stream.try_next().await? {
+        info!(log, "receive message"; "msg" => format!("{:?}", message));
         in_tx.send(message)?;
     }
     Ok(())
 }
 
-async fn send_task(
+pub async fn send_task(
+    log: Logger,
+    shutdown: tokio::sync::broadcast::Receiver<()>,
     id: NodeId,
     nodes: Vec<Node>,
     out_rx: UnboundedReceiver<Message>,
@@ -60,8 +77,8 @@ async fn send_task(
         let to = match &message.to {
             Address::Peers => node_txs.keys().cloned().collect(),
             Address::Peer(peer) => vec![*peer],
-            _addr => {
-                // error!("Received outbound message for non-TCP address {:?}", addr);
+            addr => {
+                error!(log, "received outbound message for non-TCP address"; "addr" => format!("{:?}", addr));
                 continue;
             }
         };
@@ -70,11 +87,11 @@ async fn send_task(
                 Some(tx) => match tx.try_send(message.clone()) {
                     Ok(()) => {}
                     Err(mpsc::error::TrySendError::Full(_)) => {
-                        // debug!("Full send buffer for peer {}, discarding message", id)
+                        error!(log, "Full send buffer for peer, discarding message"; "peer" => id)
                     }
                     Err(error) => return Err(error.into()),
                 },
-                None => {} //error!("Received outbound message for unknown peer {}", id),
+                None => error!(log, "received outbound message for non-TCP address"; " id" => id)
             }
         }
     }
@@ -127,7 +144,7 @@ mod tests {
     use crate::rpc::Address;
     use bytes::{Bytes};
     use futures::SinkExt;
-    
+
     use tokio::net::TcpListener;
     use tokio::sync::mpsc;
     use tokio_util::codec::FramedWrite;
@@ -136,8 +153,8 @@ mod tests {
     async fn read_message() -> Result<()> {
         let listener = TcpListener::bind("127.0.0.1:8084").await?;
         let (tx, mut rx) = mpsc::unbounded_channel();
-
-        tokio::spawn(receive_task(listener, tx));
+        let (shutdown_tx, shutdown_rx) = tokio::sync::broadcast::channel(1);
+        tokio::spawn(receive_task(get_root_logger().new(o!()), shutdown_tx.subscribe(), listener, tx));
         let stream = TcpStream::connect("127.0.0.1:8084").await?;
         let out_msg = Message::new(1, Address::Peer(1), Address::Peer(2), Command::Tick);
 
@@ -154,17 +171,20 @@ mod tests {
         Ok(())
     }
 
-    
+
     use futures::StreamExt;
     use tokio_util::codec::FramedRead;
-    
+    use crate::logger::get_root_logger;
+
 
     #[tokio::test]
     async fn send_message() -> Result<()> {
         let listener = TcpListener::bind("127.0.0.1:8080").await?;
         let (tx, rx) = mpsc::unbounded_channel();
-
+        let (shutdown_tx, shutdown_rx) = tokio::sync::broadcast::channel(1);
         tokio::spawn(send_task(
+            get_root_logger().new(o!()),
+            shutdown_tx.subscribe(),
             1,
             vec![Node {
                 id: 2,

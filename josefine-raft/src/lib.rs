@@ -21,13 +21,15 @@ extern crate slog;
 extern crate slog_async;
 extern crate slog_term;
 
-
-
-
+use crate::config::RaftConfig;
+use crate::raft::RaftHandle;
+use crate::server::Server;
+use futures_util::core_reexport::time::Duration;
+use std::path::Path;
 
 mod candidate;
 mod election;
-mod error;
+pub mod error;
 mod follower;
 mod leader;
 mod log;
@@ -47,10 +49,29 @@ mod progress;
 mod server;
 mod tcp;
 
-pub struct JosefineRaft {}
+pub struct JosefineRaft {
+    server: server::Server,
+}
 
 impl JosefineRaft {
-    pub fn run(self) -> i32 {
-        0
+    pub fn new() -> Self {
+        let config = config::RaftConfig::config("./config.toml");
+        JosefineRaft {
+            server: server::Server::new(config),
+        }
+    }
+
+    pub fn with_config(config: RaftConfig) -> Self {
+        JosefineRaft {
+            server: server::Server::new(config),
+        }
+    }
+
+    pub async fn run(self) -> error::Result<RaftHandle> {
+        self.server.run(None).await
+    }
+
+    pub async fn run_for(self, duration: Duration) -> error::Result<RaftHandle> {
+        self.server.run(Some(duration)).await
     }
 }

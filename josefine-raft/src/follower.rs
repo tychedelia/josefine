@@ -10,10 +10,11 @@ use crate::config::RaftConfig;
 use crate::election::Election;
 use crate::error::RaftError;
 use crate::log::Log;
-use crate::raft::{Apply, LogIndex, NodeMap, RaftHandle, RaftRole, Term};
+use crate::raft::Command::VoteResponse;
+use crate::raft::{Apply, LogIndex, RaftHandle, RaftRole, Term};
 use crate::raft::{Command, NodeId, Raft, Role, State};
-use crate::rpc::Message;
-use tokio::sync::mpsc::{UnboundedSender};
+use crate::rpc::{Address, Message};
+use tokio::sync::mpsc::UnboundedSender;
 
 #[derive(Debug)]
 pub struct Follower {
@@ -74,7 +75,7 @@ impl Apply for Raft<Follower> {
 
                 // If we don't have a log at prev index and term, respond false
                 if !self.log.check_term(&prev_log_index, &prev_log_term) {
-                    self.nodes[&leader_id];
+                    // self.nodes[&leader_id];
                     // let _ = Message::new(self.state.current_term, self.id, false);
                     return self.apply_self();
                 }
@@ -88,7 +89,7 @@ impl Apply for Raft<Follower> {
                     }
 
                     // Respond success
-                    self.nodes[&leader_id];
+                    // self.nodes[&leader_id];
                     // let _ = Message::RespondAppend(self.state.current_term, self.id, true);
                 }
 
@@ -98,10 +99,13 @@ impl Apply for Raft<Follower> {
                 self.set_election_timeout();
                 self.role.leader_id = Some(leader_id);
                 self.state.voted_for = Some(leader_id);
-
-                self.nodes[&leader_id];
-                // let _ = Message::Heartbeat(self.state.current_term, leader_id);
-
+                self.send(
+                    Address::Peer(leader_id),
+                    Command::Heartbeat {
+                        term: self.state.current_term,
+                        leader_id,
+                    },
+                )?;
                 self.apply_self()
             }
             Command::VoteRequest {
@@ -111,12 +115,24 @@ impl Apply for Raft<Follower> {
                 ..
             } => {
                 if self.can_vote(last_term, last_index) {
-                    self.nodes[&candidate_id];
-                    // let _ = Message::RespondVote(self.state.current_term, self.id, true);
+                    self.send(
+                        Address::Peer(candidate_id),
+                        VoteResponse {
+                            term: self.state.current_term,
+                            from: self.id,
+                            granted: true,
+                        },
+                    )?;
                     self.state.voted_for = Some(candidate_id);
                 } else {
-                    self.nodes[&candidate_id];
-                    // let _ = Message::RespondVote(self.state.current_term, self.id, false);
+                    self.send(
+                        Address::Peer(candidate_id),
+                        VoteResponse {
+                            term: self.state.current_term,
+                            from: self.id,
+                            granted: false,
+                        },
+                    )?;
                 }
                 self.apply_self()
             }
@@ -148,16 +164,15 @@ impl Raft<Follower> {
     pub fn new(
         config: RaftConfig,
         logger: Logger,
-        nodes: NodeMap,
         rpc_tx: UnboundedSender<Message>,
     ) -> Result<Raft<Follower>, RaftError> {
         config.validate()?;
+        let logger = logger.new(o!("id" => config.id));
 
         let mut raft = Raft {
             id: config.id,
             config,
             state: State::default(),
-            nodes,
             role: Follower {
                 leader_id: None,
                 logger: logger.new(o!("role" => "follower")),
@@ -202,14 +217,13 @@ impl Raft<Follower> {
 
 impl From<Raft<Follower>> for Raft<Candidate> {
     fn from(val: Raft<Follower>) -> Raft<Candidate> {
-        let mut node_ids: Vec<NodeId> = val.nodes.iter().map(|(k, _v)| *k).collect();
+        let mut node_ids: Vec<NodeId> = val.config.nodes.iter().map(|n| n.id).collect();
         node_ids.push(val.id);
         let election = Election::new(node_ids);
 
         Raft {
             id: val.id,
             state: val.state,
-            nodes: val.nodes,
             role: Candidate {
                 election,
                 logger: val.logger.new(o!("role" => "candidate")),
@@ -235,10 +249,12 @@ mod tests {
     use super::RaftConfig;
     use super::RaftHandle;
     use tokio::sync::mpsc;
+    use tokio::sync::mpsc::UnboundedReceiver;
+    use crate::rpc::Message;
 
     #[test]
     fn follower_to_leader_single_node_cluster() {
-        let follower = new_follower();
+        let (rx, follower) = new_follower();
         let id = follower.id;
         match follower.apply(Command::Timeout).unwrap() {
             RaftHandle::Follower(_) => panic!(),
@@ -249,7 +265,7 @@ mod tests {
 
     #[test]
     fn follower_noop() {
-        let follower = new_follower();
+        let (rx, follower) = new_follower();
         let id = follower.id;
         match follower.apply(Command::Noop).unwrap() {
             RaftHandle::Follower(follower) => assert_eq!(id, follower.id),
@@ -258,10 +274,10 @@ mod tests {
         }
     }
 
-    fn new_follower() -> Raft<Follower> {
+    fn new_follower() -> (UnboundedReceiver<Message>, Raft<Follower>) {
         let config = RaftConfig::default();
         let log = get_root_logger();
-        let (rpc_tx, _rpc_rx) = mpsc::unbounded_channel();
-        Raft::new(config, log.new(o!()), HashMap::new(), rpc_tx).unwrap()
+        let (rpc_tx, rpc_rx) = mpsc::unbounded_channel();
+        (rpc_rx, Raft::new(config, log.new(o!()), rpc_tx).unwrap())
     }
 }
