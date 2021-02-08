@@ -65,3 +65,9 @@ impl From<tokio::sync::oneshot::error::TryRecvError> for RaftError {
         unimplemented!()
     }
 }
+
+impl From<tokio::sync::broadcast::error::SendError<()>> for RaftError {
+    fn from(_: tokio::sync::broadcast::error::SendError<()>) -> Self {
+        unimplemented!()
+    }
+}

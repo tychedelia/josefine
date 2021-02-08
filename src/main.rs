@@ -1,10 +1,9 @@
-extern crate clap;
-extern crate josefine_raft;
-
 use clap::App;
 use clap::Arg;
+use josefine_raft::JosefineRaft;
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let matches = App::new("Josefine")
         .version("0.0.1")
         .author("jcm")
@@ -19,5 +18,7 @@ fn main() {
         )
         .get_matches();
 
-    let _config_path = matches.value_of("config").unwrap();
+    let config_path = matches.value_of("config").unwrap();
+    let raft = JosefineRaft::with_config(config_path);
+    raft.run().await.unwrap();
 }

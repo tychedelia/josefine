@@ -1,8 +1,6 @@
 use slog::Drain;
 use slog::Logger;
 
-use crate::config::RaftConfig;
-
 lazy_static! {
     pub static ref LOGGER: Logger = {
         let decorator = slog_term::TermDecorator::new().build();
@@ -15,8 +13,4 @@ lazy_static! {
 
 pub fn get_root_logger() -> &'static LOGGER {
     &LOGGER
-}
-
-pub fn get_instance_logger(logger: &Logger, config: &RaftConfig) -> Logger {
-    logger.new(o!("id" => config.id))
 }

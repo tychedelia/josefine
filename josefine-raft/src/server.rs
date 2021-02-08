@@ -73,7 +73,7 @@ impl Server {
 
         if let Some(duration) = duration {
             tokio::time::sleep(duration).await;
-            shutdown_tx.send(());
+            shutdown_tx.send(())?;
         }
 
         let (_, _, raft) = tokio::try_join!(tcp_receiver, tcp_sender, event_loop)?;
@@ -148,7 +148,7 @@ mod tests {
         );
         let raft = tokio::spawn(event_loop);
         std::thread::sleep(Duration::from_secs(2));
-        shutdown_tx.send(());
+        shutdown_tx.send(())?;
 
         let raft = tokio::try_join!(raft)?.0?;
         if let RaftHandle::Leader(_raft) = raft {

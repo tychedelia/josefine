@@ -488,6 +488,7 @@ dependencies = [
  "slog",
  "slog-async",
  "slog-term",
+ "tokio",
 ]
 
 [[package]]

@@ -60,7 +60,8 @@ impl JosefineRaft {
         }
     }
 
-    pub fn with_config(config: RaftConfig) -> Self {
+    pub fn with_config<P: AsRef<std::path::Path>>(path: P) -> Self {
+        let config = config::RaftConfig::config(path);
         JosefineRaft {
             server: server::Server::new(config),
         }
