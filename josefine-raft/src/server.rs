@@ -29,6 +29,8 @@ impl Server {
     }
 
     pub async fn run(self, duration: Option<Duration>) -> Result<RaftHandle> {
+        info!(self.log, "Using config"; "config" => format!("{:?}", self.config));
+
         // shutdown broadcaster
         let (shutdown_tx, _shutdown_rx) = tokio::sync::broadcast::channel(1);
 

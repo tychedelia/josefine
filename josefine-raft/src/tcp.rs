@@ -70,7 +70,7 @@ pub async fn send_task(
     for node in nodes.iter() {
         let (tx, rx) = mpsc::channel::<Message>(1000);
         node_txs.insert(node.id, tx);
-        tokio::spawn(connect_and_send(*node, rx));
+        tokio::spawn(connect_and_send(*node, log.new(o!()), rx));
     }
 
     let mut s = stream::UnboundedReceiverStream(out_rx);
@@ -106,16 +106,16 @@ pub async fn send_task(
 ///
 /// * `node` - The node which messages will be sent to.
 /// * `out_rx` - The channel messages to send are written to.
-async fn connect_and_send(node: Node, mut out_rx: Receiver<Message>) -> Result<()> {
+async fn connect_and_send(node: Node, log: slog::Logger, mut out_rx: Receiver<Message>) -> Result<()> {
     loop {
         match TcpStream::connect(node.addr).await {
             Ok(socket) => {
                 match send_messages(socket, &mut out_rx).await {
                     Ok(()) => break Ok(()),
-                    Err(_err) => {} //debug!("Failed sending to Raft peer {}: {}", node.addr, err),
+                    Err(err) => error!(log, "Failed sending to Raft peer"; "peer" => node.addr, "error" => format!("{:?}", err)),
                 }
             }
-            Err(_err) => {} //debug!("Failed connecting to Raft peer {}: {}", node.addr, err),
+            Err(err) => error!(log, "Failed connecting to Raft peer"; "peer" => node.addr, "error" => format!("{:?}", err)),
         }
         // TODO: use back-off
         tokio::time::sleep(Duration::from_millis(1000)).await;

@@ -25,7 +25,7 @@ fn new_cluster(ids: Vec<u32>) -> Vec<JosefineRaft> {
                     .collect(),
                 ..default
             };
-            JosefineRaft::with_config(config)
+            JosefineRaft::new(config)
         })
         .collect()
 }

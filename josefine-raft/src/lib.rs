@@ -55,8 +55,7 @@ pub struct JosefineRaft {
 }
 
 impl JosefineRaft {
-    pub fn new() -> Self {
-        let config = config::RaftConfig::config(&Path::new("./config.toml"));
+    pub fn new(config: config::RaftConfig) -> Self {
         JosefineRaft {
             server: server::Server::new(config),
         }
@@ -64,9 +63,7 @@ impl JosefineRaft {
 
     pub fn with_config<P: AsRef<std::path::Path>>(path: P) -> Self {
         let config = config::RaftConfig::config(path.as_ref());
-        JosefineRaft {
-            server: server::Server::new(config),
-        }
+        Self::new(config)
     }
 
     pub async fn run(self) -> error::Result<RaftHandle> {
