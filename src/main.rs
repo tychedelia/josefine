@@ -1,6 +1,6 @@
 use clap::App;
 use clap::Arg;
-use josefine_raft::JosefineRaft;
+use josefine;
 
 #[tokio::main]
 async fn main() {
@@ -19,6 +19,5 @@ async fn main() {
         .get_matches();
 
     let config_path = matches.value_of("config").unwrap();
-    let raft = JosefineRaft::with_config(config_path);
-    raft.run().await.unwrap();
+    josefine::josefine(config_path).await
 }

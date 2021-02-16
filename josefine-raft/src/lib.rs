@@ -48,20 +48,22 @@ mod progress;
 mod server;
 mod tcp;
 
+use std::path::Path;
+
 pub struct JosefineRaft {
     server: server::Server,
 }
 
 impl JosefineRaft {
     pub fn new() -> Self {
-        let config = config::RaftConfig::config("./config.toml");
+        let config = config::RaftConfig::config(&Path::new("./config.toml"));
         JosefineRaft {
             server: server::Server::new(config),
         }
     }
 
     pub fn with_config<P: AsRef<std::path::Path>>(path: P) -> Self {
-        let config = config::RaftConfig::config(path);
+        let config = config::RaftConfig::config(path.as_ref());
         JosefineRaft {
             server: server::Server::new(config),
         }

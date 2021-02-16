@@ -42,7 +42,7 @@ pub struct RaftConfig {
 const MAX_PROTOCOL_VERSION: u32 = 0;
 
 impl RaftConfig {
-    pub fn config<P: AsRef<std::path::Path>>(config_path: P) -> RaftConfig {
+    pub fn config(config_path: &std::path::Path) -> RaftConfig {
         let mut settings = config::Config::default();
         settings
             .merge(config::File::from(config_path.as_ref()))

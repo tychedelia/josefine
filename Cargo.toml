@@ -3,6 +3,10 @@ name = "josefine"
 version = "0.0.1"
 edition = "2018"
 
+[lib]
+path = "src/lib.rs"
+name = "josefine"
+
 [[bin]]
 bench = false
 path = "src/main.rs"
