@@ -12,6 +12,7 @@ use crate::error::Result;
 use crate::follower::Follower;
 use crate::leader::Leader;
 use crate::log::Log;
+use crate::store::MemoryStore;
 
 use crate::rpc::{Address, Message};
 
@@ -196,7 +197,7 @@ pub struct Raft<T: Role> {
     /// An instance containing role specific state and behavior.
     pub role: T,
     ///
-    pub log: Log,
+    pub log: Log<MemoryStore>,
     ///
     pub rpc_tx: UnboundedSender<Message>,
 }
