@@ -80,9 +80,9 @@ impl Apply for Raft<Leader> {
                         match &mut progress {
                             NodeProgress::Replicate(progress) => {
                                 let entries = self.log.get_range(
-                                    &progress.next,
-                                    &(progress.next + crate::progress::MAX_INFLIGHT),
-                                );
+                                    progress.next,
+                                    progress.next + crate::progress::MAX_INFLIGHT,
+                                )?;
                                 let len = entries.len();
                                 // let _ = Message::Append {
                                 //     term: self.state.current_term,

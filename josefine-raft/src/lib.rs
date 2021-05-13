@@ -21,7 +21,6 @@ extern crate slog;
 extern crate slog_async;
 extern crate slog_term;
 
-use crate::config::RaftConfig;
 use crate::raft::RaftHandle;
 
 use futures_util::core_reexport::time::Duration;
@@ -33,6 +32,7 @@ mod follower;
 mod leader;
 mod log;
 mod rpc;
+mod store;
 
 /// [Raft](raft.github.io) is a state machine for replicated consensus.
 ///
@@ -47,8 +47,6 @@ mod logger;
 mod progress;
 mod server;
 mod tcp;
-
-use std::path::Path;
 
 pub struct JosefineRaft {
     server: server::Server,

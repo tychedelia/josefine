@@ -74,7 +74,7 @@ impl Apply for Raft<Follower> {
                 }
 
                 // If we don't have a log at prev index and term, respond false
-                if !self.log.check_term(&prev_log_index, &prev_log_term) {
+                if !self.log.check_term(prev_log_index, prev_log_term) {
                     // self.nodes[&leader_id];
                     // let _ = Message::new(self.state.current_term, self.id, false);
                     return self.apply_self();
