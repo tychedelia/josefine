@@ -1,6 +1,6 @@
 use std::net::ToSocketAddrs;
 use std::net::{IpAddr, Ipv4Addr};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::time::Duration;
 
 use crate::error::RaftError;
@@ -42,10 +42,10 @@ pub struct RaftConfig {
 const MAX_PROTOCOL_VERSION: u32 = 0;
 
 impl RaftConfig {
-    pub fn config(config_path: &str) -> RaftConfig {
+    pub fn config(config_path: &std::path::Path) -> RaftConfig {
         let mut settings = config::Config::default();
         settings
-            .merge(config::File::with_name(config_path))
+            .merge(config::File::from(config_path.as_ref()))
             .expect("Could not read configuration file")
             .merge(config::Environment::with_prefix("JOSEFINE"))
             .expect("Could not read environment variables");

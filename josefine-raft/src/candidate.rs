@@ -11,7 +11,7 @@ use crate::raft::Command;
 use crate::raft::Raft;
 use crate::raft::Role;
 use crate::raft::{Apply, RaftHandle, RaftRole};
-use crate::rpc::Message;
+use crate::rpc::Address;
 
 #[derive(Debug)]
 pub struct Candidate {
@@ -27,15 +27,16 @@ impl Raft<Candidate> {
         let from = self.id;
         let term = self.state.current_term;
 
-        for (_, node) in &self.nodes {
-            // let _ = Message::RequestVote(
-            //     self.state.current_term,
-            //     self.id,
-            //     self.state.current_term,
-            //     self.state.commit_index,
-            // );
+        for _node in &self.config.nodes {
+            self.send_all(Command::VoteRequest {
+                term,
+                candidate_id: from,
+                last_term: term,
+                last_index: self.state.last_applied,
+            })?;
         }
 
+        // Vote for self,
         self.apply(Command::VoteResponse {
             from,
             term,
@@ -85,7 +86,6 @@ impl Apply for Raft<Candidate> {
                     };
                 }
 
-                //                info!(self.role.logger, "Transitioning to follower");
                 Ok(RaftHandle::Candidate(self))
             }
             Command::VoteRequest {
@@ -93,8 +93,15 @@ impl Apply for Raft<Candidate> {
                 term: _,
                 ..
             } => {
-                self.nodes[&candidate_id];
-                // let _ = Message::RespondVote(self.state.current_term, self.id, false);
+                self.send(
+                    Address::Peer(candidate_id),
+                    Command::VoteResponse {
+                        from: self.id,
+                        term: self.state.current_term,
+                        granted: false,
+                    },
+                )?;
+
                 Ok(RaftHandle::Candidate(self))
             }
             Command::VoteResponse { granted, from, .. } => {
@@ -167,7 +174,6 @@ impl From<Raft<Candidate>> for Raft<Follower> {
         Raft {
             id: val.id,
             state: val.state,
-            nodes: val.nodes,
             role: Follower {
                 leader_id: None,
                 logger: val.logger.new(o!("role" => "follower")),
@@ -183,11 +189,10 @@ impl From<Raft<Candidate>> for Raft<Follower> {
 impl From<Raft<Candidate>> for Raft<Leader> {
     fn from(val: Raft<Candidate>) -> Raft<Leader> {
         info!(val.role.logger, "Becoming the leader");
-        let progress = ReplicationProgress::new(&val.nodes);
+        let progress = ReplicationProgress::new(&val.config.nodes);
         Raft {
             id: val.id,
             state: val.state,
-            nodes: val.nodes,
             role: Leader {
                 logger: val.logger.new(o!("role" => "leader")),
                 progress,

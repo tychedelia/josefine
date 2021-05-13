@@ -1,21 +1,22 @@
+use std::fmt;
 use std::fmt::{Debug, Formatter};
 use std::net::SocketAddr;
 use std::time::Duration;
 use std::time::Instant;
-use std::{fmt, mem, thread};
 
 use slog::Logger;
 
 use crate::candidate::Candidate;
 use crate::config::RaftConfig;
-use crate::error::{RaftError, Result};
+use crate::error::Result;
 use crate::follower::Follower;
 use crate::leader::Leader;
 use crate::log::Log;
+use crate::store::MemoryStore;
 
 use crate::rpc::{Address, Message};
-use std::collections::HashMap;
-use tokio::sync::mpsc::{Sender, UnboundedSender};
+
+use tokio::sync::mpsc::UnboundedSender;
 
 /// A unique id that uniquely identifies an instance of Raft.
 pub type NodeId = u32;
@@ -26,12 +27,12 @@ pub type Term = u64;
 pub type LogIndex = u64;
 
 /// Commands that can be applied to the state machine.
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum Command {
     /// Move the state machine forward.
     Tick,
     /// Propose a change
-    Propose {},
+    Propose,
     /// Request that this instance vote for the provide node.
     VoteRequest {
         /// The term of the candidate.
@@ -96,7 +97,7 @@ pub trait Role: Debug {
     fn log(&self) -> &Logger;
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, PartialEq, Deserialize, Debug, Clone)]
 pub enum EntryType {
     Entry { data: Vec<u8> },
     Config {},
@@ -104,7 +105,7 @@ pub enum EntryType {
 }
 
 /// An entry in the commit log.
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Entry {
     /// The type of the entry
     pub entry_type: EntryType,
@@ -190,15 +191,13 @@ pub struct Raft<T: Role> {
     pub(crate) logger: Logger,
     /// Configuration for this instance.
     pub config: RaftConfig,
-    /// A map of known nodes in the cluster.
-    pub nodes: NodeMap,
     /// Volatile and persistent state for the state machine. Note that specific additional per-role
     /// state may be contained in that role.
     pub state: State,
     /// An instance containing role specific state and behavior.
     pub role: T,
     ///
-    pub log: Log,
+    pub log: Log<MemoryStore>,
     ///
     pub rpc_tx: UnboundedSender<Message>,
 }
@@ -226,13 +225,25 @@ impl<T: Role> Raft<T> {
             Command::Tick => {}
             Command::Heartbeat { .. } => {}
             _ => {
-                debug!(self.role.log(), ""; "role_state" => format!("{:?}", self.role), "state" => format!("{:?}", self.state), "cmd" => format!("{:?}", cmd))
+                info!(self.role.log(), ""; "role_state" => format!("{:?}", self.role), "state" => format!("{:?}", self.state), "cmd" => format!("{:?}", cmd))
             }
         };
     }
 
-    fn send(&self, to: Address, cmd: Command) -> Result<()> {
-        let msg = Message::new(self.state.current_term, Address::Local, to, cmd);
+    pub fn send(&self, to: Address, cmd: Command) -> Result<()> {
+        let msg = Message::new(self.state.current_term, Address::Peer(self.id), to, cmd);
+        self.rpc_tx.send(msg)?;
+        Ok(())
+    }
+
+    pub fn send_all(&self, cmd: Command) -> Result<()> {
+        let msg = Message::new(
+            self.state.current_term,
+            Address::Peer(self.id),
+            Address::Peers,
+            cmd,
+        );
+        self.rpc_tx.send(msg)?;
         Ok(())
     }
 }
@@ -243,10 +254,13 @@ pub enum RaftRole {
     Leader,
 }
 
-/// Since applying command to the state machine can potentially result in any state transition,
-/// the result that we get back needs to be general to the possible return types -- easiest
-/// way here is just to store the differently sized structs per state in an enum, which will be
-/// sized to the largest variant.
+/// Handle to some variant of the state machine. Commands should always be dispatched to the
+/// state machine via [`Apply`]. The concrete variant of the state machine should not be matched
+/// on directly, as state transitions are handled entirely .
+// Since applying command to the state machine can potentially result in any state transition,
+// the result that we get back needs to be general to the possible return types -- easiest
+// way here is just to store the differently sized structs per state in an enum, which will be
+// sized to the largest variant.
 pub enum RaftHandle {
     /// An instance of the state machine in the follower role.
     Follower(Raft<Follower>),
@@ -258,13 +272,8 @@ pub enum RaftHandle {
 
 impl RaftHandle {
     /// Obtain a new instance of raft initialized in the default follower state.
-    pub fn new(
-        config: RaftConfig,
-        logger: Logger,
-        nodes: NodeMap,
-        rpc_tx: UnboundedSender<Message>,
-    ) -> RaftHandle {
-        let raft = Raft::new(config, logger, nodes, rpc_tx);
+    pub fn new(logger: Logger, config: RaftConfig, rpc_tx: UnboundedSender<Message>) -> RaftHandle {
+        let raft = Raft::new(config, logger, rpc_tx);
         RaftHandle::Follower(raft.unwrap())
     }
 }
@@ -278,8 +287,6 @@ impl Apply for RaftHandle {
         }
     }
 }
-
-pub type NodeMap = HashMap<NodeId, Node>;
 
 /// Applying a command is the basic way the state machine is moved forward. Each role implements
 /// trait to handle how it responds (or does not respond) to particular commands.

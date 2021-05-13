@@ -1,6 +1,6 @@
-use crate::raft::{Command, Entry, LogIndex, NodeId, Term};
+use crate::raft::{Command, NodeId, Term};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub enum Address {
     /// Broadcast to all peers.
     Peers,
@@ -12,7 +12,7 @@ pub enum Address {
     Client,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Message {
     pub term: Term,
     pub from: Address,

@@ -1,10 +1,9 @@
-extern crate clap;
-extern crate josefine_raft;
-
 use clap::App;
 use clap::Arg;
+use josefine;
 
-fn main() {
+#[tokio::main(flavor = "multi_thread", worker_threads = 3)]
+async fn main() {
     let matches = App::new("Josefine")
         .version("0.0.1")
         .author("jcm")
@@ -20,4 +19,5 @@ fn main() {
         .get_matches();
 
     let config_path = matches.value_of("config").unwrap();
+    josefine::josefine(config_path).await.unwrap();
 }

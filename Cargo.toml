@@ -1,6 +1,11 @@
 [package]
 name = "josefine"
 version = "0.0.1"
+edition = "2018"
+
+[lib]
+path = "src/lib.rs"
+name = "josefine"
 
 [[bin]]
 bench = false
@@ -20,3 +25,4 @@ slog = "2.4.1"
 slog-async = "2.3.0"
 slog-term = "2.4.0"
 clap = "2.32.0"
+tokio = { version = "~1.0.0", features = ["macros", "net", "io-util", "time", "sync", "rt", "rt-multi-thread"] }

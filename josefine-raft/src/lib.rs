@@ -21,17 +21,18 @@ extern crate slog;
 extern crate slog_async;
 extern crate slog_term;
 
-use slog::Logger;
+use crate::raft::RaftHandle;
 
-use crate::config::RaftConfig;
+use futures_util::core_reexport::time::Duration;
 
 mod candidate;
 mod election;
-mod error;
+pub mod error;
 mod follower;
 mod leader;
 mod log;
 mod rpc;
+mod store;
 
 /// [Raft](raft.github.io) is a state machine for replicated consensus.
 ///
@@ -45,11 +46,29 @@ pub mod config;
 mod logger;
 mod progress;
 mod server;
+mod tcp;
 
-pub struct JosefineRaft {}
+pub struct JosefineRaft {
+    server: server::Server,
+}
 
 impl JosefineRaft {
-    pub fn run(self) -> i32 {
-        0
+    pub fn new(config: config::RaftConfig) -> Self {
+        JosefineRaft {
+            server: server::Server::new(config),
+        }
+    }
+
+    pub fn with_config<P: AsRef<std::path::Path>>(path: P) -> Self {
+        let config = config::RaftConfig::config(path.as_ref());
+        Self::new(config)
+    }
+
+    pub async fn run(self) -> error::Result<RaftHandle> {
+        self.server.run(None).await
+    }
+
+    pub async fn run_for(self, duration: Duration) -> error::Result<RaftHandle> {
+        self.server.run(Some(duration)).await
     }
 }
