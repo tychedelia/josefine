@@ -199,8 +199,7 @@ impl Raft<Follower> {
     fn get_randomized_timeout(&self) -> Duration {
         let _prev_timeout = self.state.election_timeout;
         let timeout = rand::thread_rng().gen_range(
-            self.state.min_election_timeout,
-            self.state.max_election_timeout,
+            self.state.min_election_timeout..self.state.max_election_timeout
         );
         Duration::from_millis(timeout as u64)
     }

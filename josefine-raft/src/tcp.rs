@@ -149,13 +149,16 @@ mod tests {
     use bytes::Bytes;
     use futures::SinkExt;
 
+    use rand::Rng;
     use tokio::net::TcpListener;
     use tokio::sync::mpsc;
     use tokio_util::codec::FramedWrite;
 
     #[tokio::test]
     async fn read_message() -> Result<()> {
-        let listener = TcpListener::bind("127.0.0.1:8084").await?;
+        let port: u32 = rand::thread_rng().gen_range(1025..65535);
+        let addr = format!("127.0.0.1:{}", port);
+        let listener = TcpListener::bind(&addr).await?;
         let (tx, mut rx) = mpsc::unbounded_channel();
         let (shutdown_tx, _shutdown_rx) = tokio::sync::broadcast::channel(1);
         tokio::spawn(receive_task(
@@ -164,7 +167,7 @@ mod tests {
             listener,
             tx,
         ));
-        let stream = TcpStream::connect("127.0.0.1:8084").await?;
+        let stream = TcpStream::connect(&addr).await?;
         let out_msg = Message::new(1, Address::Peer(1), Address::Peer(2), Command::Tick);
 
         let mut frame = FramedWrite::new(stream, LengthDelimitedCodec::new());
