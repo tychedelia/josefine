@@ -3,7 +3,7 @@ use std::time::Instant;
 
 use slog::Logger;
 
-use crate::error::RaftError;
+use crate::{error::{RaftError, Result}, fsm, raft::LogIndex};
 use crate::follower::Follower;
 use crate::progress::NodeProgress;
 use crate::progress::ReplicationProgress;
@@ -23,8 +23,22 @@ pub struct Leader {
     pub heartbeat_timeout: Duration,
 }
 
+impl Role for Leader {
+    fn term(&mut self, _term: u64) {
+        unimplemented!()
+    }
+
+    fn role(&self) -> RaftRole {
+        RaftRole::Leader
+    }
+
+    fn log(&self) -> &Logger {
+        &self.logger
+    }
+}
+
 impl Raft<Leader> {
-    pub(crate) fn heartbeat(&self) -> Result<(), RaftError> {
+    pub(crate) fn heartbeat(&self) -> Result<()> {
         self.send_all(Command::Heartbeat {
             term: self.state.current_term,
             leader_id: self.id,
@@ -47,24 +61,23 @@ impl Raft<Leader> {
     fn reset_heartbeat_timer(&mut self) {
         self.role.heartbeat_time = Instant::now();
     }
-}
 
-impl Role for Leader {
-    fn term(&mut self, _term: u64) {
-        unimplemented!()
-    }
+    fn commit(&mut self) -> Result<LogIndex> {
+        let quorum_idx = self.role.progress.committed_index();
+        if quorum_idx > self.state.commit_index && self.log.check_term(quorum_idx, self.state.current_term) {
+            self.log.commit(quorum_idx);
+            let prev = self.state.commit_index;
+            self.state.commit_index = quorum_idx;
+            self.log.get_range(prev, self.state.commit_index)?.into_iter()
+                .for_each(|entry| self.fsm_tx.send(fsm::Instruction::Drive { entry }).unwrap());
+        }
 
-    fn role(&self) -> RaftRole {
-        RaftRole::Leader
-    }
-
-    fn log(&self) -> &Logger {
-        &self.logger
+        Ok(quorum_idx)
     }
 }
 
 impl Apply for Raft<Leader> {
-    fn apply(mut self, cmd: Command) -> Result<RaftHandle, RaftError> {
+    fn apply(mut self, cmd: Command) -> Result<RaftHandle> {
         self.log_command(&cmd);
         match cmd {
             Command::Tick => {
@@ -142,6 +155,7 @@ impl From<Raft<Leader>> for Raft<Follower> {
             config: val.config,
             log: val.log,
             rpc_tx: val.rpc_tx,
+            fsm_tx: val.fsm_tx,
         }
     }
 }

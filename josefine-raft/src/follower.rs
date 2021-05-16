@@ -5,7 +5,7 @@ use rand::Rng;
 use slog;
 use slog::Logger;
 
-use crate::candidate::Candidate;
+use crate::{candidate::Candidate, fsm};
 use crate::config::RaftConfig;
 use crate::election::Election;
 use crate::error::RaftError;
@@ -165,6 +165,7 @@ impl Raft<Follower> {
         config: RaftConfig,
         logger: Logger,
         rpc_tx: UnboundedSender<Message>,
+        fsm_tx: UnboundedSender<fsm::Instruction>, 
     ) -> Result<Raft<Follower>, RaftError> {
         config.validate()?;
         let logger = logger.new(o!("id" => config.id));
@@ -180,6 +181,7 @@ impl Raft<Follower> {
             logger,
             log: Log::new(),
             rpc_tx,
+            fsm_tx,
         };
 
         raft.init();
@@ -231,6 +233,7 @@ impl From<Raft<Follower>> for Raft<Candidate> {
             config: val.config,
             log: val.log,
             rpc_tx: val.rpc_tx,
+            fsm_tx: val.fsm_tx,
         }
     }
 }
@@ -276,6 +279,7 @@ mod tests {
         let config = RaftConfig::default();
         let log = get_root_logger();
         let (rpc_tx, rpc_rx) = mpsc::unbounded_channel();
-        (rpc_rx, Raft::new(config, log.new(o!()), rpc_tx).unwrap())
+        let (fsm_tx, fsm_rx) = mpsc::unbounded_channel();
+        (rpc_rx, Raft::new(config, log.new(o!()), rpc_tx, fsm_tx).unwrap())
     }
 }

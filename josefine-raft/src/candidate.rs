@@ -182,6 +182,7 @@ impl From<Raft<Candidate>> for Raft<Follower> {
             config: val.config,
             log: val.log,
             rpc_tx: val.rpc_tx,
+            fsm_tx: val.fsm_tx,
         }
     }
 }
@@ -203,6 +204,7 @@ impl From<Raft<Candidate>> for Raft<Leader> {
             config: val.config,
             log: val.log,
             rpc_tx: val.rpc_tx,
+            fsm_tx: val.fsm_tx,
         }
     }
 }

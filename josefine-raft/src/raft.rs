@@ -6,7 +6,7 @@ use std::time::Instant;
 
 use slog::Logger;
 
-use crate::candidate::Candidate;
+use crate::{candidate::Candidate, fsm::{self, Fsm}};
 use crate::config::RaftConfig;
 use crate::error::Result;
 use crate::follower::Follower;
@@ -196,10 +196,12 @@ pub struct Raft<T: Role> {
     pub state: State,
     /// An instance containing role specific state and behavior.
     pub role: T,
-    ///
+    /// The persistent state for this raft instance. 
     pub log: Log<MemoryStore>,
-    ///
+    /// Channel to send messages to other nodes.
     pub rpc_tx: UnboundedSender<Message>,
+    /// Channel to send instructions to fsm driver.
+    pub fsm_tx: UnboundedSender<fsm::Instruction>,
 }
 
 // Base methods for general operations (+ debugging and testing).
@@ -272,8 +274,8 @@ pub enum RaftHandle {
 
 impl RaftHandle {
     /// Obtain a new instance of raft initialized in the default follower state.
-    pub fn new(logger: Logger, config: RaftConfig, rpc_tx: UnboundedSender<Message>) -> RaftHandle {
-        let raft = Raft::new(config, logger, rpc_tx);
+    pub fn new(logger: Logger, config: RaftConfig, rpc_tx: UnboundedSender<Message>, fsm_tx: UnboundedSender<fsm::Instruction>) -> RaftHandle {
+        let raft = Raft::new(config, logger, rpc_tx, fsm_tx);
         RaftHandle::Follower(raft.unwrap())
     }
 }

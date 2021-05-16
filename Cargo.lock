@@ -514,6 +514,7 @@ version = "0.0.1"
 dependencies = [
  "byteorder",
  "iron",
+ "josefine-raft",
  "memmap",
  "router",
  "slog",
