@@ -39,7 +39,7 @@ impl<T: Fsm> Driver<T> {
         }
     }
 
-    pub async fn run(mut self, mut shutdown: tokio::sync::broadcast::Receiver<()>) -> Result<()> {
+    pub async fn run(mut self, mut shutdown: tokio::sync::broadcast::Receiver<()>) -> Result<T> {
         debug!(self.logger, "Starting driver");
         loop {
             tokio::select! {
@@ -51,7 +51,7 @@ impl<T: Fsm> Driver<T> {
             }
         }
 
-        Ok(())
+        Ok(self.fsm)
     }
 
     pub async fn exec(&mut self, instruction: Instruction) -> Result<()> {
@@ -71,6 +71,8 @@ impl<T: Fsm> Driver<T> {
 
 #[cfg(test)]
 mod test {
+    use std::time::Duration;
+
     use tokio::sync::mpsc::unbounded_channel;
 
     use super::*;
@@ -79,7 +81,7 @@ mod test {
         A,
         B,
     }
-    #[derive(Debug, PartialEq, Eq, Clone, Copy)]
+    #[derive(Debug, PartialEq, Eq, Clone)]
     struct TestFsm {
         state: TestState,
     }
@@ -95,11 +97,16 @@ mod test {
     impl Fsm for TestFsm {
         fn transition(&mut self, input: Vec<u8>) -> Result<Vec<u8>> {
             let state = std::str::from_utf8(&input).unwrap();
+            println!("\n\n\nfof\n\n\n\n");
+            println!("{}", state == "B");
+            println!("\n\n\nofof\n\n\n\n");
             match state {
                 "A" => self.state = TestState::A,
                 "B" => self.state = TestState::B,
                 _ => panic!(),
             };
+
+            println!("self state {:?}", self.state);
 
             Ok(Vec::new())
         }
@@ -114,7 +121,6 @@ mod test {
         let driver = Driver::new(crate::logger::get_root_logger().new(o!()), rx, rpc_tx, fsm);
 
         let (shutdown_tx, shutdown_rx) = tokio::sync::broadcast::channel(1);
-        tokio::spawn(driver.run(shutdown_rx));
         tx.send(Instruction::Drive {
             entry: Entry {
                 entry_type: crate::raft::EntryType::Entry {
@@ -123,7 +129,13 @@ mod test {
                 term: 0,
                 index: 0,
             },
-        });
+        })?;
+
+        let (join, _) = tokio::join!(
+            tokio::spawn(driver.run(shutdown_rx)),
+            tokio::spawn(async move { shutdown_tx.send(()).unwrap() }),
+        );
+        let fsm = join??;
 
         assert_eq!(fsm.state, TestState::B);
 

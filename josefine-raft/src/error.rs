@@ -1,4 +1,4 @@
-use crate::rpc::Message;
+use crate::{fsm, rpc::Message};
 use snafu::Snafu;
 
 pub type Result<T> = std::result::Result<T, RaftError>;
@@ -33,6 +33,15 @@ impl From<tokio::sync::mpsc::error::SendError<Message>> for RaftError {
         }
     }
 }
+
+impl From<tokio::sync::mpsc::error::SendError<fsm::Instruction>> for RaftError {
+    fn from(err: tokio::sync::mpsc::error::SendError<fsm::Instruction>) -> Self {
+        RaftError::MessageError {
+            error_msg: err.to_string(),
+        }
+    }
+}
+
 
 impl From<tokio::sync::mpsc::error::TrySendError<Message>> for RaftError {
     fn from(_: tokio::sync::mpsc::error::TrySendError<Message>) -> Self {
