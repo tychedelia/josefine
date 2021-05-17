@@ -47,6 +47,8 @@ mod logger;
 mod progress;
 mod server;
 mod tcp;
+pub mod fsm;
+mod test;
 
 pub struct JosefineRaft {
     server: server::Server,
@@ -64,11 +66,11 @@ impl JosefineRaft {
         Self::new(config)
     }
 
-    pub async fn run(self) -> error::Result<RaftHandle> {
-        self.server.run(None).await
+    pub async fn run<T: 'static + fsm::Fsm>(self, fsm: T) -> error::Result<RaftHandle> {
+        self.server.run(None, fsm).await
     }
 
-    pub async fn run_for(self, duration: Duration) -> error::Result<RaftHandle> {
-        self.server.run(Some(duration)).await
+    pub async fn run_for<T: 'static + fsm::Fsm>(self, duration: Duration, fsm: T) -> error::Result<RaftHandle> {
+        self.server.run(Some(duration), fsm).await
     }
 }

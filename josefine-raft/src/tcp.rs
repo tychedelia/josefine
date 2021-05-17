@@ -60,7 +60,7 @@ async fn stream_messages(
 
 pub async fn send_task(
     log: Logger,
-    _shutdown: tokio::sync::broadcast::Receiver<()>,
+    shutdown: tokio::sync::broadcast::Receiver<()>,
     id: NodeId,
     nodes: Vec<Node>,
     out_rx: UnboundedReceiver<Message>,

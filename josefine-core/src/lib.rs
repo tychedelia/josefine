@@ -9,6 +9,7 @@ mod log;
 mod partition;
 mod segment;
 mod server;
+pub mod fsm;
 
 #[cfg(test)]
 mod tests {

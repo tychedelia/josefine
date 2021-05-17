@@ -30,6 +30,22 @@ fn new_cluster(ids: Vec<u32>) -> Vec<JosefineRaft> {
         .collect()
 }
 
+struct IntegrationFsm {
+    state: u8
+}
+
+impl IntegrationFsm {
+    fn new() -> Self {
+        Self { state: 0 }
+    }
+}
+
+impl josefine_raft::fsm::Fsm for IntegrationFsm {
+    fn transition(&mut self, input: Vec<u8>) -> josefine_raft::error::Result<Vec<u8>> {
+        Ok(input)
+    }
+}
+
 #[test]
 fn it_elects() {
     let cluster = new_cluster(vec![1, 2, 3]);
@@ -39,7 +55,7 @@ fn it_elects() {
         .map(|node| {
             std::thread::spawn(|| {
                 let rt = tokio::runtime::Runtime::new().unwrap();
-                rt.block_on(node.run_for(Duration::from_secs(2)))
+                rt.block_on(node.run_for(Duration::from_secs(2), IntegrationFsm::new()))
             })
         })
         .collect();

@@ -52,6 +52,11 @@ impl <T: Store + Default> Log<T> {
             .collect()
     }
 
+    pub fn commit(&mut self, index: LogIndex) -> Result<()> {
+        let entry = self.get(index)?.expect("Entry should never be null");
+        self.store.commit(entry.index)
+    }
+
     fn serialize(entry: Entry) -> Result<Vec<u8>> {
         let bytes = serde_json::to_vec(&entry)?;
         Ok(bytes)
