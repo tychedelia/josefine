@@ -22,8 +22,12 @@ extern crate slog_async;
 extern crate slog_term;
 
 use crate::raft::RaftHandle;
+use crate::error::Result;
 
 use futures_util::core_reexport::time::Duration;
+use rpc::{Request, Response};
+use tokio::sync::oneshot;
+use tokio::sync::mpsc::UnboundedReceiver;
 
 mod candidate;
 mod election;
@@ -66,11 +70,11 @@ impl JosefineRaft {
         Self::new(config)
     }
 
-    pub async fn run<T: 'static + fsm::Fsm>(self, fsm: T) -> error::Result<RaftHandle> {
-        self.server.run(None, fsm).await
+    pub async fn run<T: 'static + fsm::Fsm>(self, fsm: T, client_rx: UnboundedReceiver<(Request, oneshot::Sender<Result<Response>>)>) -> error::Result<RaftHandle> {
+        self.server.run(None, fsm, client_rx).await
     }
 
-    pub async fn run_for<T: 'static + fsm::Fsm>(self, duration: Duration, fsm: T) -> error::Result<RaftHandle> {
-        self.server.run(Some(duration), fsm).await
+    pub async fn run_for<T: 'static + fsm::Fsm>(self, duration: Duration, fsm: T, client_rx: UnboundedReceiver<(Request, oneshot::Sender<Result<Response>>)>) -> error::Result<RaftHandle> {
+        self.server.run(Some(duration), fsm, client_rx).await
     }
 }

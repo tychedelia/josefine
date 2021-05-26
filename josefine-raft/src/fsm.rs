@@ -1,13 +1,15 @@
+use std::fmt;
+
 use slog::Logger;
 use tokio::sync::mpsc;
 
 use crate::{
     error::Result,
-    raft::{Command, Entry, EntryType, LogIndex},
+    raft::{Entry, EntryType, LogIndex},
     rpc,
 };
 
-pub trait Fsm: Send + Sync {
+pub trait Fsm: Send + Sync + fmt::Debug {
     fn transition(&mut self, input: Vec<u8>) -> Result<Vec<u8>>;
 }
 
@@ -40,7 +42,7 @@ impl<T: Fsm> Driver<T> {
     }
 
     pub async fn run(mut self, mut shutdown: tokio::sync::broadcast::Receiver<()>) -> Result<T> {
-        debug!(self.logger, "Starting driver");
+        debug!(self.logger, "starting driver"; "fsm" => format!("{:?}", self.fsm));
         loop {
             tokio::select! {
                 _ = shutdown.recv() => break,
@@ -71,8 +73,6 @@ impl<T: Fsm> Driver<T> {
 
 #[cfg(test)]
 mod test {
-    use std::time::Duration;
-
     use tokio::sync::mpsc::unbounded_channel;
 
     use super::*;
@@ -97,16 +97,11 @@ mod test {
     impl Fsm for TestFsm {
         fn transition(&mut self, input: Vec<u8>) -> Result<Vec<u8>> {
             let state = std::str::from_utf8(&input).unwrap();
-            println!("\n\n\nfof\n\n\n\n");
-            println!("{}", state == "B");
-            println!("\n\n\nofof\n\n\n\n");
             match state {
                 "A" => self.state = TestState::A,
                 "B" => self.state = TestState::B,
                 _ => panic!(),
             };
-
-            println!("self state {:?}", self.state);
 
             Ok(Vec::new())
         }

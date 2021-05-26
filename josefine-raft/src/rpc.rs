@@ -30,3 +30,14 @@ impl Message {
         };
     }
 }
+
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub enum Request {
+
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub enum Response {
+
+}

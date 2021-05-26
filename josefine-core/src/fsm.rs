@@ -1,5 +1,6 @@
 use josefine_raft::fsm::Fsm;
 
+#[derive(Debug)]
 pub struct JosefineFsm;
 
 impl Fsm for JosefineFsm{

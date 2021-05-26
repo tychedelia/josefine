@@ -30,6 +30,7 @@ fn new_cluster(ids: Vec<u32>) -> Vec<JosefineRaft> {
         .collect()
 }
 
+#[derive(Debug)]
 struct IntegrationFsm {
     state: u8
 }
@@ -55,7 +56,8 @@ fn it_elects() {
         .map(|node| {
             std::thread::spawn(|| {
                 let rt = tokio::runtime::Runtime::new().unwrap();
-                rt.block_on(node.run_for(Duration::from_secs(2), IntegrationFsm::new()))
+                let (_, client_rx) = tokio::sync::mpsc::unbounded_channel();
+                rt.block_on(node.run_for(Duration::from_secs(2), IntegrationFsm::new(), client_rx))
             })
         })
         .collect();

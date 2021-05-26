@@ -1,5 +1,6 @@
 use crate::fsm::Fsm;
 
+#[derive(Debug)]
 pub(crate) struct TestFsm { state: u8 }
 
 impl Fsm for TestFsm {
