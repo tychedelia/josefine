@@ -1,16 +1,22 @@
+use std::io::Write;
 use std::time::Duration;
 use std::time::Instant;
 
 use slog::Logger;
 
-use crate::{error::{RaftError, Result}, fsm, raft::LogIndex};
 use crate::follower::Follower;
 use crate::progress::NodeProgress;
 use crate::progress::ReplicationProgress;
 use crate::raft::Command;
 use crate::raft::Raft;
 use crate::raft::Role;
+use crate::raft::Term;
 use crate::raft::{Apply, NodeId, RaftHandle, RaftRole};
+use crate::{
+    error::{RaftError, Result},
+    fsm,
+    raft::LogIndex,
+};
 
 ///
 #[derive(Debug)]
@@ -64,15 +70,37 @@ impl Raft<Leader> {
 
     fn commit(&mut self) -> Result<LogIndex> {
         let quorum_idx = self.role.progress.committed_index();
-        if quorum_idx > self.state.commit_index && self.log.check_term(quorum_idx, self.state.current_term) {
+        if quorum_idx > self.state.commit_index
+            && self.log.check_term(quorum_idx, self.state.current_term)
+        {
             self.log.commit(quorum_idx);
             let prev = self.state.commit_index;
             self.state.commit_index = quorum_idx;
-            self.log.get_range(prev, self.state.commit_index)?.into_iter()
+            self.log
+                .get_range(prev, self.state.commit_index)?
+                .into_iter()
                 .for_each(|entry| self.fsm_tx.send(fsm::Instruction::Drive { entry }).unwrap());
         }
 
         Ok(quorum_idx)
+    }
+
+    fn write_state(&self) {
+        #[derive(Serialize)]
+        struct RaftDebugState {
+            leader_id: NodeId,
+            term: Term,
+            index: LogIndex,
+        }
+
+        let tmp = std::env::temp_dir();
+        let state_file = tmp.join("josefine.json");
+        let mut state_file = std::fs::File::create(state_file).expect("couldn't create state file");
+
+        let debug_state = RaftDebugState { leader_id: self.id, index: self.state.commit_index, term: self.state.current_term };
+        state_file
+            .write(&serde_json::to_vec(&debug_state).expect("could not serialize state"))
+            .expect("could not write state");
     }
 }
 
@@ -81,6 +109,8 @@ impl Apply for Raft<Leader> {
         self.log_command(&cmd);
         match cmd {
             Command::Tick => {
+                self.write_state();
+                
                 if self.needs_heartbeat() {
                     if let Err(_err) = self.heartbeat() {
                         panic!("Could not heartbeat")
