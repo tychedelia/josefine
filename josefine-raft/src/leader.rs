@@ -124,7 +124,7 @@ impl Raft<Leader> {
 
         let debug_state = RaftDebugState { leader_id: self.id, index: self.state.commit_index, term: self.state.current_term };
         state_file
-            .write(&serde_json::to_vec(&debug_state).expect("could not serialize state"))
+            .write_all(&serde_json::to_vec(&debug_state).expect("could not serialize state"))
             .expect("could not write state");
     }
 }
