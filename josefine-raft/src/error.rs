@@ -3,7 +3,7 @@ use snafu::Snafu;
 
 pub type Result<T> = std::result::Result<T, RaftError>;
 
-#[derive(Debug, Snafu)]
+#[derive(Debug, Snafu, Serialize, Deserialize, Clone, Hash, PartialEq, PartialOrd)]
 pub enum RaftError {
     #[snafu(display("Cannot configure {}: {}", file_path, error_msg))]
     ConfigError {
@@ -33,6 +33,7 @@ impl From<tokio::sync::mpsc::error::SendError<Message>> for RaftError {
         }
     }
 }
+
 
 impl From<tokio::sync::mpsc::error::SendError<fsm::Instruction>> for RaftError {
     fn from(err: tokio::sync::mpsc::error::SendError<fsm::Instruction>) -> Self {

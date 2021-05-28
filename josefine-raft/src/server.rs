@@ -1,16 +1,23 @@
-use crate::{config::RaftConfig, fsm::{self, Fsm}};
 use crate::error::{RaftError, Result};
 use crate::logger::get_root_logger;
 use crate::raft::{Apply, Command, RaftHandle};
-use crate::rpc::{Address, Message};
+use crate::rpc::{Address, Message, Request, Response};
 use crate::tcp;
+use crate::{
+    config::RaftConfig,
+    fsm::{self, Fsm},
+};
 use futures::FutureExt;
 use slog::Logger;
-use std::net::SocketAddr;
-use tokio::{net::TcpListener, sync::mpsc::unbounded_channel};
+use uuid::Uuid;
+use std::{collections::HashMap, net::SocketAddr};
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use tokio::time::Duration;
+use tokio::{
+    net::TcpListener,
+    sync::{mpsc::unbounded_channel, oneshot},
+};
 
 /// step duration
 const TICK: Duration = Duration::from_millis(100);
@@ -28,7 +35,12 @@ impl Server {
         }
     }
 
-    pub async fn run<T: 'static + fsm::Fsm>(self, duration: Option<Duration>, fsm: T) -> Result<RaftHandle> {
+    pub async fn run<T: 'static + fsm::Fsm>(
+        self,
+        duration: Option<Duration>,
+        fsm: T,
+        client_rx: UnboundedReceiver<(Request, oneshot::Sender<Result<Response>>)>,
+    ) -> Result<RaftHandle> {
         info!(self.log, "Using config"; "config" => format!("{:?}", self.config));
 
         // shutdown broadcaster
@@ -67,7 +79,12 @@ impl Server {
         tokio::spawn(task);
 
         // main event loop
-        let raft = RaftHandle::new(self.log.new(o!()), self.config, rpc_tx.clone(), fsm_tx.clone());
+        let raft = RaftHandle::new(
+            self.log.new(o!()),
+            self.config,
+            rpc_tx.clone(),
+            fsm_tx.clone(),
+        );
         let (task, event_loop) = event_loop(
             self.log.new(o!()),
             shutdown_tx.subscribe(),
@@ -75,6 +92,7 @@ impl Server {
             tcp_out_tx,
             rpc_rx,
             tcp_in_rx,
+            client_rx,
         )
         .remote_handle();
         tokio::spawn(task);
@@ -96,29 +114,44 @@ async fn event_loop(
     tcp_tx: UnboundedSender<Message>,
     mut rpc_rx: UnboundedReceiver<Message>,
     mut tcp_rx: UnboundedReceiver<Message>,
+    mut client_rx: UnboundedReceiver<(Request, oneshot::Sender<Result<Response>>)>,
 ) -> Result<RaftHandle> {
     let mut step_interval = tokio::time::interval(TICK);
+    let mut requests = HashMap::<Vec<u8>, oneshot::Sender<Result<Response>>>::new();
     info!(log, "starting event loop");
 
     loop {
         tokio::select! {
-        // shutdown
-        _ = shutdown.recv() => break,
-        // tick state machine
-        _ = step_interval.tick() => raft = raft.apply(Command::Tick)?,
-        // intra-cluster communication
-        Some(msg) = tcp_rx.recv() => raft = raft.apply(msg.command)?,
-        // outgoing messages from raft
-        Some(msg) = rpc_rx.recv() => {
-            match msg {
-                Message { to: Address::Peer(_), .. } => tcp_tx.send(msg)?,
-                Message { to: Address::Peers, ..  } => tcp_tx.send(msg)?,
-                _ => return Err(RaftError::Internal { error_msg: format!("Unexpected message {:?}", msg) }),
-            }
-
-            }
+            // shutdown
+            _ = shutdown.recv() => break,
+            // tick state machine
+            _ = step_interval.tick() => raft = raft.apply(Command::Tick)?,
+            // intra-cluster communication
+            Some(msg) = tcp_rx.recv() => raft = raft.apply(msg.command)?,
+            // outgoing messages from raft
+            Some(msg) = rpc_rx.recv() => {
+                match msg {
+                    Message { to: Address::Peer(_), .. } => tcp_tx.send(msg)?,
+                    Message { to: Address::Peers, ..  } => tcp_tx.send(msg)?,
+                    Message { to: Address::Client, command: Command::ClientResponse { id, res }, .. } => {
+                        match requests.remove(&id) {
+                            Some(tx) => tx.send(res).expect("the channel was dropped"),
+                            None => {
+                                error!(log, "cound not find response tx"; "id" => format!("{:?}", id));
+                                panic!("could not find response tx");
+                            }
+                        };
+                    },
+                    _ => return Err(RaftError::Internal { error_msg: format!("Unexpected message {:?}", msg) }),
+                }
+            },
+            // incoming messages from clients
+            Some((req, res)) = client_rx.recv() => {
+                let id = Uuid::new_v4().as_bytes().to_vec();
+                requests.insert(id.clone(), res);
+                raft = raft.apply(Command::ClientRequest { id, req, })?;
+            },
         }
-        // TODO: client connections
     }
 
     Ok(raft)
@@ -147,6 +180,7 @@ mod tests {
 
         let (_tcp_in_tx, tcp_in_rx) = mpsc::unbounded_channel();
         let (tcp_out_tx, _tcp_out_rx) = mpsc::unbounded_channel();
+        let (client_tx, client_rx) = tokio::sync::mpsc::unbounded_channel();
         let (shutdown_tx, _shutdown_rx) = tokio::sync::broadcast::channel(1);
         let event_loop = super::event_loop(
             get_root_logger().new(o!()),
@@ -155,6 +189,7 @@ mod tests {
             tcp_out_tx,
             rpc_rx,
             tcp_in_rx,
+            client_rx,
         );
         let raft = tokio::spawn(event_loop);
         std::thread::sleep(Duration::from_secs(2));

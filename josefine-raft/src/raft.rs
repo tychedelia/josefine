@@ -5,14 +5,19 @@ use std::time::Duration;
 use std::time::Instant;
 
 use slog::Logger;
+use uuid::Uuid;
 
-use crate::{candidate::Candidate, fsm::{self, Fsm}};
-use crate::config::RaftConfig;
+use crate::{config::RaftConfig, rpc::Response};
 use crate::error::Result;
 use crate::follower::Follower;
 use crate::leader::Leader;
 use crate::log::Log;
 use crate::store::MemoryStore;
+use crate::{
+    candidate::Candidate,
+    fsm::{self, Fsm},
+    rpc::Request,
+};
 
 use crate::rpc::{Address, Message};
 
@@ -87,6 +92,17 @@ pub enum Command {
     Timeout,
     /// Don't do anything.
     Noop,
+    // Service a client request
+    ClientRequest {
+        id: Vec<u8>,
+        req: Request,
+    },
+    // Respond to a client.
+    // this is a bit weird, since this isn't ever applied to a raft node, but received and proxied by the server event loop
+    ClientResponse {
+        id: Vec<u8>,
+        res: Result<Response>,
+    }
 }
 
 /// Shared behavior that all roles of the state machine must implement.
@@ -196,7 +212,7 @@ pub struct Raft<T: Role> {
     pub state: State,
     /// An instance containing role specific state and behavior.
     pub role: T,
-    /// The persistent state for this raft instance. 
+    /// The persistent state for this raft instance.
     pub log: Log<MemoryStore>,
     /// Channel to send messages to other nodes.
     pub rpc_tx: UnboundedSender<Message>,
@@ -227,7 +243,7 @@ impl<T: Role> Raft<T> {
             Command::Tick => {}
             Command::Heartbeat { .. } => {}
             _ => {
-                info!(self.role.log(), ""; "role_state" => format!("{:?}", self.role), "state" => format!("{:?}", self.state), "cmd" => format!("{:?}", cmd))
+                debug!(self.role.log(), ""; "role_state" => format!("{:?}", self.role), "state" => format!("{:?}", self.state), "cmd" => format!("{:?}", cmd))
             }
         };
     }
@@ -274,7 +290,12 @@ pub enum RaftHandle {
 
 impl RaftHandle {
     /// Obtain a new instance of raft initialized in the default follower state.
-    pub fn new(logger: Logger, config: RaftConfig, rpc_tx: UnboundedSender<Message>, fsm_tx: UnboundedSender<fsm::Instruction>) -> RaftHandle {
+    pub fn new(
+        logger: Logger,
+        config: RaftConfig,
+        rpc_tx: UnboundedSender<Message>,
+        fsm_tx: UnboundedSender<fsm::Instruction>,
+    ) -> RaftHandle {
         let raft = Raft::new(config, logger, rpc_tx, fsm_tx);
         RaftHandle::Follower(raft.unwrap())
     }

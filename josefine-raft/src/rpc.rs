@@ -30,3 +30,14 @@ impl Message {
         };
     }
 }
+
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub enum Request {
+    Propose(Vec<u8>)
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub enum Response {
+
+}

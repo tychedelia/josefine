@@ -20,6 +20,10 @@ pub trait Store : Default {
     fn is_empty(&self) -> bool {
         self.len() == 0
     }
+    
+    fn next_index(&self) -> LogIndex {
+        self.len() + 1
+    }
 }
 
 pub struct MemoryStore {
