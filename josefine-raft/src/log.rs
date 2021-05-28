@@ -1,7 +1,7 @@
 use crate::{raft::Entry, store::Store};
-use crate::raft::LogIndex;
+use crate::raft::{EntryType, LogIndex};
 use crate::raft::Term;
-use crate::error::Result;
+use crate::error::{RaftError, Result};
 
 pub struct Log<T: Store + Default> {
     store: T,
@@ -42,7 +42,8 @@ impl <T: Store + Default> Log<T> {
 
     pub fn append(&mut self, entry: Entry) -> Result<LogIndex> {
         let bytes = Self::serialize(entry)?;
-        self.store.append( bytes)
+        let index = self.store.append( bytes)?;
+        Ok(index)
     }
 
     pub fn get_range(&self, start: LogIndex, end: LogIndex) -> Result<Vec<Entry>> {
@@ -52,9 +53,17 @@ impl <T: Store + Default> Log<T> {
             .collect()
     }
 
+    pub fn get_from(&self, start: LogIndex) -> Result<Vec<Entry>> {
+        self.get_range(start, self.store.len())
+    }
+
     pub fn commit(&mut self, index: LogIndex) -> Result<()> {
         let entry = self.get(index)?.expect("Entry should never be null");
         self.store.commit(entry.index)
+    }
+    
+    pub fn next_index(&self) -> LogIndex {
+        self.store.next_index()
     }
 
     fn serialize(entry: Entry) -> Result<Vec<u8>> {

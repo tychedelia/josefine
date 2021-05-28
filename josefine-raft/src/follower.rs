@@ -84,7 +84,7 @@ impl Apply for Raft<Follower> {
                 if !entries.is_empty() {
                     for entry in entries {
                         let index = entry.index;
-                        self.log.append(entry); // append the entry
+                        self.log.append( entry); // append the entry
                         self.state.last_applied = index; // update our last applied
                     }
 
