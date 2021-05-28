@@ -53,10 +53,6 @@ impl <T: Store + Default> Log<T> {
             .collect()
     }
 
-    pub fn get_from(&self, start: LogIndex) -> Result<Vec<Entry>> {
-        self.get_range(start, self.store.len())
-    }
-
     pub fn commit(&mut self, index: LogIndex) -> Result<()> {
         let entry = self.get(index)?.expect("Entry should never be null");
         self.store.commit(entry.index)
