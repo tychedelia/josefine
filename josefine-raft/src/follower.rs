@@ -88,9 +88,13 @@ impl Apply for Raft<Follower> {
                         self.state.last_applied = index; // update our last applied
                     }
 
-                    // Respond success
-                    // self.nodes[&leader_id];
-                    // let _ = Message::RespondAppend(self.state.current_term, self.id, true);
+                    // confirm append
+                    self.rpc_tx.send(Message::new(Address::Peer(self.id), Address::Peer(leader_id), Command::AppendResponse {
+                        node_id: self.id,
+                        term: self.state.current_term,
+                        index: self.state.last_applied,
+                        success: true,
+                    }))?;
                 }
 
                 self.apply_self()
@@ -279,7 +283,7 @@ mod tests {
         let config = RaftConfig::default();
         let log = get_root_logger();
         let (rpc_tx, rpc_rx) = mpsc::unbounded_channel();
-        let (fsm_tx, fsm_rx) = mpsc::unbounded_channel();
+        let (fsm_tx, _) = mpsc::unbounded_channel();
         (rpc_rx, Raft::new(config, log.new(o!()), rpc_tx, fsm_tx).unwrap())
     }
 }

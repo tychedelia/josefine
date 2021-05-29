@@ -7,7 +7,6 @@ use std::time::Instant;
 use slog::Logger;
 use uuid::Uuid;
 
-use crate::{config::RaftConfig, rpc::Response};
 use crate::error::Result;
 use crate::follower::Follower;
 use crate::leader::Leader;
@@ -18,6 +17,7 @@ use crate::{
     fsm::{self, Fsm},
     rpc::Request,
 };
+use crate::{config::RaftConfig, rpc::Response};
 
 use crate::rpc::{Address, Message};
 
@@ -102,7 +102,7 @@ pub enum Command {
     ClientResponse {
         id: Vec<u8>,
         res: Result<Response>,
-    }
+    },
 }
 
 /// Shared behavior that all roles of the state machine must implement.
@@ -249,18 +249,13 @@ impl<T: Role> Raft<T> {
     }
 
     pub fn send(&self, to: Address, cmd: Command) -> Result<()> {
-        let msg = Message::new(self.state.current_term, Address::Peer(self.id), to, cmd);
+        let msg = Message::new(Address::Peer(self.id), to, cmd);
         self.rpc_tx.send(msg)?;
         Ok(())
     }
 
     pub fn send_all(&self, cmd: Command) -> Result<()> {
-        let msg = Message::new(
-            self.state.current_term,
-            Address::Peer(self.id),
-            Address::Peers,
-            cmd,
-        );
+        let msg = Message::new(Address::Peer(self.id), Address::Peers, cmd);
         self.rpc_tx.send(msg)?;
         Ok(())
     }

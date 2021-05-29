@@ -14,6 +14,7 @@ use crate::raft::Raft;
 use crate::raft::Role;
 use crate::raft::Term;
 use crate::raft::{Apply, NodeId, RaftHandle, RaftRole};
+use crate::rpc::Address;
 use crate::rpc::Message;
 use crate::rpc::Request;
 use crate::{
@@ -137,19 +138,21 @@ impl Apply for Raft<Leader> {
                                 let start = progress.next;
                                 let end = progress.next + crate::progress::MAX_INFLIGHT;
                                 let entries = self.log.get_range(start, end)?;
-                                let prev = self.log.get(progress.index)?.expect("previous entry did not exist!"); 
-                                self.rpc_tx.send(Message {
-                                    to: crate::rpc::Address::Peer(node.id),
-                                    from: crate::rpc::Address::Peer(self.id),
-                                    term,
-                                    command: Command::AppendEntries {
+                                let prev = self
+                                    .log
+                                    .get(progress.index)?
+                                    .expect("previous entry did not exist!");
+                                self.rpc_tx.send(Message::new(
+                                    Address::Peer(self.id),
+                                    Address::Peer(node.id),
+                                    Command::AppendEntries {
                                         term,
                                         leader_id: self.id,
                                         entries,
                                         prev_log_index: prev.index,
                                         prev_log_term: prev.term,
                                     },
-                                })?;
+                                ))?;
                             }
                             _ => {}
                         }
