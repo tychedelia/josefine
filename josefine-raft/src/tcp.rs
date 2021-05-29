@@ -106,16 +106,22 @@ pub async fn send_task(
 ///
 /// * `node` - The node which messages will be sent to.
 /// * `out_rx` - The channel messages to send are written to.
-async fn connect_and_send(node: Node, log: slog::Logger, mut out_rx: Receiver<Message>) -> Result<()> {
+async fn connect_and_send(
+    node: Node,
+    log: slog::Logger,
+    mut out_rx: Receiver<Message>,
+) -> Result<()> {
     loop {
         match TcpStream::connect(node.addr).await {
-            Ok(socket) => {
-                match send_messages(socket, &mut out_rx).await {
-                    Ok(()) => break Ok(()),
-                    Err(err) => error!(log, "Failed sending to Raft peer"; "peer" => node.addr, "error" => format!("{:?}", err)),
+            Ok(socket) => match send_messages(socket, &mut out_rx).await {
+                Ok(()) => break Ok(()),
+                Err(err) => {
+                    error!(log, "Failed sending to Raft peer"; "peer" => node.addr, "error" => format!("{:?}", err))
                 }
+            },
+            Err(err) => {
+                error!(log, "Failed connecting to Raft peer"; "peer" => node.addr, "error" => format!("{:?}", err))
             }
-            Err(err) => error!(log, "Failed connecting to Raft peer"; "peer" => node.addr, "error" => format!("{:?}", err)),
         }
         // TODO: use back-off
         tokio::time::sleep(Duration::from_millis(1000)).await;
@@ -168,7 +174,7 @@ mod tests {
             tx,
         ));
         let stream = TcpStream::connect(&addr).await?;
-        let out_msg = Message::new(1, Address::Peer(1), Address::Peer(2), Command::Tick);
+        let out_msg = Message::new(Address::Peer(1), Address::Peer(2), Command::Tick);
 
         let mut frame = FramedWrite::new(stream, LengthDelimitedCodec::new());
         frame
@@ -203,8 +209,8 @@ mod tests {
             rx,
         ));
 
-        let out_msg = Message::new(1, Address::Peer(1), Address::Peer(2), Command::Tick);
-        let out_msg2 = Message::new(1, Address::Peer(1), Address::Peer(2), Command::Tick);
+        let out_msg = Message::new(Address::Peer(1), Address::Peer(2), Command::Tick);
+        let out_msg2 = Message::new(Address::Peer(1), Address::Peer(2), Command::Tick);
         tx.send(out_msg)?;
 
         let mut stream = stream::ListenerStream(listener);

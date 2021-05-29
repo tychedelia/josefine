@@ -14,16 +14,14 @@ pub enum Address {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Message {
-    pub term: Term,
     pub from: Address,
     pub to: Address,
     pub command: Command,
 }
 
 impl Message {
-    pub fn new(term: Term, from: Address, to: Address, command: Command) -> Message {
+    pub fn new(from: Address, to: Address, command: Command) -> Message {
         return Message {
-            term,
             from,
             to,
             command,
