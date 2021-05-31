@@ -59,6 +59,7 @@ impl Store for MemoryStore {
     }
 
     fn get(&self, index: LogIndex) -> Result<Option<Vec<u8>>> {
+        assert!(index != 0);
         Ok(self.log.get(index as usize - 1).cloned())
     }
 
