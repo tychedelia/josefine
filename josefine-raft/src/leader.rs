@@ -93,7 +93,7 @@ impl Raft<Leader> {
         self.apply(Command::AppendResponse {
             node_id,
             term,
-            index, 
+            index,
             success: true,
         })
     }
@@ -136,6 +136,74 @@ impl Raft<Leader> {
             .write_all(&serde_json::to_vec(&debug_state).expect("could not serialize state"))
             .expect("could not write state");
     }
+
+    fn replicate(&mut self) -> Result<()> {
+        for node in &self.config.nodes {
+            if let Some(mut progress) = self.role.progress.get_mut(node.id) {
+                if !progress.is_active() {
+                    continue;
+                }
+
+                match &mut progress {
+                    NodeProgress::Probe(progress) => {
+                        if !progress.next > progress.index {
+                            continue;
+                        }
+
+                        let prev = self.log.get(progress.index)?;
+                        let (prev_log_index, prev_log_term) = if let Some(prev) = prev {
+                            (prev.index, prev.term)
+                        } else {
+                            (0, 0)
+                        };
+                        let entry = self
+                            .log
+                            .get(progress.next)?
+                            .expect("next entry didn't exist");
+                        self.rpc_tx.send(Message::new(
+                            Address::Peer(self.id),
+                            Address::Peer(node.id),
+                            Command::AppendEntries {
+                                term: self.state.current_term,
+                                leader_id: self.id,
+                                entries: vec![entry],
+                                prev_log_index,
+                                prev_log_term,
+                            },
+                        ))?;
+                    }
+                    NodeProgress::Replicate(progress) => {
+                        if !progress.next > progress.index {
+                            continue;
+                        }
+
+                        let term = self.state.current_term;
+                        let start = progress.next;
+                        let end = progress.next + crate::progress::MAX_INFLIGHT;
+                        let entries = self.log.get_range(start, end)?;
+                        let prev = self
+                            .log
+                            .get(progress.index)?
+                            .expect("previous entry did not exist!");
+                        self.rpc_tx.send(Message::new(
+                            Address::Peer(self.id),
+                            Address::Peer(node.id),
+                            Command::AppendEntries {
+                                term,
+                                leader_id: self.id,
+                                entries,
+                                prev_log_index: prev.index,
+                                prev_log_term: prev.term,
+                            },
+                        ))?;
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        Ok(())
+    }
 }
 
 impl Apply for Raft<Leader> {
@@ -146,70 +214,16 @@ impl Apply for Raft<Leader> {
                 self.write_state();
 
                 if self.needs_heartbeat() {
-                    if let Err(_err) = self.heartbeat() {
-                        panic!("Could not heartbeat")
-                    }
+                    self.heartbeat()?;
                     self.reset_heartbeat_timer();
                 }
 
-                for node in &self.config.nodes {
-                    if let Some(mut progress) = self.role.progress.get_mut(node.id) {
-                        if !progress.is_active() {
-                            continue;
-                        }
-
-                        match &mut progress {
-                            NodeProgress::Probe(progress) => {
-                                let prev = self
-                                    .log
-                                    .get(progress.index)?
-                                    .expect("last entry didn't exist");
-                                let entry = self
-                                    .log
-                                    .get(progress.next)?
-                                    .expect("next entry didn't exist");
-                                self.rpc_tx.send(Message::new(
-                                    Address::Peer(self.id),
-                                    Address::Peer(node.id),
-                                    Command::AppendEntries {
-                                        term: self.state.current_term,
-                                        leader_id: self.id,
-                                        entries: vec![entry],
-                                        prev_log_index: prev.index,
-                                        prev_log_term: prev.term,
-                                    },
-                                ))?;
-                            }
-                            NodeProgress::Replicate(progress) => {
-                                let term = self.state.current_term;
-                                let start = progress.next;
-                                let end = progress.next + crate::progress::MAX_INFLIGHT;
-                                let entries = self.log.get_range(start, end)?;
-                                let prev = self
-                                    .log
-                                    .get(progress.index)?
-                                    .expect("previous entry did not exist!");
-                                self.rpc_tx.send(Message::new(
-                                    Address::Peer(self.id),
-                                    Address::Peer(node.id),
-                                    Command::AppendEntries {
-                                        term,
-                                        leader_id: self.id,
-                                        entries,
-                                        prev_log_index: prev.index,
-                                        prev_log_term: prev.term,
-                                    },
-                                ))?;
-                            }
-                            _ => {}
-                        }
-                    }
-                }
+                self.replicate()?;
 
                 Ok(RaftHandle::Leader(self))
             }
             Command::AppendResponse { node_id, index, .. } => {
-                self.role.progress.advance(node_id, index); 
+                self.role.progress.advance(node_id, index);
                 self.commit()?;
                 Ok(RaftHandle::Leader(self))
             }
@@ -256,7 +270,7 @@ mod tests {
         fsm::Instruction,
         raft::{Apply, Command, EntryType, RaftHandle},
         rpc::Request,
-        test::{new_follower},
+        test::new_follower,
     };
 
     #[test]
