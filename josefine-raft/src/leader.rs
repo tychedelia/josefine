@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::io::Write;
 use std::time::Duration;
 use std::time::Instant;
@@ -73,6 +74,20 @@ impl Raft<Leader> {
         };
         let index = self.log.append(entry)?;
         assert_eq!(next_index, index);
+
+        self.state.last_applied = index;
+
+        self.rpc_tx.send(Message::new(
+            Address::Peer(self.id),
+            Address::Local,
+            Command::AppendResponse {
+                node_id: self.id,
+                term: self.state.current_term,
+                index: self.state.last_applied,
+                success: true,
+            },
+        ))?;
+
         Ok(index)
     }
 
@@ -132,7 +147,32 @@ impl Apply for Raft<Leader> {
 
                 for node in &self.config.nodes {
                     if let Some(mut progress) = self.role.progress.get_mut(node.id) {
+                        if !progress.is_active() {
+                            continue;
+                        }
+
                         match &mut progress {
+                            NodeProgress::Probe(progress) => {
+                                let prev = self
+                                    .log
+                                    .get(progress.index)?
+                                    .expect("last entry didn't exist");
+                                let entry = self
+                                    .log
+                                    .get(progress.next)?
+                                    .expect("next entry didn't exist");
+                                self.rpc_tx.send(Message::new(
+                                    Address::Peer(self.id),
+                                    Address::Peer(node.id),
+                                    Command::AppendEntries {
+                                        term: self.state.current_term,
+                                        leader_id: self.id,
+                                        entries: vec![entry],
+                                        prev_log_index: prev.index,
+                                        prev_log_term: prev.term,
+                                    },
+                                ))?;
+                            }
                             NodeProgress::Replicate(progress) => {
                                 let term = self.state.current_term;
                                 let start = progress.next;
@@ -164,6 +204,9 @@ impl Apply for Raft<Leader> {
             Command::AppendResponse { node_id, index, .. } => {
                 if let Some(mut progress) = self.role.progress.get_mut(node_id) {
                     match &mut progress {
+                        NodeProgress::Probe(progress) => {
+                            self.role.progress.insert(node_id);
+                        }
                         NodeProgress::Replicate(progress) => {
                             progress.increment(index);
                         }
@@ -183,10 +226,9 @@ impl Apply for Raft<Leader> {
 
                 Ok(RaftHandle::Leader(self))
             }
-            Command::ClientRequest { id, req } => {
-                if let Request::Propose(data) = req {
-                    self.append(data)?;
-                };
+            Command::ClientRequest { req, .. } => {
+                let Request::Propose(data) = req;
+                self.append(data)?;
                 Ok(RaftHandle::Leader(self))
             }
             _ => Ok(RaftHandle::Leader(self)),
@@ -208,6 +250,48 @@ impl From<Raft<Leader>> for Raft<Follower> {
             log: val.log,
             rpc_tx: val.rpc_tx,
             fsm_tx: val.fsm_tx,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use crate::{
+        fsm::Instruction,
+        raft::{Apply, Command, EntryType, RaftHandle},
+        rpc::Request,
+        test::{new_follower, TestFsm},
+    };
+
+    #[test]
+    fn apply_entry_single_node() {
+        let ((_rpc_rx, mut fsm_rx), node) = new_follower();
+        let node = node.apply(Command::Timeout).unwrap();
+        assert!(node.is_leader());
+
+        let magic_number = 123;
+
+        let node = node
+            .apply(Command::ClientRequest {
+                id: vec![1],
+                req: Request::Propose(vec![magic_number]),
+            })
+            .unwrap();
+        let node = node.apply(Command::Tick).unwrap();
+        if let RaftHandle::Leader(leader) = node {
+            let entry = leader.log.get(1).unwrap().unwrap();
+            if let EntryType::Entry { data } = entry.entry_type {
+                assert_eq!(data, vec![magic_number]);
+            }
+            let instruction = fsm_rx.blocking_recv().unwrap();
+            if let Instruction::Drive { entry } = instruction {
+                if let EntryType::Entry { data } = entry.entry_type {
+                    assert_eq!(data, vec![magic_number]);
+                }
+            }
+        } else {
+            panic!()
         }
     }
 }

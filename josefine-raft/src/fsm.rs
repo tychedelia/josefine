@@ -16,6 +16,7 @@ pub trait Fsm: Send + Sync + fmt::Debug {
 #[derive(Debug)]
 pub enum Instruction {
     Drive { entry: Entry },
+    Query,
 }
 
 pub struct Driver<T: Fsm> {
@@ -64,7 +65,8 @@ impl<T: Fsm> Driver<T> {
                 if let EntryType::Entry { data } = entry.entry_type {
                     self.fsm.transition(data)?;
                 }
-            }
+            },
+            _ => {}
         };
 
         Ok(())
