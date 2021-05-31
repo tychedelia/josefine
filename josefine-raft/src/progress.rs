@@ -251,9 +251,9 @@ mod tests {
     use crate::progress::{NodeProgress, ReplicationProgress};
 
     #[test]
-    fn starts_inactive() {
+    fn starts_active() {
         let progress = NodeProgress::new(0);
-        assert!(!progress.is_active());
+        assert!(progress.is_active());
     }
 
     #[test]
