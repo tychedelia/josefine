@@ -65,11 +65,12 @@ impl Raft<Leader> {
         self.role.heartbeat_time = Instant::now();
     }
 
-    fn append(&mut self, data: Vec<u8>) -> Result<LogIndex> {
+    fn append(mut self, data: Vec<u8>) -> Result<RaftHandle> {
+        let term = self.state.current_term;
         let next_index = self.log.next_index();
         let entry = Entry {
             entry_type: EntryType::Entry { data },
-            term: self.state.current_term,
+            term,
             index: next_index,
         };
         let index = self.log.append(entry)?;
@@ -77,18 +78,24 @@ impl Raft<Leader> {
 
         self.state.last_applied = index;
 
-        self.rpc_tx.send(Message::new(
-            Address::Peer(self.id),
-            Address::Local,
-            Command::AppendResponse {
-                node_id: self.id,
-                term: self.state.current_term,
-                index: self.state.last_applied,
-                success: true,
-            },
-        ))?;
+        // self.rpc_tx.send(Message::new(
+        //     Address::Peer(self.id),
+        //     Address::Local,
+        //     Command::AppendResponse {
+        //         node_id: self.id,
+        //         term: self.state.current_term,
+        //         index: self.state.last_applied,
+        //         success: true,
+        //     },
+        // ))?;
 
-        Ok(index)
+        let node_id = self.id;
+        self.apply(Command::AppendResponse {
+            node_id,
+            term,
+            index, 
+            success: true,
+        })
     }
 
     fn commit(&mut self) -> Result<LogIndex> {
@@ -202,18 +209,7 @@ impl Apply for Raft<Leader> {
                 Ok(RaftHandle::Leader(self))
             }
             Command::AppendResponse { node_id, index, .. } => {
-                if let Some(mut progress) = self.role.progress.get_mut(node_id) {
-                    match &mut progress {
-                        NodeProgress::Probe(progress) => {
-                            self.role.progress.insert(node_id);
-                        }
-                        NodeProgress::Replicate(progress) => {
-                            progress.increment(index);
-                        }
-                        _ => panic!(),
-                    }
-                }
-
+                self.role.progress.advance(node_id, index); 
                 self.commit()?;
                 Ok(RaftHandle::Leader(self))
             }
@@ -228,8 +224,7 @@ impl Apply for Raft<Leader> {
             }
             Command::ClientRequest { req, .. } => {
                 let Request::Propose(data) = req;
-                self.append(data)?;
-                Ok(RaftHandle::Leader(self))
+                self.append(data)
             }
             _ => Ok(RaftHandle::Leader(self)),
         }
@@ -261,7 +256,7 @@ mod tests {
         fsm::Instruction,
         raft::{Apply, Command, EntryType, RaftHandle},
         rpc::Request,
-        test::{new_follower, TestFsm},
+        test::{new_follower},
     };
 
     #[test]

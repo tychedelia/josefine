@@ -1,6 +1,6 @@
 use std::{collections::{HashMap, VecDeque}, convert::TryInto};
 
-use crate::raft::{LogIndex, Node, NodeId};
+use crate::raft::{LogIndex, NodeId};
 
 #[derive(Debug)]
 pub struct ReplicationProgress {
@@ -8,10 +8,12 @@ pub struct ReplicationProgress {
 }
 
 impl ReplicationProgress {
-    pub fn new(nodes: &Vec<Node>) -> ReplicationProgress {
+    pub fn new(nodes: Vec<NodeId>) -> ReplicationProgress {
+        assert!(!nodes.is_empty());
+        
         let mut progress = HashMap::new();
-        for node in nodes {
-            progress.insert(node.id, NodeProgress::Probe(Progress::new(node.id)));
+        for node_id in nodes {
+            progress.insert(node_id, NodeProgress::Probe(Progress::new(node_id)));
         }
         ReplicationProgress { progress }
     }
@@ -24,16 +26,29 @@ impl ReplicationProgress {
         self.progress.get_mut(&node_id)
     }
 
+    
+    pub fn remove(&mut self, node_id: NodeId) -> Option<NodeProgress> {
+        self.progress.remove(&node_id)
+    }
+    
     pub fn insert(&mut self, node_id: NodeId) {
         self.progress
             .insert(node_id, NodeProgress::Probe(Progress::new(node_id)));
     }
 
+    pub fn advance(&mut self, node_id: NodeId, index: LogIndex) {
+        let node = self.remove(node_id).expect("the node does not exist");
+        let node = node.advance(index);
+        self.progress.insert(node_id, node);
+    }
+
     pub fn committed_index(&self) -> LogIndex {
         let mut indices = Vec::new();
         for progress in self.progress.values() {
-            if let NodeProgress::Replicate(progress) = progress {
-                indices.push(progress.index);
+            match progress {
+                NodeProgress::Probe(pr) => indices.push(pr.index),
+                NodeProgress::Replicate(pr) => indices.push(pr.index),
+                _ => panic!()
             }
         }
 
@@ -184,7 +199,7 @@ impl ProgressState for Snapshot {
 }
 
 impl Progress<Snapshot> {
-    pub fn is_active(self) -> bool {
+    pub fn is_active(&self) -> bool {
         self.active
     }
 
@@ -233,7 +248,7 @@ pub struct PendingReplication {
 
 #[cfg(test)]
 mod tests {
-    use crate::progress::NodeProgress;
+    use crate::progress::{NodeProgress, ReplicationProgress};
 
     #[test]
     fn starts_inactive() {
@@ -255,5 +270,11 @@ mod tests {
         let progress = progress.advance(666);
         assert!(progress.is_active());
         assert_eq!(progress.index(), 666);
+    }
+
+    #[test]
+    #[should_panic]
+    fn cannot_construct_empty() {
+        let _ = ReplicationProgress::new(vec![]);
     }
 }

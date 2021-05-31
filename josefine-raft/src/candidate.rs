@@ -7,7 +7,7 @@ use crate::error::RaftError;
 use crate::follower::Follower;
 use crate::leader::Leader;
 use crate::progress::ReplicationProgress;
-use crate::raft::Command;
+use crate::raft::{Command, Node, NodeId};
 use crate::raft::Raft;
 use crate::raft::Role;
 use crate::raft::{Apply, RaftHandle, RaftRole};
@@ -190,7 +190,10 @@ impl From<Raft<Candidate>> for Raft<Follower> {
 impl From<Raft<Candidate>> for Raft<Leader> {
     fn from(val: Raft<Candidate>) -> Raft<Leader> {
         info!(val.role.logger, "Becoming the leader");
-        let progress = ReplicationProgress::new(&val.config.nodes);
+
+        let mut nodes: Vec<NodeId> = val.config.nodes.iter().map(|x| x.id).collect();
+        nodes.push(val.id);
+        let progress = ReplicationProgress::new(nodes);
         Raft {
             id: val.id,
             state: val.state,
