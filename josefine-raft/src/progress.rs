@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::{HashMap, VecDeque}, convert::TryInto};
 
 use crate::raft::{LogIndex, Node, NodeId};
 
@@ -54,19 +54,40 @@ impl NodeProgress {
         NodeProgress::Probe(Progress::new(node_id))
     }
 
-    pub fn increment(&mut self, idx: LogIndex) -> bool {
+    /// Advance the progress to the provided index.
+    pub fn advance(self, idx: LogIndex) -> Self {
         match self {
-            NodeProgress::Probe(prog) => prog.increment(idx),
-            NodeProgress::Replicate(prog) => prog.increment(idx),
-            NodeProgress::Snapshot(prog) => prog.increment(idx),
+            NodeProgress::Probe(mut prog) => {
+                if prog.increment(idx) {
+                     Self::Replicate(Progress::from(prog))
+                } else {
+                    Self::Probe(prog)
+                }
+            },
+            NodeProgress::Replicate(mut prog) => { 
+                if prog.increment(idx)  {
+                    Self::Replicate(prog)
+                } else {
+                    Self::Probe(Progress::from(prog))
+                }
+            },
+            _ => panic!()
         }
     }
 
-    pub fn is_active(self) -> bool {
+    pub fn is_active(&self) -> bool {
         match self {
-            NodeProgress::Probe(prog) => prog.is_active(),
+            NodeProgress::Probe(prog) => prog.is_active(), 
             NodeProgress::Replicate(prog) => prog.is_active(),
             NodeProgress::Snapshot(prog) => prog.is_active(),
+        }
+    }
+
+pub fn index(&self) -> LogIndex{
+        match self {
+            NodeProgress::Probe(prog) => prog.index, 
+            NodeProgress::Replicate(prog) => prog.index,
+            NodeProgress::Snapshot(prog) => prog.index,
         }
     }
 }
@@ -79,9 +100,9 @@ pub const MAX_INFLIGHT: u64 = 5;
 
 #[derive(Debug)]
 pub struct Progress<T: ProgressState> {
-    node_id: NodeId,
-    state: T,
-    active: bool,
+    pub node_id: NodeId,
+    pub state: T,
+    pub active: bool,
     pub index: LogIndex,
     pub next: LogIndex,
 }
@@ -90,10 +111,6 @@ impl<T: ProgressState> Progress<T> {
     pub fn reset(&mut self) {
         self.active = false;
         self.state.reset();
-    }
-
-    pub fn is_active(self) -> bool {
-        self.active
     }
 
     pub fn increment(&mut self, index: LogIndex) -> bool {
@@ -133,6 +150,10 @@ impl Progress<Probe> {
             next: 0,
         }
     }
+
+    fn is_active(&self) -> bool {
+        !self.state.paused
+    }
 }
 
 impl From<Progress<Replicate>> for Progress<Probe> {
@@ -140,7 +161,7 @@ impl From<Progress<Replicate>> for Progress<Probe> {
         Progress {
             node_id: progress.node_id,
             state: Probe { paused: false },
-            active: false,
+            active: progress.active,
             index: progress.index,
             next: progress.next,
         }
@@ -148,65 +169,66 @@ impl From<Progress<Replicate>> for Progress<Probe> {
 }
 
 #[allow(dead_code)]
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct Snapshot {
-    pending: u64,
+    /// Current index of the pending snapshot for this progress.
+    /// If there is a pending snapshot, replication progress is halted
+    /// until the snapshot is complete.
+    pub pending: Option<LogIndex>,
 }
 
 impl ProgressState for Snapshot {
     fn reset(&mut self) {
-        self.pending = 0;
+        self.pending = None;
     }
 }
 
 impl Progress<Snapshot> {
+    pub fn is_active(self) -> bool {
+        self.active
+    }
+
     fn _snapshot_fail(&mut self) {
-        self.state.pending = 0;
+        self.state.pending = None;
     }
 }
 
 #[derive(Debug)]
-pub struct Replicate {}
+pub struct Replicate {
+    pub inflight: VecDeque<LogIndex>,
+}
 
 impl ProgressState for Replicate {
     fn reset(&mut self) {}
 }
 
-impl Progress<Replicate> {}
-
-#[derive(Debug)]
-struct PendingReplication {
-    index: usize,
-    count: usize,
-    size: usize,
-    pending: Vec<Option<u64>>,
+impl Progress<Replicate> {
+    /// The replication is active as long as there are empty spots in the inflight buffer.
+    pub fn is_active(&self) -> bool {
+        self.state.inflight.capacity() > self.state.inflight.len()
+    }
 }
 
-impl PendingReplication {
-    fn new(size: usize) -> PendingReplication {
-        PendingReplication {
-            index: 0,
-            count: 0,
-            size,
-            pending: vec![],
+impl From<Progress<Probe>> for Progress<Replicate> {
+    fn from(progress: Progress<Probe>) -> Self {
+        Progress {
+            node_id: progress.node_id,
+            state: Replicate { inflight: VecDeque::with_capacity(MAX_INFLIGHT.try_into().unwrap()) }, 
+            active: progress.active,
+            index: progress.index,
+            next: progress.next,
         }
     }
+}
 
-    fn _insert(&mut self, id: u64) {
-        let mut next = self.index + self.count;
-        let size = self.size;
-
-        if next >= size {
-            next -= size;
-        }
-
-        if next >= self.pending.capacity() {
-            self.pending.resize(self.pending.capacity() * 2, None);
-        }
-
-        self.pending[next] = Some(id);
-        self.count += 1;
-    }
+#[derive(Debug)]
+pub struct PendingReplication {
+    /// The earliest index in the pending buffer.
+    index: usize,
+    /// The number of items in the pending buffer.
+    count: usize,
+    size: usize,
+    pending: Vec<Option<LogIndex>>,
 }
 
 #[cfg(test)]
@@ -230,6 +252,8 @@ mod tests {
     #[test]
     fn increments_to_higher() {
         let mut progress = NodeProgress::new(0);
-        assert!(progress.increment(666));
+        let progress = progress.advance(666);
+        assert!(progress.is_active());
+        assert_eq!(progress.index(), 666);
     }
 }

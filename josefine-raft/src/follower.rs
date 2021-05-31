@@ -245,21 +245,15 @@ impl From<Raft<Follower>> for Raft<Candidate> {
 #[cfg(test)]
 mod tests {
 
-    use crate::follower::Follower;
-    use crate::logger::get_root_logger;
+    use crate::test::new_follower;
 
     use super::Apply;
     use super::Command;
-    use super::Raft;
-    use super::RaftConfig;
     use super::RaftHandle;
-    use crate::rpc::Message;
-    use tokio::sync::mpsc;
-    use tokio::sync::mpsc::UnboundedReceiver;
 
     #[test]
     fn follower_to_leader_single_node_cluster() {
-        let (_rx, follower) = new_follower();
+        let ((_rpc_rx, _fsm_rx), follower) = new_follower();
         let id = follower.id;
         match follower.apply(Command::Timeout).unwrap() {
             RaftHandle::Follower(_) => panic!(),
@@ -270,20 +264,12 @@ mod tests {
 
     #[test]
     fn follower_noop() {
-        let (_rx, follower) = new_follower();
+        let (_, follower) = new_follower();
         let id = follower.id;
         match follower.apply(Command::Noop).unwrap() {
             RaftHandle::Follower(follower) => assert_eq!(id, follower.id),
             RaftHandle::Candidate(_) => panic!(),
             RaftHandle::Leader(_) => panic!(),
         }
-    }
-
-    fn new_follower() -> (UnboundedReceiver<Message>, Raft<Follower>) {
-        let config = RaftConfig::default();
-        let log = get_root_logger();
-        let (rpc_tx, rpc_rx) = mpsc::unbounded_channel();
-        let (fsm_tx, _) = mpsc::unbounded_channel();
-        (rpc_rx, Raft::new(config, log.new(o!()), rpc_tx, fsm_tx).unwrap())
     }
 }
