@@ -14,12 +14,12 @@ name = "josefine"
 
 [workspace]
 members = [
-    "josefine-core",
+    "josefine-broker",
     "josefine-raft"
 ]
 
 [dependencies]
-josefine-core = { version = "0.0.1", path = "josefine-core" }
+josefine-broker= { version = "0.0.1", path = "josefine-broker" }
 josefine-raft = { version = "0.0.1", path = "josefine-raft" }
 slog = "2.4.1"
 slog-async = "2.3.0"

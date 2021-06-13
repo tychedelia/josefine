@@ -11,7 +11,7 @@ The purpose of this project is to explore the Rust Programming language and patt
 #### Crates
 
 - `josefine-raft` is a [Raft](raft.github.io) implementation, that takes inspiration from [the following excellent blog post](https://hoverbear.org/blog/rust-state-machine-pattern/), as well as several other Raft implementations in Rust.
-- `josefine-core` defines the Kafka broker.
+- `josefine-broker` defines the Kafka broker.
 
 
 #### TODO

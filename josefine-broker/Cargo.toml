@@ -1,5 +1,5 @@
 [package]
-name = "josefine-core"
+name = "josefine-broker"
 version = "0.0.1"
 authors = ["jcm <jmcelwain@gmail.com>"]
 edition = "2018"
