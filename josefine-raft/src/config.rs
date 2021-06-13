@@ -3,9 +3,10 @@ use std::net::{IpAddr, Ipv4Addr};
 use std::path::PathBuf;
 use std::time::Duration;
 
-use crate::error::RaftError;
 use crate::raft::Node;
 use crate::raft::NodeId;
+
+use josefine_core::error::{Result, JosefineError};
 
 #[serde(default)]
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -54,45 +55,45 @@ impl RaftConfig {
     }
 
     /// Validates the configuration, ensuring all values make sense.
-    pub fn validate(&self) -> Result<(), RaftError> {
+    pub fn validate(&self) -> Result<()> {
         if self.protocol_version > MAX_PROTOCOL_VERSION {
-            return Err(RaftError::ConfigError {
+            return Err(JosefineError::ConfigError {
                 file_path: "".to_string(),
                 error_msg: "Invalid protocol version.".to_string(),
             });
         }
         if self.id == 0 {
-            return Err(RaftError::ConfigError {
+            return Err(JosefineError::ConfigError {
                 file_path: "".to_string(),
                 error_msg: "Id cannot be zero.".to_string(),
             });
         }
         if self.port < 1023 {
-            return Err(RaftError::ConfigError {
+            return Err(JosefineError::ConfigError {
                 file_path: "".to_string(),
                 error_msg: "Port value too low.".to_string(),
             });
         }
         if self.heartbeat_timeout < Duration::from_millis(5) {
-            return Err(RaftError::ConfigError {
+            return Err(JosefineError::ConfigError {
                 file_path: "".to_string(),
                 error_msg: "Heartbeat timeout is too low.".to_string(),
             });
         }
         if self.election_timeout < Duration::from_millis(5) {
-            return Err(RaftError::ConfigError {
+            return Err(JosefineError::ConfigError {
                 file_path: "".to_string(),
                 error_msg: "Election timeout is too low.".to_string(),
             });
         }
         if self.commit_timeout < Duration::from_millis(1) {
-            return Err(RaftError::ConfigError {
+            return Err(JosefineError::ConfigError {
                 file_path: "".to_string(),
                 error_msg: "Commit timeout is too low.".to_string(),
             });
         }
         if self.snapshot_interval < Duration::from_millis(5) {
-            return Err(RaftError::ConfigError {
+            return Err(JosefineError::ConfigError {
                 file_path: "".to_string(),
                 error_msg: "Snapshot interval is too low.".to_string(),
             });

@@ -1,4 +1,5 @@
-use crate::{error::Result, raft::LogIndex};
+use crate::{raft::LogIndex};
+use josefine_core::error::Result;
 
 pub trait Store : Default {
     fn append(&mut self, entry: Vec<u8>) -> Result<LogIndex>;

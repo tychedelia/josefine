@@ -15,12 +15,15 @@ name = "josefine"
 [workspace]
 members = [
     "josefine-broker",
-    "josefine-raft"
+    "josefine-raft",
+    "josefine-core",
+    "josefine-kafka",
 ]
 
 [dependencies]
 josefine-broker= { version = "0.0.1", path = "josefine-broker" }
 josefine-raft = { version = "0.0.1", path = "josefine-raft" }
+josefine-core = { version = "0.0.1", path = "josefine-core" }
 slog = "2.4.1"
 slog-async = "2.3.0"
 slog-term = "2.4.0"

@@ -14,6 +14,7 @@ use crate::raft::Command::VoteResponse;
 use crate::raft::{Apply, LogIndex, RaftHandle, RaftRole, Term};
 use crate::raft::{Command, NodeId, Raft, Role, State};
 use crate::rpc::{Address, Message};
+use josefine_core::error::Result;
 use tokio::sync::mpsc::UnboundedSender;
 
 #[derive(Debug)]
@@ -37,7 +38,7 @@ impl Role for Follower {
 }
 
 impl Apply for Raft<Follower> {
-    fn apply(mut self, cmd: Command) -> Result<RaftHandle, RaftError> {
+    fn apply(mut self, cmd: Command) -> Result<RaftHandle> {
         self.log_command(&cmd);
         match cmd {
             Command::Tick => {
@@ -94,7 +95,7 @@ impl Apply for Raft<Follower> {
                         term: self.state.current_term,
                         index: self.state.last_applied,
                         success: true,
-                    }))?;
+                    })).map_err(|err| RaftError::from(err))?;
                 }
 
                 self.apply_self()
@@ -170,7 +171,7 @@ impl Raft<Follower> {
         logger: Logger,
         rpc_tx: UnboundedSender<Message>,
         fsm_tx: UnboundedSender<fsm::Instruction>, 
-    ) -> Result<Raft<Follower>, RaftError> {
+    ) -> Result<Raft<Follower>> {
         config.validate()?;
         let logger = logger.new(o!("id" => config.id));
 
@@ -215,7 +216,7 @@ impl Raft<Follower> {
         self.state.election_time = Some(Instant::now());
     }
 
-    fn apply_self(self) -> Result<RaftHandle, RaftError> {
+    fn apply_self(self) -> Result<RaftHandle> {
         Ok(RaftHandle::Follower(self))
     }
 }

@@ -7,7 +7,7 @@ use std::time::Instant;
 use slog::Logger;
 use uuid::Uuid;
 
-use crate::error::Result;
+use crate::error::RaftError;
 use crate::follower::Follower;
 use crate::leader::Leader;
 use crate::log::Log;
@@ -21,6 +21,7 @@ use crate::{config::RaftConfig, rpc::Response};
 
 use crate::rpc::{Address, Message};
 
+use josefine_core::error::Result;
 use tokio::sync::mpsc::UnboundedSender;
 
 /// A unique id that uniquely identifies an instance of Raft.
@@ -250,13 +251,13 @@ impl<T: Role> Raft<T> {
 
     pub fn send(&self, to: Address, cmd: Command) -> Result<()> {
         let msg = Message::new(Address::Peer(self.id), to, cmd);
-        self.rpc_tx.send(msg)?;
+        self.rpc_tx.send(msg).map_err(|err| RaftError::from(err))?;
         Ok(())
     }
 
     pub fn send_all(&self, cmd: Command) -> Result<()> {
         let msg = Message::new(Address::Peer(self.id), Address::Peers, cmd);
-        self.rpc_tx.send(msg)?;
+        self.rpc_tx.send(msg).map_err(|err| RaftError::from(err))?;
         Ok(())
     }
 }

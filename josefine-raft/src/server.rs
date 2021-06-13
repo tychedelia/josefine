@@ -1,4 +1,5 @@
-use crate::error::{RaftError, Result};
+use josefine_core::error::{JosefineError, Result};
+use crate::error::RaftError;
 use crate::logger::get_root_logger;
 use crate::raft::{Apply, Command, RaftHandle};
 use crate::rpc::{Address, Message, Request, Response};
@@ -131,8 +132,8 @@ async fn event_loop(
             // outgoing messages from raft
             Some(msg) = rpc_rx.recv() => {
                 match msg {
-                    Message { to: Address::Peer(_), .. } => tcp_tx.send(msg)?,
-                    Message { to: Address::Peers, ..  } => tcp_tx.send(msg)?,
+                    Message { to: Address::Peer(_), .. } => tcp_tx.send(msg).map_err(|err| RaftError::from(err))?,
+                    Message { to: Address::Peers, ..  } => tcp_tx.send(msg).map_err(|err| RaftError::from(err))?,
                     Message { to: Address::Client, command: Command::ClientResponse { id, res }, .. } => {
                         match requests.remove(&id) {
                             Some(tx) => tx.send(res).expect("the channel was dropped"),
@@ -142,7 +143,7 @@ async fn event_loop(
                             }
                         };
                     },
-                    _ => return Err(RaftError::Internal { error_msg: format!("Unexpected message {:?}", msg) }),
+                    _ => return Err(JosefineError::Internal { error_msg: format!("Unexpected message {:?}", msg) }),
                 }
             },
             // incoming messages from clients
@@ -160,7 +161,7 @@ async fn event_loop(
 #[cfg(test)]
 mod tests {
     use crate::config::RaftConfig;
-    use crate::error::Result;
+    use josefine_core::error::Result;
     use crate::logger::get_root_logger;
     use crate::raft::RaftHandle;
 

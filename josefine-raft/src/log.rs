@@ -1,7 +1,7 @@
 use crate::{raft::Entry, store::Store};
 use crate::raft::{EntryType, LogIndex};
 use crate::raft::Term;
-use crate::error::{RaftError, Result};
+use josefine_core::error::Result;
 
 pub struct Log<T: Store + Default> {
     store: T,

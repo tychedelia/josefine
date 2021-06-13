@@ -3,8 +3,8 @@ use std::fmt;
 use slog::Logger;
 use tokio::sync::mpsc;
 
+use josefine_core::error::Result;
 use crate::{
-    error::Result,
     raft::{Entry, EntryType, LogIndex},
     rpc,
 };
@@ -77,6 +77,8 @@ impl<T: Fsm> Driver<T> {
 mod test {
     use tokio::sync::mpsc::unbounded_channel;
 
+    use crate::error::RaftError;
+
     use super::*;
     #[derive(Debug, PartialEq, Eq, Clone, Copy)]
     enum TestState {
@@ -126,7 +128,7 @@ mod test {
                 term: 0,
                 index: 0,
             },
-        })?;
+        }).map_err(|err| RaftError::from(err))?;
 
         let (join, _) = tokio::join!(
             tokio::spawn(driver.run(shutdown_rx)),

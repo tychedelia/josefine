@@ -1,9 +1,9 @@
 use std::time::Instant;
 
 use slog::Logger;
+use josefine_core::error::Result;
 
 use crate::election::{Election, ElectionStatus};
-use crate::error::RaftError;
 use crate::follower::Follower;
 use crate::leader::Leader;
 use crate::progress::ReplicationProgress;
@@ -20,7 +20,7 @@ pub struct Candidate {
 }
 
 impl Raft<Candidate> {
-    pub(crate) fn seek_election(mut self) -> Result<RaftHandle, RaftError> {
+    pub(crate) fn seek_election(mut self) -> Result<RaftHandle> {
         info!(self.role.logger, "Seeking election");
         self.state.voted_for = Some(self.id);
         self.state.current_term += 1;
@@ -60,7 +60,7 @@ impl Role for Candidate {
 }
 
 impl Apply for Raft<Candidate> {
-    fn apply(mut self, cmd: Command) -> Result<RaftHandle, RaftError> {
+    fn apply(mut self, cmd: Command) -> Result<RaftHandle> {
         self.log_command(&cmd);
 
         match cmd {

@@ -1,10 +1,11 @@
-use std::collections::HashMap;
 use std::io::Write;
 use std::time::Duration;
 use std::time::Instant;
 
 use slog::Logger;
+use josefine_core::error::Result;
 
+use crate::error::RaftError;
 use crate::follower::Follower;
 use crate::progress::NodeProgress;
 use crate::progress::ReplicationProgress;
@@ -19,10 +20,10 @@ use crate::rpc::Address;
 use crate::rpc::Message;
 use crate::rpc::Request;
 use crate::{
-    error::{RaftError, Result},
     fsm,
     raft::LogIndex,
 };
+
 ///
 #[derive(Debug)]
 pub struct Leader {
@@ -170,7 +171,7 @@ impl Raft<Leader> {
                                 prev_log_index,
                                 prev_log_term,
                             },
-                        ))?;
+                        )).map_err(|err| RaftError::from(err))?;
                     }
                     NodeProgress::Replicate(progress) => {
                         if !progress.next > progress.index {
@@ -195,7 +196,7 @@ impl Raft<Leader> {
                                 prev_log_index: prev.index,
                                 prev_log_term: prev.term,
                             },
-                        ))?;
+                        )).map_err(|err| RaftError::from(err))?;
                     }
                     _ => {}
                 }

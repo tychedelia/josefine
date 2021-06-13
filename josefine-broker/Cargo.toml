@@ -7,9 +7,12 @@ edition = "2018"
 [dependencies]
 memmap = "0.7.0"
 byteorder = "1.2.7"
-iron = "0.6.*"
-router = "*"
 slog = "2.4.1"
 slog-async = "2.3.0"
 slog-term = "2.4.0"
+tokio = { version = "~1.0.0", features = ["macros", "net", "io-util", "time", "sync", "rt", "rt-multi-thread"] }
+tokio-stream = "~0.1.0"
+tokio-serde = { version = "~0.8", features = ["json"] }
+tokio-util = { version = "~0.6.0", features = ["codec"] }
 josefine-raft = { version = "0.0.1", path = "../josefine-raft" }
+josefine-core = { version = "0.0.1", path = "../josefine-core" }

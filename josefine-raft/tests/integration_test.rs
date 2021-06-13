@@ -1,6 +1,7 @@
 extern crate josefine_raft;
 
 use futures_util::core_reexport::time::Duration;
+use josefine_core::error::Result;
 use josefine_raft::config::RaftConfig;
 use josefine_raft::raft::{Node, RaftHandle};
 use josefine_raft::JosefineRaft;
@@ -42,7 +43,7 @@ impl IntegrationFsm {
 }
 
 impl josefine_raft::fsm::Fsm for IntegrationFsm {
-    fn transition(&mut self, input: Vec<u8>) -> josefine_raft::error::Result<Vec<u8>> {
+    fn transition(&mut self, input: Vec<u8>) -> Result<Vec<u8>> {
         Ok(input)
     }
 }
@@ -51,7 +52,7 @@ impl josefine_raft::fsm::Fsm for IntegrationFsm {
 fn it_elects() {
     let cluster = new_cluster(vec![1, 2, 3]);
 
-    let join_handles: Vec<JoinHandle<josefine_raft::error::Result<RaftHandle>>> = cluster
+    let join_handles: Vec<JoinHandle<Result<RaftHandle>>> = cluster
         .into_iter()
         .map(|node| {
             std::thread::spawn(|| {

@@ -1,8 +1,9 @@
-use crate::error::Result;
+use crate::error::RaftError;
 use crate::raft::{Node, NodeId};
 use crate::rpc::{Address, Message};
 use futures::SinkExt;
 use std::collections::HashMap;
+use josefine_core::error::Result;
 
 use slog::Logger;
 use tokio::net::{TcpListener, TcpStream};
@@ -53,7 +54,7 @@ async fn stream_messages(
 
     while let Some(message) = stream.try_next().await? {
         info!(log, "receive message"; "msg" => format!("{:?}", message));
-        in_tx.send(message)?;
+        in_tx.send(message).map_err(|err| RaftError::from(err))?;
     }
     Ok(())
 }
@@ -93,7 +94,7 @@ pub async fn send_task(
                     Err(mpsc::error::TrySendError::Full(_)) => {
                         error!(log, "Full send buffer for peer, discarding message"; "peer" => id)
                     }
-                    Err(error) => return Err(error.into()),
+                    Err(error) => return Err(RaftError::from(error).into()),
                 },
                 None => error!(log, "received outbound message for non-TCP address"; " id" => id),
             }
@@ -211,7 +212,7 @@ mod tests {
 
         let out_msg = Message::new(Address::Peer(1), Address::Peer(2), Command::Tick);
         let out_msg2 = Message::new(Address::Peer(1), Address::Peer(2), Command::Tick);
-        tx.send(out_msg)?;
+        tx.send(out_msg).map_err(|err| RaftError::from(err))?;
 
         let mut stream = stream::ListenerStream(listener);
         let (stream, _addr) = stream.next().await.unwrap()?;

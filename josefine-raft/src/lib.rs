@@ -22,8 +22,8 @@ extern crate slog_async;
 extern crate slog_term;
 
 use crate::raft::RaftHandle;
-use crate::error::Result;
 
+use josefine_core::error::Result;
 use futures_util::core_reexport::time::Duration;
 use rpc::{Request, Response};
 use tokio::sync::oneshot;
@@ -35,7 +35,7 @@ pub mod error;
 mod follower;
 mod leader;
 mod log;
-mod rpc;
+pub mod rpc;
 mod store;
 
 /// [Raft](raft.github.io) is a state machine for replicated consensus.
@@ -70,11 +70,11 @@ impl JosefineRaft {
         Self::new(config)
     }
 
-    pub async fn run<T: 'static + fsm::Fsm>(self, fsm: T, client_rx: UnboundedReceiver<(Request, oneshot::Sender<Result<Response>>)>) -> error::Result<RaftHandle> {
+    pub async fn run<T: 'static + fsm::Fsm>(self, fsm: T, client_rx: UnboundedReceiver<(Request, oneshot::Sender<Result<Response>>)>) -> Result<RaftHandle> {
         self.server.run(None, fsm, client_rx).await
     }
 
-    pub async fn run_for<T: 'static + fsm::Fsm>(self, duration: Duration, fsm: T, client_rx: UnboundedReceiver<(Request, oneshot::Sender<Result<Response>>)>) -> error::Result<RaftHandle> {
+    pub async fn run_for<T: 'static + fsm::Fsm>(self, duration: Duration, fsm: T, client_rx: UnboundedReceiver<(Request, oneshot::Sender<Result<Response>>)>) -> Result<RaftHandle> {
         self.server.run(Some(duration), fsm, client_rx).await
     }
 }
