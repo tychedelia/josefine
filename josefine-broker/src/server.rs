@@ -1,8 +1,13 @@
+use std::net::SocketAddr;
+
 use josefine_core::error::Result;
+use tokio::net::TcpListener;
+use futures::FutureExt;
+
+use crate::tcp;
 
 pub struct Server {
     address: String,
-    broker: Broker,
 }
 
 pub struct Broker {
@@ -18,16 +23,22 @@ impl Broker {
 }
 
 impl Server {
-    pub fn new(address: String, broker: Broker) -> Self {
+    pub fn new(address: String) -> Self {
         Server {
             address,
-            broker,
         }
     }
 
-    pub async fn run<T: 'static + josefine_raft::fsm::Fsm>(
+    pub async fn run(
         self
     ) -> Result<()> {
-        unimplemented!()
+        let socket_addr: SocketAddr = self.address.parse()?;
+        let listener = TcpListener::bind(socket_addr).await?;
+        let (in_tx, _out_tx) = tokio::sync::mpsc::unbounded_channel::<String>();
+        let (task, tcp_receiver) = tcp::receive_task(josefine_core::logger::get_root_logger().new(o!()), listener, in_tx).remote_handle();
+        tokio::spawn(task);
+
+        let _ = tokio::try_join!(tcp_receiver)?;
+        Ok(())
     }
 }

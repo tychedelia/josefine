@@ -444,6 +444,8 @@ name = "josefine"
 version = "0.0.1"
 dependencies = [
  "clap",
+ "futures",
+ "futures-util",
  "josefine-broker",
  "josefine-core",
  "josefine-raft",
@@ -458,6 +460,7 @@ name = "josefine-broker"
 version = "0.0.1"
 dependencies = [
  "byteorder",
+ "futures",
  "josefine-core",
  "josefine-raft",
  "memmap",
@@ -476,6 +479,7 @@ version = "0.0.1"
 dependencies = [
  "futures",
  "futures-util",
+ "lazy_static",
  "serde 1.0.117",
  "serde_derive",
  "serde_json",
@@ -1304,6 +1308,7 @@ version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "911a61637386b789af998ee23f50aa30d5fd7edcec8d6d3dedae5e5815205466"
 dependencies = [
+ "bincode",
  "bytes",
  "educe",
  "futures-core",
