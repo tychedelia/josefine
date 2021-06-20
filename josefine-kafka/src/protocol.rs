@@ -20,7 +20,7 @@ enum ErrorCodes {
 }
 
 enum ApiKey {
-    Produce,
+    Produce = 1,
     Fetch,
     ListOffsets,
     Metadata,
@@ -76,12 +76,16 @@ enum ApiKey {
     UpdateFeatures,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct RequestHeader<'a> {
+    pub api_key: i16,
+    pub api_version: i16,
+    pub correlation_id: i32,
+    pub client_id: &'a str,
+}
 
-#[cfg(test)]
-mod tests {
 
-    #[test]
-    fn test() {
-
-    }
+#[derive(Debug, Serialize, Deserialize)]
+pub enum MessageKind<'a> {
+    ApiVersions { header: RequestHeader<'a>, client_software_name: &'a str, client_software_version: &'a str  }
 }

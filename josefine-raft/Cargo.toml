@@ -27,6 +27,6 @@ tokio = { version = "~1.0.0", features = ["macros", "net", "io-util", "time", "s
 tokio-stream = "~0.1.0"
 tokio-serde = { version = "~0.8", features = ["json"] }
 tokio-util = { version = "~0.6.0", features = ["codec"] }
-bytes = "1.0.0"
+bytes = "1.0.1"
 uuid = { version = "~0.8.1", features = ["v4"] }
 josefine-core = { version = "0.0.1", path = "../josefine-core" }
