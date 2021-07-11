@@ -24,7 +24,7 @@ extern crate slog_term;
 use crate::raft::RaftHandle;
 
 use josefine_core::error::Result;
-use futures_util::core_reexport::time::Duration;
+use std::time::Duration;
 use rpc::{Request, Response};
 use tokio::sync::oneshot;
 use tokio::sync::mpsc::UnboundedReceiver;

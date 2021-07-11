@@ -1,1 +1,2 @@
-mod protocol;
+pub mod codec;
+pub mod error;

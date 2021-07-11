@@ -165,7 +165,7 @@ mod tests {
     use crate::logger::get_root_logger;
     use crate::raft::RaftHandle;
 
-    use futures_util::core_reexport::time::Duration;
+    use std::time::Duration;
     use tokio::sync::mpsc::{self, unbounded_channel};
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]

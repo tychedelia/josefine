@@ -1,13 +1,17 @@
-use josefine_core::error::Result;
+use josefine_core::error::{Result, JosefineError};
 use slog::Logger;
 use tokio::{net::{TcpListener, TcpStream}, sync::mpsc::UnboundedSender};
 use tokio_stream::StreamExt;
-use tokio_util::codec::{FramedRead, LengthDelimitedCodec};
+use tokio_util::codec::{FramedRead, LengthDelimitedCodec, FramedWrite};
+use kafka_protocol::messages::{RequestKind, ResponseKind, ResponseHeader};
+use tokio::sync::oneshot;
+use josefine_kafka::codec::KafkaServerCodec;
+use futures::SinkExt;
 
 pub async fn receive_task(
     log: Logger,
     listener: TcpListener,
-    in_tx: UnboundedSender<String>,
+    in_tx: UnboundedSender<(RequestKind, oneshot::Sender<ResponseKind>)>,
 ) -> Result<()> {
     loop {
         tokio::select! {
@@ -29,18 +33,19 @@ pub async fn receive_task(
 
 async fn stream_messages(
     log: Logger,
-    stream: TcpStream,
-    in_tx: UnboundedSender<String>,
+    mut stream: TcpStream,
+    in_tx: UnboundedSender<(RequestKind, oneshot::Sender<ResponseKind>)>,
 ) -> Result<()> {
-    let length_delimited = FramedRead::new(stream, LengthDelimitedCodec::new());
-    let mut stream = tokio_serde::SymmetricallyFramed::new(
-        length_delimited,
-        tokio_serde::formats::SymmetricalBincode::default(),
-    );
-
-    while let Some(message) = stream.try_next().await? {
-        info!(log, "receive message"; "msg" => format!("{:?}", message));
-        in_tx.send(message).unwrap();
+    let (r, w) = stream.split();
+    let mut stream_in = FramedRead::new(r, KafkaServerCodec::new());
+    let mut stream_out = FramedWrite::new(w, KafkaServerCodec::new());
+    while let Some((header, message)) = stream_in.try_next().await.map_err(|_| JosefineError::MessageError { error_msg: "broke".to_string() })? {
+        let (cb_tx, mut cb_rx) = oneshot::channel();
+        in_tx.send((message, cb_tx)).map_err(|e| JosefineError::MessageError { error_msg: format!("{:?}", e)})?;
+        let res = cb_rx.await.map_err(|e| JosefineError::MessageError { error_msg: format!("{:?}", e) })?;
+        let version = header.request_api_version;
+        let header = ResponseHeader::default();
+        stream_out.send((version, header, res)).await.map_err(|e| JosefineError::MessageError { error_msg: format!("{:?}", e) })?;
     }
     Ok(())
 }

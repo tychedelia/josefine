@@ -1,6 +1,6 @@
 extern crate josefine_raft;
 
-use futures_util::core_reexport::time::Duration;
+use std::time::Duration;
 use josefine_core::error::Result;
 use josefine_raft::config::RaftConfig;
 use josefine_raft::raft::{Node, RaftHandle};
