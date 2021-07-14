@@ -39,12 +39,16 @@ async fn stream_messages(
     let (r, w) = stream.split();
     let mut stream_in = FramedRead::new(r, KafkaServerCodec::new());
     let mut stream_out = FramedWrite::new(w, KafkaServerCodec::new());
-    while let Some((header, message)) = stream_in.try_next().await.map_err(|_| JosefineError::MessageError { error_msg: "broke".to_string() })? {
+    while let Some((header, message)) = stream_in.try_next().await.map_err(|err| {
+        JosefineError::MessageError { error_msg: "broke".to_string() }
+    })? {
         let (cb_tx, mut cb_rx) = oneshot::channel();
         in_tx.send((message, cb_tx)).map_err(|e| JosefineError::MessageError { error_msg: format!("{:?}", e)})?;
         let res = cb_rx.await.map_err(|e| JosefineError::MessageError { error_msg: format!("{:?}", e) })?;
         let version = header.request_api_version;
-        let header = ResponseHeader::default();
+        let correlation_id = header.correlation_id;
+        let mut header = ResponseHeader::default();
+        header.correlation_id = correlation_id;
         stream_out.send((version, header, res)).await.map_err(|e| JosefineError::MessageError { error_msg: format!("{:?}", e) })?;
     }
     Ok(())

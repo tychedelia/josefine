@@ -5,12 +5,13 @@ use tokio::net::TcpListener;
 use futures::{FutureExt, TryFutureExt};
 
 use crate::tcp;
-use kafka_protocol::messages::{RequestKind, ApiVersionsResponse, ApiKey, CreateTopicsRequest, ResponseKind, ProduceRequest, FetchRequest, ListOffsetsRequest, DeleteTopicsResponse, DeleteTopicsRequest, MetadataRequest, LeaderAndIsrRequest, HeartbeatRequest, DescribeGroupsRequest, ListGroupsRequest, ApiVersionsRequest, StopReplicaRequest, FindCoordinatorRequest, JoinGroupRequest, LeaveGroupRequest, SyncGroupRequest};
-use kafka_protocol::{Message, StrBytes};
+use kafka_protocol::messages::*;
+use kafka_protocol::protocol::{Message, StrBytes};
 use kafka_protocol::messages::api_versions_response::{ApiVersion, SupportedFeatureKey, FinalizedFeatureKey};
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::oneshot;
 use kafka_protocol::messages::ResponseKind::ListOffsetsResponse;
+use kafka_protocol::messages::metadata_response::MetadataResponseBroker;
 
 pub struct Server {
     address: String,
@@ -54,6 +55,7 @@ impl Server {
 async fn handle_messages(mut out_tx: UnboundedReceiver<(RequestKind, oneshot::Sender<ResponseKind>)>) -> Result<()> {
     loop {
         let (msg, cb) = out_tx.recv().await.unwrap();
+        println!("got msg {:?}", msg);
         match msg {
             RequestKind::ApiVersionsRequest(req) => {
                 let mut res = ApiVersionsResponse::default();
@@ -137,7 +139,23 @@ async fn handle_messages(mut out_tx: UnboundedReceiver<(RequestKind, oneshot::Se
                     min_version: DeleteTopicsRequest::VERSIONS.min,
                     ..Default::default()
                 });
-                cb.send(ResponseKind::ApiVersionsResponse(res)).expect("cb is never closed");
+                cb.send(ResponseKind::ApiVersionsResponse(res)).unwrap();
+            },
+            RequestKind::MetadataRequest(req) => {
+                let mut res = MetadataResponse::default();
+                res.brokers.insert(BrokerId(1), MetadataResponseBroker {
+                    host: StrBytes::from_str("127.0.0.1"),
+                    port: 8844,
+                    rack: None,
+                    unknown_tagged_fields: Default::default()
+                });
+                res.controller_id = BrokerId(1);
+                res.cluster_id = Some(StrBytes::from_str("josefine"));
+                cb.send(ResponseKind::MetadataResponse(res)).unwrap()
+            },
+            RequestKind::CreateTopicsRequest(req) => {
+                
+                cb.send(ResponseKind::CreateTopicsResponse(res)).unwrap()
             }
             _ => panic!()
         }
