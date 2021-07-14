@@ -12,6 +12,7 @@ use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::oneshot;
 use kafka_protocol::messages::ResponseKind::ListOffsetsResponse;
 use kafka_protocol::messages::metadata_response::MetadataResponseBroker;
+use josefine_raft::client::RaftClient;
 
 pub struct Server {
     address: String,
@@ -37,7 +38,8 @@ impl Server {
     }
 
     pub async fn run(
-        self
+        self,
+        client: RaftClient,
     ) -> Result<()> {
         let socket_addr: SocketAddr = self.address.parse()?;
         let listener = TcpListener::bind(socket_addr).await?;
@@ -45,14 +47,14 @@ impl Server {
         let (task, tcp_receiver) = tcp::receive_task(josefine_core::logger::get_root_logger().new(o!()), listener, in_tx).remote_handle();
         tokio::spawn(task);
 
-        let (task, handle_messages) = handle_messages(out_tx).remote_handle();
+        let (task, handle_messages) = handle_messages(client, out_tx).remote_handle();
         tokio::spawn(task);
         let (_, _) = tokio::try_join!(tcp_receiver, handle_messages)?;
         Ok(())
     }
 }
 
-async fn handle_messages(mut out_tx: UnboundedReceiver<(RequestKind, oneshot::Sender<ResponseKind>)>) -> Result<()> {
+async fn handle_messages(client: RaftClient, mut out_tx: UnboundedReceiver<(RequestKind, oneshot::Sender<ResponseKind>)>) -> Result<()> {
     loop {
         let (msg, cb) = out_tx.recv().await.unwrap();
         println!("got msg {:?}", msg);
@@ -154,8 +156,8 @@ async fn handle_messages(mut out_tx: UnboundedReceiver<(RequestKind, oneshot::Se
                 cb.send(ResponseKind::MetadataResponse(res)).unwrap()
             },
             RequestKind::CreateTopicsRequest(req) => {
-                
-                cb.send(ResponseKind::CreateTopicsResponse(res)).unwrap()
+                let res = CreateTopicsResponse::default();
+                cb.send(ResponseKind::CreateTopicsResponse(res)).unwrap();
             }
             _ => panic!()
         }

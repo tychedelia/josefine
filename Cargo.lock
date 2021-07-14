@@ -433,11 +433,13 @@ dependencies = [
  "josefine-raft",
  "kafka_protocol",
  "memmap",
+ "serde 1.0.126",
+ "serde_derive",
+ "serde_json",
  "slog",
  "slog-async",
  "slog-term",
  "tokio",
- "tokio-serde",
  "tokio-stream",
  "tokio-util",
 ]
@@ -1142,7 +1144,6 @@ version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "911a61637386b789af998ee23f50aa30d5fd7edcec8d6d3dedae5e5815205466"
 dependencies = [
- "bincode",
  "bytes",
  "educe",
  "futures-core",

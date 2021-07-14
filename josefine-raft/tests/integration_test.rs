@@ -46,6 +46,10 @@ impl josefine_raft::fsm::Fsm for IntegrationFsm {
     fn transition(&mut self, input: Vec<u8>) -> Result<Vec<u8>> {
         Ok(input)
     }
+
+    fn query(&mut self, data: Vec<u8>) -> Result<Vec<u8>> {
+        todo!()
+    }
 }
 
 #[test]

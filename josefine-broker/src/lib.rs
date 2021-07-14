@@ -2,14 +2,18 @@
 extern crate slog;
 extern crate slog_async;
 extern crate slog_term;
+#[macro_use]
+extern crate serde_derive;
 
-use server::Broker;
-use server::Server;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::sync::oneshot;
+
+use josefine_core::error::Result;
+use josefine_raft::client::RaftClient;
 use josefine_raft::rpc::Request;
 use josefine_raft::rpc::Response;
-use josefine_core::error::Result;
+use server::Broker;
+use server::Server;
 
 mod entry;
 mod index;
@@ -27,8 +31,8 @@ impl JosefineBroker {
         JosefineBroker {}
     }
 
-    pub async fn run(self, client_tx: UnboundedSender<(Request, oneshot::Sender<Result<Response>>)>) -> Result<()> {
+    pub async fn run(self, client: RaftClient) -> Result<()> {
         let server = Server::new("127.0.0.1:8844".to_string());
-        server.run().await
+        server.run(client).await
     }
 }

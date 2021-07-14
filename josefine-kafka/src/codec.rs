@@ -69,9 +69,9 @@ fn encode(bytes: &mut BytesMut, header: ResponseHeader, response_kind: ResponseK
             header.encode(bytes, MetadataResponse::header_version(version))?;
             res.encode(bytes, version);
         }
-        ResponseKind::CreateTopicsResponse(reqs) => {
+        ResponseKind::CreateTopicsResponse(res) => {
             header.encode(bytes, CreateTopicsResponse::header_version(version))?;
-            res.encode(bytes, version)
+            res.encode(bytes, version);
         }
         _ => return Err(ErrorKind::UnsupportedOperation)
     };

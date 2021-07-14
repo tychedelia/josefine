@@ -32,10 +32,11 @@ impl Message {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum Request {
-    Propose(Vec<u8>)
+    Propose(Vec<u8>),
+    Query(Vec<u8>),
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum Response {
-
+    State(Vec<u8>),
 }

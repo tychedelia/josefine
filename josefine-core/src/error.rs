@@ -51,3 +51,14 @@ impl From<tokio::sync::broadcast::error::SendError<()>> for JosefineError {
     }
 }
 
+impl From<tokio::sync::oneshot::error::RecvError> for JosefineError {
+    fn from(_: tokio::sync::oneshot::error::RecvError) -> Self {
+        unimplemented!()
+    }
+}
+
+impl <T> From<tokio::sync::mpsc::error::SendError<T>> for JosefineError {
+    fn from(_: tokio::sync::mpsc::error::SendError<T>) -> Self {
+        unimplemented!()
+    }
+}

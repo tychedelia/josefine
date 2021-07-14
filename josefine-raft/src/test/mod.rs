@@ -11,6 +11,10 @@ impl Fsm for TestFsm {
         self.state = *data;
         Ok(input)
     }
+
+    fn query(&mut self, data: Vec<u8>) -> josefine_core::error::Result<Vec<u8>> {
+        todo!()
+    }
 }
 
 pub(crate) fn new_follower() -> ((UnboundedReceiver<Message>, UnboundedReceiver<Instruction>), Raft<Follower>) {

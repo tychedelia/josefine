@@ -53,6 +53,7 @@ mod server;
 mod tcp;
 pub mod fsm;
 mod test;
+pub mod client;
 
 pub struct JosefineRaft {
     server: server::Server,

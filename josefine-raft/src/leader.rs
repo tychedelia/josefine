@@ -99,6 +99,13 @@ impl Raft<Leader> {
         })
     }
 
+    fn query(mut self, data: Vec<u8>) -> Result<RaftHandle> {
+        // self.fsm_tx.send(fsm::Instruction::Query {
+        //
+        // });
+        unimplemented!()
+    }
+
     fn commit(&mut self) -> Result<LogIndex> {
         let quorum_idx = self.role.progress.committed_index();
         if quorum_idx > self.state.commit_index
@@ -238,8 +245,10 @@ impl Apply for Raft<Leader> {
                 Ok(RaftHandle::Leader(self))
             }
             Command::ClientRequest { req, .. } => {
-                let Request::Propose(data) = req;
-                self.append(data)
+                match req {
+                    Request::Propose(data) => self.append(data),
+                    Request::Query(data) => self.query(data),
+                }
             }
             _ => Ok(RaftHandle::Leader(self)),
         }
