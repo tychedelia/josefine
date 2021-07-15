@@ -10,21 +10,15 @@ use crate::{
 };
 use crate::rpc::{Message, Address, Response};
 use crate::raft::Command;
+use std::collections::{HashMap, BTreeMap};
 
 pub trait Fsm: Send + Sync + fmt::Debug {
     fn transition(&mut self, data: Vec<u8>) -> Result<Vec<u8>>;
-    fn query(&mut self, data: Vec<u8>) -> Result<Vec<u8>>;
-}
-
-#[derive(Debug)]
-pub enum Instruction {
-    Drive { entry: Entry },
-    Query(Vec<u8>),
 }
 
 pub struct Driver<T: Fsm> {
     logger: Logger,
-    fsm_rx: mpsc::UnboundedReceiver<Instruction>,
+    fsm_rx: mpsc::UnboundedReceiver<Entry>,
     rpc_tx: mpsc::UnboundedSender<rpc::Message>,
     applied_idx: LogIndex,
     fsm: T,
@@ -32,7 +26,7 @@ pub struct Driver<T: Fsm> {
 impl<T: Fsm> Driver<T> {
     pub fn new(
         logger: Logger,
-        fsm_rx: mpsc::UnboundedReceiver<Instruction>,
+        fsm_rx: mpsc::UnboundedReceiver<Entry>,
         rpc_tx: mpsc::UnboundedSender<rpc::Message>,
         fsm: T,
     ) -> Self {
@@ -51,8 +45,8 @@ impl<T: Fsm> Driver<T> {
             tokio::select! {
                 _ = shutdown.recv() => break,
 
-                Some(instruction) = self.fsm_rx.recv() => {
-                    self.exec(instruction).await?;
+                Some(entry) = self.fsm_rx.recv() => {
+                    self.exec(entry).await?;
                 }
             }
         }
@@ -60,28 +54,11 @@ impl<T: Fsm> Driver<T> {
         Ok(self.fsm)
     }
 
-    pub async fn exec(&mut self, instruction: Instruction) -> Result<()> {
-        debug!(self.logger, "exec"; "instruction" => format!("{:?}", &instruction));
-
-        match instruction {
-            Instruction::Drive { entry } => {
-                if let EntryType::Entry { data } = entry.entry_type {
-                    self.fsm.transition(data)?;
-                }
-            },
-            Instruction::Query(data) => {
-                let res = self.fsm.query(data)?;
-                self.rpc_tx.send(Message {
-                    to: Address::Local,
-                    from: Address::Local,
-                    command: Command::ClientResponse {
-                        id: vec![],
-                        res: Ok(Response::State(res)),
-                    }
-                })?;
-            },
-        };
-
+    pub async fn exec(&mut self, entry: Entry) -> Result<()> {
+        debug!(self.logger, "exec"; "entry" => format!("{:?}", &entry));
+        if let EntryType::Entry { data } = entry.entry_type {
+            self.fsm.transition(data)?;
+        }
         Ok(())
     }
 }
@@ -122,14 +99,6 @@ mod test {
 
             Ok(Vec::new())
         }
-
-        fn query(&mut self, _: Vec<u8>) -> Result<Vec<u8>> {
-            let state = match self.state {
-                TestState::A => "A",
-                TestState::B => "B",
-            };
-            Ok(String::into_bytes(state.to_string()))
-        }
     }
 
     #[tokio::test]
@@ -141,15 +110,13 @@ mod test {
         let driver = Driver::new(crate::logger::get_root_logger().new(o!()), rx, rpc_tx, fsm);
 
         let (shutdown_tx, shutdown_rx) = tokio::sync::broadcast::channel(1);
-        tx.send(Instruction::Drive {
-            entry: Entry {
+        tx.send( Entry {
                 entry_type: crate::raft::EntryType::Entry {
                     data: "B".as_bytes().to_owned(),
                 },
                 term: 0,
                 index: 0,
-            },
-        }).map_err(|err| RaftError::from(err))?;
+            }).map_err(|err| RaftError::from(err))?;
 
         let (join, _) = tokio::join!(
             tokio::spawn(driver.run(shutdown_rx)),
@@ -159,32 +126,6 @@ mod test {
 
         assert_eq!(fsm.state, TestState::B);
 
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn query() -> Result<()> {
-        let fsm = TestFsm::new();
-
-        let (tx, rx) = unbounded_channel();
-        let (rpc_tx, mut rpc_rx) = unbounded_channel();
-        let driver = Driver::new(crate::logger::get_root_logger().new(o!()), rx, rpc_tx, fsm);
-
-        let (shutdown_tx, shutdown_rx) = tokio::sync::broadcast::channel(1);
-        tx.send(Instruction::Query(vec![])).map_err(|err| RaftError::from(err))?;
-
-        let (_, join, _) = tokio::join!(
-            tokio::spawn(driver.run(shutdown_rx)),
-            tokio::spawn(async move { rpc_rx.recv().await }),
-            tokio::spawn(async move { shutdown_tx.send(()).unwrap() }),
-        );
-        let res = join?.unwrap();
-
-        if let Command::ClientResponse { res, .. } = res.command {
-            if let Response::State(data) = res? {
-                assert_eq!("A", String::from_utf8(data).unwrap())
-            } else { panic!() }
-        } else { panic!() };
         Ok(())
     }
 }

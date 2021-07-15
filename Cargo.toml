@@ -24,6 +24,9 @@ members = [
 josefine-broker= { version = "0.0.1", path = "josefine-broker" }
 josefine-raft = { version = "0.0.1", path = "josefine-raft" }
 josefine-core = { version = "0.0.1", path = "josefine-core" }
+sled = "~0.34.6"
+tempfile = "3"
+lazy_static = "~1.4.0"
 slog = "2.4.1"
 slog-async = "2.3.0"
 slog-term = "2.4.0"

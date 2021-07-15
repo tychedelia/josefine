@@ -33,22 +33,19 @@ fn new_cluster(ids: Vec<u32>) -> Vec<JosefineRaft> {
 
 #[derive(Debug)]
 struct IntegrationFsm {
-    state: u8
+    state: Vec<u8>
 }
 
 impl IntegrationFsm {
     fn new() -> Self {
-        Self { state: 0 }
+        Self { state: vec![] }
     }
 }
 
 impl josefine_raft::fsm::Fsm for IntegrationFsm {
-    fn transition(&mut self, input: Vec<u8>) -> Result<Vec<u8>> {
-        Ok(input)
-    }
-
-    fn query(&mut self, data: Vec<u8>) -> Result<Vec<u8>> {
-        todo!()
+    fn transition(&mut self, mut input: Vec<u8>) -> Result<Vec<u8>> {
+        self.state.append(&mut input);
+        Ok(vec![])
     }
 }
 

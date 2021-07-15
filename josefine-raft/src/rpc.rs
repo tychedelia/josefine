@@ -31,10 +31,14 @@ impl Message {
 
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub enum Request {
-    Propose(Vec<u8>),
-    Query(Vec<u8>),
+pub struct Proposal(pub Vec<u8>);
+
+impl Proposal {
+    pub fn get(self) -> Vec<u8> {
+        self.0
+    }
 }
+
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum Response {

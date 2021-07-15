@@ -11,7 +11,7 @@ use crate::election::Election;
 use crate::error::RaftError;
 use crate::log::Log;
 use crate::raft::Command::VoteResponse;
-use crate::raft::{Apply, LogIndex, RaftHandle, RaftRole, Term};
+use crate::raft::{Apply, LogIndex, RaftHandle, RaftRole, Term, Entry};
 use crate::raft::{Command, NodeId, Raft, Role, State};
 use crate::rpc::{Address, Message};
 use josefine_core::error::Result;
@@ -100,15 +100,27 @@ impl Apply for Raft<Follower> {
 
                 self.apply_self()
             }
-            Command::Heartbeat { leader_id, .. } => {
+            Command::Heartbeat { leader_id, term, commit_index } => {
                 self.set_election_timeout();
                 self.role.leader_id = Some(leader_id);
                 self.state.voted_for = Some(leader_id);
+
+                // apply entries to state machine if leader has advanced commit index
+                let has_committed = self.log.contains(commit_index, term)?;
+                if has_committed && commit_index > self.state.commit_index {
+                    let prev = self.state.commit_index;
+                    self.state.commit_index = self.log.commit(commit_index)?;
+                    let entries = self.log.get_range(prev + 1, commit_index)?;
+                    for entry in entries {
+                        self.fsm_tx.send(entry )?;
+                    }
+                }
+
                 self.send(
                     Address::Peer(leader_id),
-                    Command::Heartbeat {
-                        term: self.state.current_term,
-                        leader_id,
+                    Command::HeartbeatResponse {
+                        commit_index: self.state.commit_index,
+                        has_committed,
                     },
                 )?;
                 self.apply_self()
@@ -157,20 +169,11 @@ impl Apply for Raft<Follower> {
 
 impl Raft<Follower> {
     /// Creates an initialized instance of Raft in the follower with the provided configuration.
-    ///
-    /// # Arguments
-    ///
-    /// * `config` - The configuration to use for creating the state machine.
-    /// * `io` - The implementation used to persist the non-volatile state of the state machine and
-    /// entries for the commit log.
-    /// * `logger` - An optional logger implementation.
-    /// * `nodes` - An optional map of nodes present in the cluster.
-    ///
     pub fn new(
         config: RaftConfig,
         logger: Logger,
         rpc_tx: UnboundedSender<Message>,
-        fsm_tx: UnboundedSender<fsm::Instruction>, 
+        fsm_tx: UnboundedSender<Entry>,
     ) -> Result<Raft<Follower>> {
         config.validate()?;
         let logger = logger.new(o!("id" => config.id));

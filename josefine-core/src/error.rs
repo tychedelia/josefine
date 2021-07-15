@@ -1,3 +1,5 @@
+use sled::transaction::TransactionError;
+
 pub type Result<T> = std::result::Result<T, JosefineError>;
 
 #[derive(Debug, Serialize, Deserialize, Clone, Hash, PartialEq, PartialOrd)]
@@ -60,5 +62,17 @@ impl From<tokio::sync::oneshot::error::RecvError> for JosefineError {
 impl <T> From<tokio::sync::mpsc::error::SendError<T>> for JosefineError {
     fn from(_: tokio::sync::mpsc::error::SendError<T>) -> Self {
         unimplemented!()
+    }
+}
+
+impl From<Box<bincode::ErrorKind>> for JosefineError {
+    fn from(_: Box<bincode::ErrorKind>) -> Self {
+        unimplemented!()
+    }
+}
+
+impl From<TransactionError<JosefineError>> for JosefineError {
+    fn from(_: TransactionError<JosefineError>) -> Self {
+        todo!()
     }
 }

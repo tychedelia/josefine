@@ -13,6 +13,8 @@ use tokio::sync::oneshot;
 use kafka_protocol::messages::ResponseKind::ListOffsetsResponse;
 use kafka_protocol::messages::metadata_response::MetadataResponseBroker;
 use josefine_raft::client::RaftClient;
+use crate::fsm::{Transition, Query};
+use crate::topic::Topic;
 
 pub struct Server {
     address: String,
@@ -156,6 +158,17 @@ async fn handle_messages(client: RaftClient, mut out_tx: UnboundedReceiver<(Requ
                 cb.send(ResponseKind::MetadataResponse(res)).unwrap()
             },
             RequestKind::CreateTopicsRequest(req) => {
+                for (name, _) in req.topics.iter() {
+                    // let topic = Topic { name: (*name).to_string() };
+                    //
+                    // let b= client.query(Query::GetTopic(topic.clone()).serialize()?).await?;
+                    // let t = bincode::deserialize::<Topic>(&b)?;
+                    // if t == topic {
+                    //     panic!()
+                    // }
+                    //
+                    // client.propose(Transition::EnsureTopic(topic).serialize()?);
+                }
                 let res = CreateTopicsResponse::default();
                 cb.send(ResponseKind::CreateTopicsResponse(res)).unwrap();
             }

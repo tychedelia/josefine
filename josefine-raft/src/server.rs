@@ -2,7 +2,7 @@ use josefine_core::error::{JosefineError, Result};
 use crate::error::RaftError;
 use crate::logger::get_root_logger;
 use crate::raft::{Apply, Command, RaftHandle};
-use crate::rpc::{Address, Message, Request, Response};
+use crate::rpc::{Address, Message, Proposal, Response};
 use crate::tcp;
 use crate::{
     config::RaftConfig,
@@ -40,7 +40,7 @@ impl Server {
         self,
         duration: Option<Duration>,
         fsm: T,
-        client_rx: UnboundedReceiver<(Request, oneshot::Sender<Result<Response>>)>,
+        client_rx: UnboundedReceiver<(Proposal, oneshot::Sender<Result<Response>>)>,
     ) -> Result<RaftHandle> {
         info!(self.log, "Using config"; "config" => format!("{:?}", self.config));
 
@@ -115,7 +115,7 @@ async fn event_loop(
     tcp_tx: UnboundedSender<Message>,
     mut rpc_rx: UnboundedReceiver<Message>,
     mut tcp_rx: UnboundedReceiver<Message>,
-    mut client_rx: UnboundedReceiver<(Request, oneshot::Sender<Result<Response>>)>,
+    mut client_rx: UnboundedReceiver<(Proposal, oneshot::Sender<Result<Response>>)>,
 ) -> Result<RaftHandle> {
     let mut step_interval = tokio::time::interval(TICK);
     let mut requests = HashMap::<Vec<u8>, oneshot::Sender<Result<Response>>>::new();
@@ -147,10 +147,10 @@ async fn event_loop(
                 }
             },
             // incoming messages from clients
-            Some((req, res)) = client_rx.recv() => {
+            Some((proposal, res)) = client_rx.recv() => {
                 let id = Uuid::new_v4().as_bytes().to_vec();
                 requests.insert(id.clone(), res);
-                raft = raft.apply(Command::ClientRequest { id, req, })?;
+                raft = raft.apply(Command::ClientRequest { id, proposal, })?;
             },
         }
     }

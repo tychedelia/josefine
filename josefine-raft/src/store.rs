@@ -4,7 +4,7 @@ use josefine_core::error::Result;
 pub trait Store : Default {
     fn append(&mut self, entry: Vec<u8>) -> Result<LogIndex>;
 
-    fn commit(&mut self, index: LogIndex) -> Result<()>;
+    fn commit(&mut self, index: LogIndex) -> Result<LogIndex>;
 
     fn committed(&self) -> LogIndex;
 
@@ -50,9 +50,9 @@ impl Store for MemoryStore {
         Ok(self.log.len() as LogIndex)
     }
 
-    fn commit(&mut self, index: LogIndex) -> Result<()> {
+    fn commit(&mut self, index: LogIndex) -> Result<LogIndex> {
         self.committed = index;
-        Ok(())
+        Ok(self.committed)
     }
 
     fn committed(&self) -> LogIndex {

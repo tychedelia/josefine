@@ -67,10 +67,6 @@ impl Apply for Raft<Candidate> {
             Command::Tick => {
                 if self.needs_election() {
                     return match self.role.election.election_status() {
-                        ElectionStatus::Elected => {
-                            error!(self.role.logger, "This should never happen.");
-                            Ok(RaftHandle::Leader(Raft::from(self)))
-                        }
                         ElectionStatus::Voting => {
                             info!(self.role.logger, "Election ended with missing votes");
                             self.state.voted_for = None;
@@ -83,6 +79,7 @@ impl Apply for Raft<Candidate> {
                             let raft: Raft<Follower> = Raft::from(self);
                             Ok(raft.apply(Command::Timeout)?)
                         }
+                        _ => panic!("this should never happen")
                     };
                 }
 
@@ -158,7 +155,6 @@ impl Apply for Raft<Candidate> {
                         "Received higher term, transitioning to follower"
                     );
                     let raft: Raft<Follower> = Raft::from(self);
-                    //                    raft.io.heartbeat(leader_id);
                     return Ok(RaftHandle::Follower(raft));
                 }
 
@@ -194,7 +190,7 @@ impl From<Raft<Candidate>> for Raft<Leader> {
         let mut nodes: Vec<NodeId> = val.config.nodes.iter().map(|x| x.id).collect();
         nodes.push(val.id);
         let progress = ReplicationProgress::new(nodes);
-        Raft {
+        let mut leader =Raft {
             id: val.id,
             state: val.state,
             role: Leader {
@@ -208,7 +204,10 @@ impl From<Raft<Candidate>> for Raft<Leader> {
             log: val.log,
             rpc_tx: val.rpc_tx,
             fsm_tx: val.fsm_tx,
-        }
+        };
+
+        // run any transition specific logic
+        leader.on_transition().unwrap()
     }
 }
 

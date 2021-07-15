@@ -15,7 +15,7 @@ use crate::store::MemoryStore;
 use crate::{
     candidate::Candidate,
     fsm::{self, Fsm},
-    rpc::Request,
+    rpc::Proposal,
 };
 use crate::{config::RaftConfig, rpc::Response};
 
@@ -86,8 +86,16 @@ pub enum Command {
     Heartbeat {
         /// The term of the node sending a heartbeat.
         term: Term,
+        /// The commited index
+        commit_index: LogIndex,
         /// The id of the node sending a heartbeat.
         leader_id: NodeId,
+    },
+    HeartbeatResponse {
+        /// The leader's commit index
+        commit_index: LogIndex,
+        /// Whether this node needs replication of committed entries
+        has_committed: bool,
     },
     /// Timeout on an event (i.e. election).
     Timeout,
@@ -96,7 +104,7 @@ pub enum Command {
     // Service a client request
     ClientRequest {
         id: Vec<u8>,
-        req: Request,
+        proposal: Proposal,
     },
     // Respond to a client.
     // this is a bit weird, since this isn't ever applied to a raft node, but received and proxied by the server event loop
@@ -117,8 +125,7 @@ pub trait Role: Debug {
 #[derive(Serialize, PartialEq, Deserialize, Debug, Clone)]
 pub enum EntryType {
     Entry { data: Vec<u8> },
-    Config {},
-    Command { command: Command },
+    Control
 }
 
 /// An entry in the commit log.
@@ -217,8 +224,8 @@ pub struct Raft<T: Role> {
     pub log: Log<MemoryStore>,
     /// Channel to send messages to other nodes.
     pub rpc_tx: UnboundedSender<Message>,
-    /// Channel to send instructions to fsm driver.
-    pub fsm_tx: UnboundedSender<fsm::Instruction>,
+    /// Channel to send entries to fsm driver.
+    pub fsm_tx: UnboundedSender<Entry>,
 }
 
 // Base methods for general operations (+ debugging and testing).
@@ -290,7 +297,7 @@ impl RaftHandle {
         logger: Logger,
         config: RaftConfig,
         rpc_tx: UnboundedSender<Message>,
-        fsm_tx: UnboundedSender<fsm::Instruction>,
+        fsm_tx: UnboundedSender<Entry>,
     ) -> RaftHandle {
         let raft = Raft::new(config, logger, rpc_tx, fsm_tx);
         RaftHandle::Follower(raft.unwrap())

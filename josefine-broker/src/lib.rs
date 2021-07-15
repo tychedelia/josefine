@@ -10,10 +10,11 @@ use tokio::sync::oneshot;
 
 use josefine_core::error::Result;
 use josefine_raft::client::RaftClient;
-use josefine_raft::rpc::Request;
+use josefine_raft::rpc::Proposal;
 use josefine_raft::rpc::Response;
 use server::Broker;
 use server::Server;
+use sled::Db;
 
 mod entry;
 mod index;
@@ -23,12 +24,17 @@ mod segment;
 mod server;
 pub mod fsm;
 mod tcp;
+mod topic;
 
-pub struct JosefineBroker {}
+pub struct JosefineBroker {
+    db: &'static Db
+}
 
 impl JosefineBroker {
-    pub fn new() -> Self {
-        JosefineBroker {}
+    pub fn new(db: &'static Db) -> Self {
+        JosefineBroker {
+            db
+        }
     }
 
     pub async fn run(self, client: RaftClient) -> Result<()> {

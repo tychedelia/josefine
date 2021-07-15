@@ -25,7 +25,7 @@ use crate::raft::RaftHandle;
 
 use josefine_core::error::Result;
 use std::time::Duration;
-use rpc::{Request, Response};
+use rpc::{Proposal, Response};
 use tokio::sync::oneshot;
 use tokio::sync::mpsc::UnboundedReceiver;
 
@@ -71,11 +71,11 @@ impl JosefineRaft {
         Self::new(config)
     }
 
-    pub async fn run<T: 'static + fsm::Fsm>(self, fsm: T, client_rx: UnboundedReceiver<(Request, oneshot::Sender<Result<Response>>)>) -> Result<RaftHandle> {
+    pub async fn run<T: 'static + fsm::Fsm>(self, fsm: T, client_rx: UnboundedReceiver<(Proposal, oneshot::Sender<Result<Response>>)>) -> Result<RaftHandle> {
         self.server.run(None, fsm, client_rx).await
     }
 
-    pub async fn run_for<T: 'static + fsm::Fsm>(self, duration: Duration, fsm: T, client_rx: UnboundedReceiver<(Request, oneshot::Sender<Result<Response>>)>) -> Result<RaftHandle> {
+    pub async fn run_for<T: 'static + fsm::Fsm>(self, duration: Duration, fsm: T, client_rx: UnboundedReceiver<(Proposal, oneshot::Sender<Result<Response>>)>) -> Result<RaftHandle> {
         self.server.run(Some(duration), fsm, client_rx).await
     }
 }

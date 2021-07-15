@@ -18,7 +18,7 @@ use crate::raft::Term;
 use crate::raft::{Apply, NodeId, RaftHandle, RaftRole};
 use crate::rpc::Address;
 use crate::rpc::Message;
-use crate::rpc::Request;
+use crate::rpc::Proposal;
 use crate::{
     fsm,
     raft::LogIndex,
@@ -53,9 +53,31 @@ impl Raft<Leader> {
     pub(crate) fn heartbeat(&self) -> Result<()> {
         self.send_all(Command::Heartbeat {
             term: self.state.current_term,
+            commit_index: self.state.commit_index,
             leader_id: self.id,
         })?;
         Ok(())
+    }
+
+    pub(crate) fn on_transition(mut self) -> Result<Raft<Leader>> {
+        let term = self.state.current_term;
+        let next_index = self.log.next_index();
+        let entry = Entry { entry_type: EntryType::Control, term, index: next_index };
+        self.state.last_applied = self.log.append(entry)?;
+
+        let node_id = self.id;
+        let index = self.state.last_applied;
+        let raft = self.apply(Command::AppendResponse {
+            node_id,
+            term,
+            index,
+            success: true
+        })?;
+        if let RaftHandle::Leader(raft) = raft {
+            Ok(raft)
+        } else {
+            panic!("AppendResponse should never transition");
+        }
     }
 
     fn needs_heartbeat(&self) -> bool {
@@ -65,6 +87,7 @@ impl Raft<Leader> {
     fn reset_heartbeat_timer(&mut self) {
         self.role.heartbeat_time = Instant::now();
     }
+
 
     fn append(mut self, data: Vec<u8>) -> Result<RaftHandle> {
         let term = self.state.current_term;
@@ -79,17 +102,6 @@ impl Raft<Leader> {
 
         self.state.last_applied = index;
 
-        // self.rpc_tx.send(Message::new(
-        //     Address::Peer(self.id),
-        //     Address::Local,
-        //     Command::AppendResponse {
-        //         node_id: self.id,
-        //         term: self.state.current_term,
-        //         index: self.state.last_applied,
-        //         success: true,
-        //     },
-        // ))?;
-
         let node_id = self.id;
         self.apply(Command::AppendResponse {
             node_id,
@@ -99,25 +111,17 @@ impl Raft<Leader> {
         })
     }
 
-    fn query(mut self, data: Vec<u8>) -> Result<RaftHandle> {
-        // self.fsm_tx.send(fsm::Instruction::Query {
-        //
-        // });
-        unimplemented!()
-    }
-
     fn commit(&mut self) -> Result<LogIndex> {
         let quorum_idx = self.role.progress.committed_index();
         if quorum_idx > self.state.commit_index
             && self.log.check_term(quorum_idx, self.state.current_term)
         {
-            self.log.commit(quorum_idx)?;
             let prev = self.state.commit_index;
-            self.state.commit_index = quorum_idx;
+            self.state.commit_index = self.log.commit(quorum_idx)?;
             self.log
                 .get_range(prev, self.state.commit_index)?
                 .into_iter()
-                .for_each(|entry| self.fsm_tx.send(fsm::Instruction::Drive { entry }).unwrap());
+                .for_each(|entry| self.fsm_tx.send(entry).unwrap());
         }
 
         Ok(quorum_idx)
@@ -230,6 +234,9 @@ impl Apply for Raft<Leader> {
 
                 Ok(RaftHandle::Leader(self))
             }
+            Command::HeartbeatResponse { commit_index, has_committed } => {
+                Ok(RaftHandle::Leader(self))
+            }
             Command::AppendResponse { node_id, index, .. } => {
                 self.role.progress.advance(node_id, index);
                 self.commit()?;
@@ -244,11 +251,8 @@ impl Apply for Raft<Leader> {
 
                 Ok(RaftHandle::Leader(self))
             }
-            Command::ClientRequest { req, .. } => {
-                match req {
-                    Request::Propose(data) => self.append(data),
-                    Request::Query(data) => self.query(data),
-                }
+            Command::ClientRequest { proposal, .. } => {
+                self.append(proposal.get())
             }
             _ => Ok(RaftHandle::Leader(self)),
         }
@@ -277,9 +281,8 @@ impl From<Raft<Leader>> for Raft<Follower> {
 mod tests {
 
     use crate::{
-        fsm::Instruction,
         raft::{Apply, Command, EntryType, RaftHandle},
-        rpc::Request,
+        rpc::Proposal,
         test::new_follower,
     };
 
@@ -294,7 +297,7 @@ mod tests {
         let node = node
             .apply(Command::ClientRequest {
                 id: vec![1],
-                req: Request::Propose(vec![magic_number]),
+                proposal: Proposal(vec![magic_number]),
             })
             .unwrap();
         let node = node.apply(Command::Tick).unwrap();
@@ -303,11 +306,9 @@ mod tests {
             if let EntryType::Entry { data } = entry.entry_type {
                 assert_eq!(data, vec![magic_number]);
             }
-            let instruction = fsm_rx.blocking_recv().unwrap();
-            if let Instruction::Drive { entry } = instruction {
-                if let EntryType::Entry { data } = entry.entry_type {
-                    assert_eq!(data, vec![magic_number]);
-                }
+            let entry = fsm_rx.blocking_recv().unwrap();
+            if let EntryType::Entry { data } = entry.entry_type {
+                assert_eq!(data, vec![magic_number]);
             }
         } else {
             panic!()
