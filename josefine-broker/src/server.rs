@@ -20,6 +20,8 @@ use kafka_protocol::messages::create_topics_response::CreatableTopicResult;
 use uuid::Uuid;
 use std::convert::TryFrom;
 use bytes::Bytes;
+use slog::Logger;
+use josefine_core::logger::get_root_logger;
 
 pub struct Server {
     address: SocketAddr,
@@ -37,12 +39,14 @@ impl Server {
         client: RaftClient,
         broker: Broker,
     ) -> Result<()> {
+        let log = get_root_logger();
+        info!(log, "broker listening"; "address" => &self.address);
         let listener = TcpListener::bind(self.address).await?;
         let (in_tx, out_tx) = tokio::sync::mpsc::unbounded_channel();
         let (task, tcp_receiver) = tcp::receive_task(josefine_core::logger::get_root_logger().new(o!()), listener, in_tx).remote_handle();
         tokio::spawn(task);
 
-        let (task, handle_messages) = handle_messages(client, broker, out_tx).remote_handle();
+        let (task, handle_messages) = handle_messages(log.new(o!()), client, broker, out_tx).remote_handle();
         tokio::spawn(task);
         let (_, _) = tokio::try_join!(tcp_receiver, handle_messages)?;
         Ok(())
@@ -52,6 +56,7 @@ impl Server {
 async fn handle_messages(log: Logger, client: RaftClient, broker: Broker, mut out_tx: UnboundedReceiver<(RequestKind, oneshot::Sender<ResponseKind>)>) -> Result<()> {
     loop {
         let (msg, cb) = out_tx.recv().await.unwrap();
+        debug!(log, "received message"; "msg" => format!("{:?}", msg));
         match msg {
             RequestKind::ApiVersionsRequest(req) => {
                 let mut res = ApiVersionsResponse::default();
