@@ -39,13 +39,13 @@ impl From<std::io::Error> for ErrorKind {
 }
 
 impl From<DecodeError> for ErrorKind {
-    fn from(err: DecodeError) -> Self {
+    fn from(_err: DecodeError) -> Self {
         ErrorKind::DecodeError
     }
 }
 
 impl From<EncodeError> for ErrorKind {
-    fn from(err: EncodeError) -> Self {
+    fn from(_err: EncodeError) -> Self {
         ErrorKind::EncodeError
     }
 }
@@ -57,7 +57,7 @@ impl From<()> for ErrorKind {
 }
 
 impl From<NotEnoughBytesError> for ErrorKind {
-    fn from(err: NotEnoughBytesError) -> Self {
+    fn from(_err: NotEnoughBytesError) -> Self {
         ErrorKind::DecodeError
     }
 }

@@ -46,7 +46,7 @@ impl RaftConfig {
     pub fn config(config_path: &std::path::Path) -> RaftConfig {
         let mut settings = config::Config::default();
         settings
-            .merge(config::File::from(config_path.as_ref()))
+            .merge(config::File::from(config_path))
             .expect("Could not read configuration file")
             .merge(config::Environment::with_prefix("crate::raft"))
             .expect("Could not read environment variables");
@@ -133,7 +133,7 @@ impl Default for RaftConfig {
 fn resolve(host: &str) -> Option<IpAddr> {
     (host, 0)
         .to_socket_addrs()
-        .map(|iter| iter.map(|socket_address| socket_address.ip()).nth(0))
+        .map(|iter| iter.map(|socket_address| socket_address.ip()).next())
         .unwrap()
 }
 

@@ -7,10 +7,10 @@ pub mod raft;
 
 use futures::FutureExt;
 use crate::broker::JosefineBroker;
-use crate::error::{JosefineError, Result};
+use crate::error::{Result};
 use crate::raft::client::RaftClient;
 use sled::Db;
-use std::path::Path;
+
 use crate::raft::JosefineRaft;
 
 #[macro_use]
@@ -21,7 +21,7 @@ extern crate serde_derive;
 extern crate lazy_static;
 
 lazy_static! {
-    pub static ref DB: Db = { sled::open(tempfile::tempdir().unwrap().into_path()).unwrap() };
+    pub static ref DB: Db = sled::open(tempfile::tempdir().unwrap().into_path()).unwrap();
 }
 
 pub async fn josefine<P: AsRef<std::path::Path>>(config_path: P) -> Result<()> {

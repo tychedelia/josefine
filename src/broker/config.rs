@@ -19,6 +19,6 @@ impl Default for BrokerConfig {
 fn resolve(host: &str) -> Option<IpAddr> {
     (host, 0)
         .to_socket_addrs()
-        .map(|iter| iter.map(|socket_address| socket_address.ip()).nth(0))
+        .map(|iter| iter.map(|socket_address| socket_address.ip()).next())
         .unwrap()
 }

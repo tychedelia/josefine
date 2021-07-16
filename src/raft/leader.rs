@@ -5,21 +5,21 @@ use std::time::Instant;
 use crate::error::Result;
 use slog::Logger;
 
-use crate::raft::error::RaftError;
+
 use crate::raft::follower::Follower;
 use crate::raft::progress::{NodeProgress, MAX_INFLIGHT};
 use crate::raft::progress::ReplicationProgress;
 use crate::raft::{Command, Raft, LogIndex};
 use crate::raft::Entry;
 use crate::raft::EntryType;
-use crate::raft;
+
 use crate::raft::Role;
 use crate::raft::Term;
 use crate::raft::{Apply, NodeId, RaftHandle, RaftRole};
 use crate::raft::rpc::Address;
 use crate::raft::rpc::Message;
-use crate::raft::rpc::Proposal;
-use crate::raft::{fsm};
+
+
 
 ///
 #[derive(Debug)]

@@ -3,13 +3,13 @@ use std::fmt;
 use slog::Logger;
 use tokio::sync::mpsc;
 
-use crate::raft::Command;
+
 use crate::raft::Command::ClientResponse;
 use crate::{
     raft::{Entry, EntryType, LogIndex, rpc::{Address, Message, Response, self}},
 };
 use crate::error::Result;
-use std::collections::{BTreeMap, HashMap};
+
 
 pub trait Fsm: Send + Sync + fmt::Debug {
     fn transition(&mut self, data: Vec<u8>) -> Result<Vec<u8>>;
@@ -52,7 +52,7 @@ impl<T: Fsm> Driver<T> {
                     if let Some(id) = id {
                         self.rpc_tx.send(Message::new(Address::Local, Address::Client, ClientResponse {
                             id,
-                            res: res.map(|x| Response::new(x)),
+                            res: res.map(Response::new),
                         }))?;
                     }
                 }

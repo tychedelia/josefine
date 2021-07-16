@@ -18,7 +18,7 @@ use slog::Logger;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::sync::oneshot;
-use uuid::Uuid;
+
 
 use rpc::Response;
 
@@ -26,7 +26,6 @@ use crate::raft::error::RaftError;
 use crate::error::Result;
 use crate::raft::{
     candidate::Candidate,
-    fsm::Fsm,
     rpc::Proposal,
 };
 use crate::raft::config::RaftConfig;
@@ -325,13 +324,13 @@ impl<T: Role> Raft<T> {
 
     pub fn send(&self, to: Address, cmd: Command) -> Result<()> {
         let msg = Message::new(Address::Peer(self.id), to, cmd);
-        self.rpc_tx.send(msg).map_err(|err| RaftError::from(err))?;
+        self.rpc_tx.send(msg).map_err(RaftError::from)?;
         Ok(())
     }
 
     pub fn send_all(&self, cmd: Command) -> Result<()> {
         let msg = Message::new(Address::Peer(self.id), Address::Peers, cmd);
-        self.rpc_tx.send(msg).map_err(|err| RaftError::from(err))?;
+        self.rpc_tx.send(msg).map_err(RaftError::from)?;
         Ok(())
     }
 }

@@ -5,7 +5,7 @@ use crate::raft::rpc::{Address, Message, Proposal, Response};
 use crate::raft::tcp;
 use crate::raft::{
     config::RaftConfig,
-    fsm::{self, Fsm},
+    fsm::{self},
 };
 use futures::FutureExt;
 use crate::error::{JosefineError, Result};
@@ -132,8 +132,8 @@ async fn event_loop(
             // outgoing messages from raft
             Some(msg) = rpc_rx.recv() => {
                 match msg {
-                    Message { to: Address::Peer(_), .. } => tcp_tx.send(msg).map_err(|err| RaftError::from(err))?,
-                    Message { to: Address::Peers, ..  } => tcp_tx.send(msg).map_err(|err| RaftError::from(err))?,
+                    Message { to: Address::Peer(_), .. } => tcp_tx.send(msg).map_err(RaftError::from)?,
+                    Message { to: Address::Peers, ..  } => tcp_tx.send(msg).map_err(RaftError::from)?,
                     Message { to: Address::Local, .. } => raft = raft.apply(msg.command)?,
                     Message { to: Address::Client, command: Command::ClientResponse { id, res }, .. } => {
                         match requests.remove(&id) {

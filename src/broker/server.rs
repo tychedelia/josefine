@@ -2,18 +2,18 @@ use std::net::SocketAddr;
 
 use crate::error::Result;
 use tokio::net::TcpListener;
-use futures::{FutureExt, TryFutureExt};
+use futures::{FutureExt};
 
 use crate::broker::tcp;
 use kafka_protocol::messages::*;
 use kafka_protocol::protocol::{Message, StrBytes};
-use kafka_protocol::messages::api_versions_response::{ApiVersion, SupportedFeatureKey, FinalizedFeatureKey};
+use kafka_protocol::messages::api_versions_response::{ApiVersion};
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::oneshot;
-use kafka_protocol::messages::ResponseKind::ListOffsetsResponse;
+
 use kafka_protocol::messages::metadata_response::{MetadataResponseBroker, MetadataResponseTopic};
 use crate::raft::client::RaftClient;
-use crate::broker::fsm::{Transition, Query};
+use crate::broker::fsm::{Transition};
 use crate::broker::topic::Topic;
 use crate::broker::Broker;
 use kafka_protocol::messages::create_topics_response::CreatableTopicResult;
@@ -58,7 +58,7 @@ async fn handle_messages(log: Logger, client: RaftClient, broker: Broker, mut ou
         let (msg, cb) = out_tx.recv().await.unwrap();
         debug!(log, "received message"; "msg" => format!("{:?}", msg));
         match msg {
-            RequestKind::ApiVersionsRequest(req) => {
+            RequestKind::ApiVersionsRequest(_req) => {
                 let mut res = ApiVersionsResponse::default();
                 res.api_keys.insert(ApiKey::ProduceKey as i16, ApiVersion {
                     max_version: ProduceRequest::VERSIONS.max,
@@ -142,7 +142,7 @@ async fn handle_messages(log: Logger, client: RaftClient, broker: Broker, mut ou
                 });
                 cb.send(ResponseKind::ApiVersionsResponse(res)).unwrap();
             }
-            RequestKind::MetadataRequest(req) => {
+            RequestKind::MetadataRequest(_req) => {
                 let mut res = MetadataResponse::default();
                 res.brokers.insert(BrokerId(1), MetadataResponseBroker {
                     host: StrBytes::from_str("127.0.0.1"),
@@ -175,8 +175,8 @@ async fn handle_messages(log: Logger, client: RaftClient, broker: Broker, mut ou
                         // TODO
                     }
 
-                    let topic: Topic = bincode::deserialize(&client.propose(Transition::EnsureTopic(topic).serialize()?).await?)?;
-                    let mut res_topic = CreatableTopicResult::default();
+                    let _topic: Topic = bincode::deserialize(&client.propose(Transition::EnsureTopic(topic).serialize()?).await?)?;
+                    let res_topic = CreatableTopicResult::default();
 
                     res.topics.insert(name, res_topic);
                 }

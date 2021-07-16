@@ -16,7 +16,7 @@ pub struct Index {
 
 impl Index {
     pub fn new(path: PathBuf, base_offset: u64) -> Index {
-        let mut path = path.clone();
+        let mut path = path;
         path.push(format!("{}.index", base_offset));
         let file = OpenOptions::new()
             .read(true)

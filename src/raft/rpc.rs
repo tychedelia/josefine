@@ -1,5 +1,5 @@
-use crate::raft::{Command, NodeId, Term};
-use crate::error::Result;
+use crate::raft::{Command, NodeId};
+
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub enum Address {
@@ -22,7 +22,7 @@ pub struct Message {
 
 impl Message {
     pub fn new(from: Address, to: Address, command: Command) -> Message {
-        return Message { from, to, command };
+        Message { from, to, command }
     }
 }
 

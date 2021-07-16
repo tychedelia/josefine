@@ -13,7 +13,7 @@ use crate::raft::Command::VoteResponse;
 use crate::raft::{Apply, Entry, LogIndex, RaftHandle, RaftRole, Term};
 use crate::raft::{Command, NodeId, Raft, Role, State};
 use crate::raft::rpc::{Address, Message};
-use crate::raft::{candidate::Candidate, fsm};
+use crate::raft::{candidate::Candidate};
 use crate::error::Result;
 use tokio::sync::mpsc::UnboundedSender;
 
@@ -110,7 +110,7 @@ impl Apply for Raft<Follower> {
                                 success: true,
                             },
                         ))
-                        .map_err(|err| RaftError::from(err))?;
+                        .map_err(RaftError::from)?;
                 }
 
                 self.apply_self()

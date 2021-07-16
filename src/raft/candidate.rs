@@ -7,10 +7,10 @@ use crate::raft::election::{Election, ElectionStatus};
 use crate::raft::follower::Follower;
 use crate::raft::leader::Leader;
 use crate::raft::progress::ReplicationProgress;
-use crate::raft;
+
 use crate::raft::{Role, Raft};
 use crate::raft::{Apply, RaftHandle, RaftRole};
-use crate::raft::{Command, Node, NodeId};
+use crate::raft::{Command, NodeId};
 use crate::raft::rpc::Address;
 
 #[derive(Debug)]
@@ -195,7 +195,7 @@ impl From<Raft<Candidate>> for Raft<Leader> {
         let mut nodes: Vec<NodeId> = val.config.nodes.iter().map(|x| x.id).collect();
         nodes.push(val.id);
         let progress = ReplicationProgress::new(nodes);
-        let mut leader = Raft {
+        let leader = Raft {
             id: val.id,
             state: val.state,
             role: Leader {

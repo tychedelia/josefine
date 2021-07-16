@@ -1,14 +1,14 @@
 use std::convert::TryFrom;
-use std::io::Error;
 
-use bytes::{Buf, Bytes, BytesMut};
+
+use bytes::{BytesMut};
 use kafka_protocol::messages::api_versions_response::ApiVersionsResponse;
 use kafka_protocol::messages::{
     ApiKey, ApiVersionsRequest, CreateTopicsRequest, CreateTopicsResponse, MetadataRequest,
     MetadataResponse, RequestHeader, RequestKind, ResponseHeader, ResponseKind,
 };
 use kafka_protocol::protocol::buf::ByteBuf;
-use kafka_protocol::protocol::{Decodable, DecodeError, Encodable, EncodeError, HeaderVersion};
+use kafka_protocol::protocol::{Decodable, Encodable, HeaderVersion};
 use tokio_util::codec;
 
 use crate::kafka::error::ErrorKind;

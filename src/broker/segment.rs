@@ -20,14 +20,14 @@ pub struct Segment {
 
 impl Segment {
     pub fn new(path: PathBuf, base_offset: u64) -> Segment {
-        let mut path = path.clone();
+        let mut path = path;
         let index = Index::new(path.clone(), base_offset);
         path.push(Segment::log_name(base_offset));
         let log = OpenOptions::new()
             .read(true)
             .write(true)
             .create(true)
-            .open(path.clone())
+            .open(path)
             .expect("Couldn't create segment file.");
 
         Segment {

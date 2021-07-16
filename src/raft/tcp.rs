@@ -54,14 +54,14 @@ async fn stream_messages(
 
     while let Some(message) = stream.try_next().await? {
         trace!(log, "receive message"; "msg" => format!("{:?}", message));
-        in_tx.send(message).map_err(|err| RaftError::from(err))?;
+        in_tx.send(message).map_err(RaftError::from)?;
     }
     Ok(())
 }
 
 pub async fn send_task(
     log: Logger,
-    shutdown: tokio::sync::broadcast::Receiver<()>,
+    _shutdown: tokio::sync::broadcast::Receiver<()>,
     id: NodeId,
     nodes: Vec<Node>,
     out_rx: UnboundedReceiver<Message>,
@@ -265,7 +265,7 @@ mod stream {
         fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
             let stream = unsafe { Pin::map_unchecked_mut(self, |x| &mut x.0) };
 
-            stream.poll_accept(cx).map(|x| Some(x))
+            stream.poll_accept(cx).map(Some)
         }
     }
 }

@@ -1,5 +1,5 @@
 use crate::raft::Entry;
-use crate::raft::{fsm, rpc::Message};
+use crate::raft::{rpc::Message};
 use crate::error::JosefineError;
 
 #[derive(Debug, Serialize, Deserialize, Clone, Hash, PartialEq, PartialOrd)]
@@ -8,7 +8,7 @@ pub enum RaftError {
 }
 
 impl From<RaftError> for JosefineError {
-    fn from(err: RaftError) -> JosefineError {
+    fn from(_err: RaftError) -> JosefineError {
         unimplemented!()
     }
 }

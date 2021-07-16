@@ -1,7 +1,7 @@
 use crate::raft::LogIndex;
 use crate::error::Result;
 use std::fmt::Debug;
-use std::cmp::{min, max};
+
 
 pub trait Store: Default + Debug {
     fn append(&mut self, entry: Vec<u8>) -> Result<LogIndex>;

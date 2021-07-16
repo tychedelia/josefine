@@ -1,5 +1,5 @@
 use crate::raft::Term;
-use crate::raft::{EntryType, LogIndex};
+use crate::raft::{LogIndex};
 use crate::{raft::Entry, raft::store::Store};
 use crate::error::Result;
 use std::fmt::Debug;
@@ -24,11 +24,7 @@ impl<T: Store + Default> Log<T> {
 
     pub fn check_term(&self, index: LogIndex, term: Term) -> bool {
         if let Ok(Some(entry)) = self.get(index) {
-            if entry.term == term {
-                true
-            } else {
-                false
-            }
+            entry.term == term
         } else {
             false
         }
@@ -56,7 +52,7 @@ impl<T: Store + Default> Log<T> {
 
     pub fn get_range(&self, start: LogIndex, end: LogIndex) -> Result<Vec<Entry>> {
         let bytes = self.store.get_range(start, end)?;
-        bytes.iter().map(|x| Self::deserialize(&x)).collect()
+        bytes.iter().map(|x| Self::deserialize(x)).collect()
     }
 
     pub fn commit(&mut self, index: LogIndex) -> Result<LogIndex> {

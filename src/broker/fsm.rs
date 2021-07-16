@@ -1,4 +1,4 @@
-use crate::error::{Result, JosefineError};
+use crate::error::{Result};
 use crate::raft::fsm::Fsm;
 use crate::broker::topic::Topic;
 use std::collections::HashMap;
