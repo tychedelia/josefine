@@ -1,13 +1,20 @@
 pub mod config;
+pub mod error;
+pub mod logger;
+pub mod broker;
+pub mod kafka;
+pub mod raft;
 
 use futures::FutureExt;
-use josefine_broker::JosefineBroker;
-use josefine_core::error::{JosefineError, Result};
-use josefine_raft::client::RaftClient;
-use josefine_raft::JosefineRaft;
+use crate::broker::JosefineBroker;
+use crate::error::{JosefineError, Result};
+use crate::raft::client::RaftClient;
 use sled::Db;
 use std::path::Path;
+use crate::raft::JosefineRaft;
 
+#[macro_use]
+extern crate slog;
 #[macro_use]
 extern crate serde_derive;
 #[macro_use]
@@ -28,7 +35,7 @@ pub async fn josefine<P: AsRef<std::path::Path>>(config_path: P) -> Result<()> {
 
     let raft = JosefineRaft::with_config(config.raft);
     let (task, raft) = raft
-        .run(josefine_broker::fsm::JosefineFsm::new(&DB), client_rx)
+        .run(crate::broker::fsm::JosefineFsm::new(&DB), client_rx)
         .remote_handle();
     tokio::spawn(task);
     let (_, _) = tokio::try_join!(broker, raft)?;

@@ -1,5 +1,5 @@
-use josefine_raft::config::RaftConfig;
-use josefine_broker::config::BrokerConfig;
+use crate::raft::config::RaftConfig;
+use crate::broker::config::BrokerConfig;
 
 #[serde(default)]
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
