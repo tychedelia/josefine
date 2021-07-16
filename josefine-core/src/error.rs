@@ -8,9 +8,15 @@ pub enum JosefineError {
         file_path: String,
         error_msg: String,
     },
-    ApplyError { error_msg: String },
-    MessageError { error_msg: String },
-    Internal { error_msg: String },
+    ApplyError {
+        error_msg: String,
+    },
+    MessageError {
+        error_msg: String,
+    },
+    Internal {
+        error_msg: String,
+    },
 }
 
 impl From<std::io::Error> for JosefineError {
@@ -59,7 +65,7 @@ impl From<tokio::sync::oneshot::error::RecvError> for JosefineError {
     }
 }
 
-impl <T> From<tokio::sync::mpsc::error::SendError<T>> for JosefineError {
+impl<T> From<tokio::sync::mpsc::error::SendError<T>> for JosefineError {
     fn from(_: tokio::sync::mpsc::error::SendError<T>) -> Self {
         unimplemented!()
     }

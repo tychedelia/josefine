@@ -1,4 +1,3 @@
-use josefine_core::error::{JosefineError, Result};
 use crate::error::RaftError;
 use crate::logger::get_root_logger;
 use crate::raft::{Apply, Command, RaftHandle};
@@ -9,8 +8,8 @@ use crate::{
     fsm::{self, Fsm},
 };
 use futures::FutureExt;
+use josefine_core::error::{JosefineError, Result};
 use slog::Logger;
-use uuid::Uuid;
 use std::{collections::HashMap, net::SocketAddr};
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
@@ -19,6 +18,7 @@ use tokio::{
     net::TcpListener,
     sync::{mpsc::unbounded_channel, oneshot},
 };
+use uuid::Uuid;
 
 /// step duration
 const TICK: Duration = Duration::from_millis(100);
@@ -161,9 +161,9 @@ async fn event_loop(
 #[cfg(test)]
 mod tests {
     use crate::config::RaftConfig;
-    use josefine_core::error::Result;
     use crate::logger::get_root_logger;
     use crate::raft::RaftHandle;
+    use josefine_core::error::Result;
 
     use std::time::Duration;
     use tokio::sync::mpsc::{self, unbounded_channel};

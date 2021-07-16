@@ -1,4 +1,7 @@
-use std::{collections::{HashMap, VecDeque}, convert::TryInto};
+use std::{
+    collections::{HashMap, VecDeque},
+    convert::TryInto,
+};
 
 use crate::raft::{LogIndex, NodeId};
 
@@ -10,7 +13,7 @@ pub struct ReplicationProgress {
 impl ReplicationProgress {
     pub fn new(nodes: Vec<NodeId>) -> ReplicationProgress {
         assert!(!nodes.is_empty());
-        
+
         let mut progress = HashMap::new();
         for node_id in nodes {
             progress.insert(node_id, NodeProgress::Probe(Progress::new(node_id)));
@@ -26,11 +29,10 @@ impl ReplicationProgress {
         self.progress.get_mut(&node_id)
     }
 
-    
     pub fn remove(&mut self, node_id: NodeId) -> Option<NodeProgress> {
         self.progress.remove(&node_id)
     }
-    
+
     pub fn insert(&mut self, node_id: NodeId) {
         self.progress
             .insert(node_id, NodeProgress::Probe(Progress::new(node_id)));
@@ -48,7 +50,7 @@ impl ReplicationProgress {
             match progress {
                 NodeProgress::Probe(pr) => indices.push(pr.index),
                 NodeProgress::Replicate(pr) => indices.push(pr.index),
-                _ => panic!()
+                _ => panic!(),
             }
         }
 
@@ -74,33 +76,33 @@ impl NodeProgress {
         match self {
             NodeProgress::Probe(mut prog) => {
                 if prog.increment(idx) {
-                     Self::Replicate(Progress::from(prog))
+                    Self::Replicate(Progress::from(prog))
                 } else {
                     Self::Probe(prog)
                 }
-            },
-            NodeProgress::Replicate(mut prog) => { 
-                if prog.increment(idx)  {
+            }
+            NodeProgress::Replicate(mut prog) => {
+                if prog.increment(idx) {
                     Self::Replicate(prog)
                 } else {
                     Self::Probe(Progress::from(prog))
                 }
-            },
-            _ => panic!()
+            }
+            _ => panic!(),
         }
     }
 
     pub fn is_active(&self) -> bool {
         match self {
-            NodeProgress::Probe(prog) => prog.is_active(), 
+            NodeProgress::Probe(prog) => prog.is_active(),
             NodeProgress::Replicate(prog) => prog.is_active(),
             NodeProgress::Snapshot(prog) => prog.is_active(),
         }
     }
 
-pub fn index(&self) -> LogIndex{
+    pub fn index(&self) -> LogIndex {
         match self {
-            NodeProgress::Probe(prog) => prog.index, 
+            NodeProgress::Probe(prog) => prog.index,
             NodeProgress::Replicate(prog) => prog.index,
             NodeProgress::Snapshot(prog) => prog.index,
         }
@@ -228,7 +230,9 @@ impl From<Progress<Probe>> for Progress<Replicate> {
     fn from(progress: Progress<Probe>) -> Self {
         Progress {
             node_id: progress.node_id,
-            state: Replicate { inflight: VecDeque::with_capacity(MAX_INFLIGHT.try_into().unwrap()) }, 
+            state: Replicate {
+                inflight: VecDeque::with_capacity(MAX_INFLIGHT.try_into().unwrap()),
+            },
             active: progress.active,
             index: progress.index,
             next: progress.next,

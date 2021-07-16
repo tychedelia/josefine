@@ -1,6 +1,5 @@
 extern crate josefine_raft;
 
-use std::time::Duration;
 use josefine_core::error::Result;
 use josefine_raft::config::RaftConfig;
 use josefine_raft::raft::{Node, RaftHandle};
@@ -8,6 +7,7 @@ use josefine_raft::JosefineRaft;
 use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::thread::JoinHandle;
+use std::time::Duration;
 
 fn new_cluster(ids: Vec<u32>) -> Vec<JosefineRaft> {
     ids.iter()
@@ -33,7 +33,7 @@ fn new_cluster(ids: Vec<u32>) -> Vec<JosefineRaft> {
 
 #[derive(Debug)]
 struct IntegrationFsm {
-    state: Vec<u8>
+    state: Vec<u8>,
 }
 
 impl IntegrationFsm {

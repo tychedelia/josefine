@@ -11,29 +11,22 @@ use kafka_protocol::messages::api_versions_response::{ApiVersion, SupportedFeatu
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::oneshot;
 use kafka_protocol::messages::ResponseKind::ListOffsetsResponse;
-use kafka_protocol::messages::metadata_response::MetadataResponseBroker;
+use kafka_protocol::messages::metadata_response::{MetadataResponseBroker, MetadataResponseTopic};
 use josefine_raft::client::RaftClient;
 use crate::fsm::{Transition, Query};
 use crate::topic::Topic;
+use crate::broker::Broker;
+use kafka_protocol::messages::create_topics_response::CreatableTopicResult;
+use uuid::Uuid;
+use std::convert::TryFrom;
+use bytes::Bytes;
 
 pub struct Server {
-    address: String,
-}
-
-pub struct Broker {
-    id: u64,
-    host: String,
-    port: String,
-}
-
-impl Broker {
-    pub fn new(id: u64, host: String, port: String) -> Broker {
-        Broker { id, host, port }
-    }
+    address: SocketAddr,
 }
 
 impl Server {
-    pub fn new(address: String) -> Self {
+    pub fn new(address: SocketAddr) -> Self {
         Server {
             address,
         }
@@ -42,24 +35,23 @@ impl Server {
     pub async fn run(
         self,
         client: RaftClient,
+        broker: Broker,
     ) -> Result<()> {
-        let socket_addr: SocketAddr = self.address.parse()?;
-        let listener = TcpListener::bind(socket_addr).await?;
+        let listener = TcpListener::bind(self.address).await?;
         let (in_tx, out_tx) = tokio::sync::mpsc::unbounded_channel();
         let (task, tcp_receiver) = tcp::receive_task(josefine_core::logger::get_root_logger().new(o!()), listener, in_tx).remote_handle();
         tokio::spawn(task);
 
-        let (task, handle_messages) = handle_messages(client, out_tx).remote_handle();
+        let (task, handle_messages) = handle_messages(client, broker, out_tx).remote_handle();
         tokio::spawn(task);
         let (_, _) = tokio::try_join!(tcp_receiver, handle_messages)?;
         Ok(())
     }
 }
 
-async fn handle_messages(client: RaftClient, mut out_tx: UnboundedReceiver<(RequestKind, oneshot::Sender<ResponseKind>)>) -> Result<()> {
+async fn handle_messages(log: Logger, client: RaftClient, broker: Broker, mut out_tx: UnboundedReceiver<(RequestKind, oneshot::Sender<ResponseKind>)>) -> Result<()> {
     loop {
         let (msg, cb) = out_tx.recv().await.unwrap();
-        println!("got msg {:?}", msg);
         match msg {
             RequestKind::ApiVersionsRequest(req) => {
                 let mut res = ApiVersionsResponse::default();
@@ -144,32 +136,48 @@ async fn handle_messages(client: RaftClient, mut out_tx: UnboundedReceiver<(Requ
                     ..Default::default()
                 });
                 cb.send(ResponseKind::ApiVersionsResponse(res)).unwrap();
-            },
+            }
             RequestKind::MetadataRequest(req) => {
                 let mut res = MetadataResponse::default();
                 res.brokers.insert(BrokerId(1), MetadataResponseBroker {
                     host: StrBytes::from_str("127.0.0.1"),
                     port: 8844,
                     rack: None,
-                    unknown_tagged_fields: Default::default()
+                    unknown_tagged_fields: Default::default(),
                 });
                 res.controller_id = BrokerId(1);
                 res.cluster_id = Some(StrBytes::from_str("josefine"));
-                cb.send(ResponseKind::MetadataResponse(res)).unwrap()
-            },
-            RequestKind::CreateTopicsRequest(req) => {
-                for (name, _) in req.topics.iter() {
-                    // let topic = Topic { name: (*name).to_string() };
-                    //
-                    // let b= client.query(Query::GetTopic(topic.clone()).serialize()?).await?;
-                    // let t = bincode::deserialize::<Topic>(&b)?;
-                    // if t == topic {
-                    //     panic!()
-                    // }
-                    //
-                    // client.propose(Transition::EnsureTopic(topic).serialize()?);
+
+                let topics = broker.get_topics()?;
+                for (name, topic) in topics.into_iter() {
+                    let mut t = MetadataResponseTopic::default();
+                    t.topic_id = topic.id;
+                    let s = unsafe {
+                        // SAFETY: bytes are already checked by name
+                        StrBytes::from_utf8_unchecked(Bytes::from(name))
+                    };
+                    res.topics.insert(TopicName(s), t);
                 }
-                let res = CreateTopicsResponse::default();
+
+                cb.send(ResponseKind::MetadataResponse(res)).unwrap()
+            }
+            RequestKind::CreateTopicsRequest(req) => {
+                let mut res = CreateTopicsResponse::default();
+                for (name, _) in req.topics.into_iter() {
+                    let topic = Topic {
+                        id: Uuid::new_v4(),
+                        name: (*name).to_string(),
+                    };
+
+                    if broker.topic_exists(&name)? {
+                        // TODO
+                    }
+
+                    let topic: Topic = bincode::deserialize(&client.propose(Transition::EnsureTopic(topic).serialize()?).await?)?;
+                    let mut res_topic = CreatableTopicResult::default();
+
+                    res.topics.insert(name, res_topic);
+                }
                 cb.send(ResponseKind::CreateTopicsResponse(res)).unwrap();
             }
             _ => panic!()

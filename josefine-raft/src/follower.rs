@@ -5,15 +5,15 @@ use rand::Rng;
 use slog;
 use slog::Logger;
 
-use crate::{candidate::Candidate, fsm};
 use crate::config::RaftConfig;
 use crate::election::Election;
 use crate::error::RaftError;
 use crate::log::Log;
 use crate::raft::Command::VoteResponse;
-use crate::raft::{Apply, LogIndex, RaftHandle, RaftRole, Term, Entry};
+use crate::raft::{Apply, Entry, LogIndex, RaftHandle, RaftRole, Term};
 use crate::raft::{Command, NodeId, Raft, Role, State};
 use crate::rpc::{Address, Message};
+use crate::{candidate::Candidate, fsm};
 use josefine_core::error::Result;
 use tokio::sync::mpsc::UnboundedSender;
 
@@ -90,17 +90,27 @@ impl Apply for Raft<Follower> {
                     }
 
                     // confirm append
-                    self.rpc_tx.send(Message::new(Address::Peer(self.id), Address::Peer(leader_id), Command::AppendResponse {
-                        node_id: self.id,
-                        term: self.state.current_term,
-                        index: self.state.last_applied,
-                        success: true,
-                    })).map_err(|err| RaftError::from(err))?;
+                    self.rpc_tx
+                        .send(Message::new(
+                            Address::Peer(self.id),
+                            Address::Peer(leader_id),
+                            Command::AppendResponse {
+                                node_id: self.id,
+                                term: self.state.current_term,
+                                index: self.state.last_applied,
+                                success: true,
+                            },
+                        ))
+                        .map_err(|err| RaftError::from(err))?;
                 }
 
                 self.apply_self()
             }
-            Command::Heartbeat { leader_id, term, commit_index } => {
+            Command::Heartbeat {
+                leader_id,
+                term,
+                commit_index,
+            } => {
                 self.set_election_timeout();
                 self.role.leader_id = Some(leader_id);
                 self.state.voted_for = Some(leader_id);
@@ -112,7 +122,7 @@ impl Apply for Raft<Follower> {
                     self.state.commit_index = self.log.commit(commit_index)?;
                     let entries = self.log.get_range(prev + 1, commit_index)?;
                     for entry in entries {
-                        self.fsm_tx.send(entry )?;
+                        self.fsm_tx.send(entry)?;
                     }
                 }
 
@@ -208,9 +218,8 @@ impl Raft<Follower> {
 
     fn get_randomized_timeout(&self) -> Duration {
         let _prev_timeout = self.state.election_timeout;
-        let timeout = rand::thread_rng().gen_range(
-            self.state.min_election_timeout..self.state.max_election_timeout
-        );
+        let timeout = rand::thread_rng()
+            .gen_range(self.state.min_election_timeout..self.state.max_election_timeout);
         Duration::from_millis(timeout as u64)
     }
 

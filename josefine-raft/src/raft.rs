@@ -125,12 +125,14 @@ pub trait Role: Debug {
 #[derive(Serialize, PartialEq, Deserialize, Debug, Clone)]
 pub enum EntryType {
     Entry { data: Vec<u8> },
-    Control
+    Control,
 }
 
 /// An entry in the commit log.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Entry {
+    /// The request id (volatile)
+    pub id: Option<Vec<u8>>,
     /// The type of the entry
     pub entry_type: EntryType,
     /// The term of the entry.
@@ -304,15 +306,27 @@ impl RaftHandle {
     }
 
     pub fn is_follower(&self) -> bool {
-        if let Self::Follower(_) = self { true } else { false }
+        if let Self::Follower(_) = self {
+            true
+        } else {
+            false
+        }
     }
 
     pub fn is_candidate(&self) -> bool {
-        if let Self::Candidate(_) = self { true } else { false }
+        if let Self::Candidate(_) = self {
+            true
+        } else {
+            false
+        }
     }
 
     pub fn is_leader(&self) -> bool {
-        if let Self::Leader(_) = self { true } else { false }
+        if let Self::Leader(_) = self {
+            true
+        } else {
+            false
+        }
     }
 }
 

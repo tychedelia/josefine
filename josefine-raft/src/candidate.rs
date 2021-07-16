@@ -1,16 +1,16 @@
 use std::time::Instant;
 
-use slog::Logger;
 use josefine_core::error::Result;
+use slog::Logger;
 
 use crate::election::{Election, ElectionStatus};
 use crate::follower::Follower;
 use crate::leader::Leader;
 use crate::progress::ReplicationProgress;
-use crate::raft::{Command, Node, NodeId};
 use crate::raft::Raft;
 use crate::raft::Role;
 use crate::raft::{Apply, RaftHandle, RaftRole};
+use crate::raft::{Command, Node, NodeId};
 use crate::rpc::Address;
 
 #[derive(Debug)]
@@ -79,7 +79,7 @@ impl Apply for Raft<Candidate> {
                             let raft: Raft<Follower> = Raft::from(self);
                             Ok(raft.apply(Command::Timeout)?)
                         }
-                        _ => panic!("this should never happen")
+                        _ => panic!("this should never happen"),
                     };
                 }
 
@@ -190,7 +190,7 @@ impl From<Raft<Candidate>> for Raft<Leader> {
         let mut nodes: Vec<NodeId> = val.config.nodes.iter().map(|x| x.id).collect();
         nodes.push(val.id);
         let progress = ReplicationProgress::new(nodes);
-        let mut leader =Raft {
+        let mut leader = Raft {
             id: val.id,
             state: val.state,
             role: Leader {

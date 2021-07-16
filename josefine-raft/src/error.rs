@@ -1,6 +1,6 @@
-use josefine_core::error::JosefineError;
-use crate::{fsm, rpc::Message};
 use crate::raft::Entry;
+use crate::{fsm, rpc::Message};
+use josefine_core::error::JosefineError;
 
 #[derive(Debug, Serialize, Deserialize, Clone, Hash, PartialEq, PartialOrd)]
 pub enum RaftError {
@@ -20,7 +20,6 @@ impl From<tokio::sync::mpsc::error::SendError<Message>> for RaftError {
         }
     }
 }
-
 
 impl From<tokio::sync::mpsc::error::SendError<Entry>> for RaftError {
     fn from(err: tokio::sync::mpsc::error::SendError<Entry>) -> Self {

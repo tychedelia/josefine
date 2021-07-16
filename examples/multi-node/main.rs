@@ -14,5 +14,5 @@ pub async fn main() {
     p3.push("examples/multi-node/node-3.tom");
     let f3 = josefine::josefine(p3.as_path());
 
-    let (_, _, _ ) = tokio::try_join!(f1, f2, f3).unwrap();
+    let (_, _, _) = tokio::try_join!(f1, f2, f3).unwrap();
 }

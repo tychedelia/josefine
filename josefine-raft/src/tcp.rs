@@ -2,8 +2,8 @@ use crate::error::RaftError;
 use crate::raft::{Node, NodeId};
 use crate::rpc::{Address, Message};
 use futures::SinkExt;
-use std::collections::HashMap;
 use josefine_core::error::Result;
+use std::collections::HashMap;
 
 use slog::Logger;
 use tokio::net::{TcpListener, TcpStream};

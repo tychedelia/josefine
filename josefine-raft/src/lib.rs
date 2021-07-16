@@ -24,10 +24,11 @@ extern crate slog_term;
 use crate::raft::RaftHandle;
 
 use josefine_core::error::Result;
-use std::time::Duration;
 use rpc::{Proposal, Response};
-use tokio::sync::oneshot;
+use std::time::Duration;
 use tokio::sync::mpsc::UnboundedReceiver;
+use tokio::sync::oneshot;
+use crate::config::RaftConfig;
 
 mod candidate;
 mod election;
@@ -45,15 +46,15 @@ mod store;
 /// state machine.
 pub mod raft;
 
+pub mod client;
 /// Raft can be configured with a variety of options.
 pub mod config;
+pub mod fsm;
 mod logger;
 mod progress;
 mod server;
 mod tcp;
-pub mod fsm;
 mod test;
-pub mod client;
 
 pub struct JosefineRaft {
     server: server::Server,
@@ -66,16 +67,24 @@ impl JosefineRaft {
         }
     }
 
-    pub fn with_config<P: AsRef<std::path::Path>>(path: P) -> Self {
-        let config = config::RaftConfig::config(path.as_ref());
+    pub fn with_config(config: RaftConfig) -> Self {
         Self::new(config)
     }
 
-    pub async fn run<T: 'static + fsm::Fsm>(self, fsm: T, client_rx: UnboundedReceiver<(Proposal, oneshot::Sender<Result<Response>>)>) -> Result<RaftHandle> {
+    pub async fn run<T: 'static + fsm::Fsm>(
+        self,
+        fsm: T,
+        client_rx: UnboundedReceiver<(Proposal, oneshot::Sender<Result<Response>>)>,
+    ) -> Result<RaftHandle> {
         self.server.run(None, fsm, client_rx).await
     }
 
-    pub async fn run_for<T: 'static + fsm::Fsm>(self, duration: Duration, fsm: T, client_rx: UnboundedReceiver<(Proposal, oneshot::Sender<Result<Response>>)>) -> Result<RaftHandle> {
+    pub async fn run_for<T: 'static + fsm::Fsm>(
+        self,
+        duration: Duration,
+        fsm: T,
+        client_rx: UnboundedReceiver<(Proposal, oneshot::Sender<Result<Response>>)>,
+    ) -> Result<RaftHandle> {
         self.server.run(Some(duration), fsm, client_rx).await
     }
 }

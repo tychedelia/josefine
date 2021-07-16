@@ -1,11 +1,14 @@
 use std::convert::TryFrom;
 use std::io::Error;
 
-use bytes::{Bytes, BytesMut, Buf};
-use kafka_protocol::protocol::{Decodable, DecodeError, Encodable, EncodeError, HeaderVersion};
-use kafka_protocol::protocol::buf::ByteBuf;
-use kafka_protocol::messages::{ApiKey, RequestHeader, RequestKind, ResponseHeader, ResponseKind, ApiVersionsRequest, CreateTopicsRequest, MetadataRequest, MetadataResponse, CreateTopicsResponse};
+use bytes::{Buf, Bytes, BytesMut};
 use kafka_protocol::messages::api_versions_response::ApiVersionsResponse;
+use kafka_protocol::messages::{
+    ApiKey, ApiVersionsRequest, CreateTopicsRequest, CreateTopicsResponse, MetadataRequest,
+    MetadataResponse, RequestHeader, RequestKind, ResponseHeader, ResponseKind,
+};
+use kafka_protocol::protocol::buf::ByteBuf;
+use kafka_protocol::protocol::{Decodable, DecodeError, Encodable, EncodeError, HeaderVersion};
 use tokio_util::codec;
 
 use crate::error::ErrorKind;
@@ -20,7 +23,7 @@ impl KafkaServerCodec {
             length_codec: codec::LengthDelimitedCodec::builder()
                 .max_frame_length(i32::MAX as usize)
                 .length_field_length(4)
-                .new_codec()
+                .new_codec(),
         }
     }
 
@@ -38,7 +41,7 @@ impl codec::Decoder for KafkaServerCodec {
         if let Some(mut bytes) = self.length_codec.decode(src)? {
             let version = Self::read_version(&mut bytes)?;
             let header = RequestHeader::decode(&mut bytes, version)?;
-            let api_key =  ApiKey::try_from(header.request_api_key)?;
+            let api_key = ApiKey::try_from(header.request_api_key)?;
             let request = decode(&mut bytes, api_key, version)?;
             Ok(Some((header, request)))
         } else {
@@ -50,16 +53,26 @@ impl codec::Decoder for KafkaServerCodec {
 impl codec::Encoder<(i16, ResponseHeader, ResponseKind)> for KafkaServerCodec {
     type Error = ErrorKind;
 
-    fn encode(&mut self, item: (i16, ResponseHeader, ResponseKind), dst: &mut BytesMut) -> Result<(), Self::Error> {
+    fn encode(
+        &mut self,
+        item: (i16, ResponseHeader, ResponseKind),
+        dst: &mut BytesMut,
+    ) -> Result<(), Self::Error> {
         let (version, header, response) = item;
         let mut bytes = BytesMut::new();
         encode(&mut bytes, header, response, version);
-        self.length_codec.encode(bytes.get_bytes(bytes.len()), dst)?;
+        self.length_codec
+            .encode(bytes.get_bytes(bytes.len()), dst)?;
         Ok(())
     }
 }
 
-fn encode(bytes: &mut BytesMut, header: ResponseHeader, response_kind: ResponseKind, version: i16) -> Result<(), ErrorKind> {
+fn encode(
+    bytes: &mut BytesMut,
+    header: ResponseHeader,
+    response_kind: ResponseKind,
+    version: i16,
+) -> Result<(), ErrorKind> {
     match response_kind {
         ResponseKind::ApiVersionsResponse(res) => {
             header.encode(bytes, ApiVersionsResponse::header_version(version))?;
@@ -73,7 +86,7 @@ fn encode(bytes: &mut BytesMut, header: ResponseHeader, response_kind: ResponseK
             header.encode(bytes, CreateTopicsResponse::header_version(version))?;
             res.encode(bytes, version);
         }
-        _ => return Err(ErrorKind::UnsupportedOperation)
+        _ => return Err(ErrorKind::UnsupportedOperation),
     };
 
     Ok(())
@@ -84,7 +97,7 @@ fn decode(bytes: &mut BytesMut, api_key: ApiKey, version: i16) -> Result<Request
         ApiKey::ApiVersionsKey => {
             let req = ApiVersionsRequest::decode(bytes, version)?;
             Ok(RequestKind::ApiVersionsRequest(req))
-        },
+        }
         ApiKey::MetadataKey => {
             let req = MetadataRequest::decode(bytes, version)?;
             Ok(RequestKind::MetadataRequest(req))
@@ -93,8 +106,6 @@ fn decode(bytes: &mut BytesMut, api_key: ApiKey, version: i16) -> Result<Request
             let req = CreateTopicsRequest::decode(bytes, version)?;
             Ok(RequestKind::CreateTopicsRequest(req))
         }
-        _ => {
-            Err(ErrorKind::UnsupportedOperation)
-        }
+        _ => Err(ErrorKind::UnsupportedOperation),
     }
 }

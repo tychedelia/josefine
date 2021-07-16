@@ -2,8 +2,8 @@ use std::io::Write;
 use std::time::Duration;
 use std::time::Instant;
 
-use slog::Logger;
 use josefine_core::error::Result;
+use slog::Logger;
 
 use crate::error::RaftError;
 use crate::follower::Follower;
@@ -19,10 +19,7 @@ use crate::raft::{Apply, NodeId, RaftHandle, RaftRole};
 use crate::rpc::Address;
 use crate::rpc::Message;
 use crate::rpc::Proposal;
-use crate::{
-    fsm,
-    raft::LogIndex,
-};
+use crate::{fsm, raft::LogIndex};
 
 ///
 #[derive(Debug)]
@@ -62,7 +59,12 @@ impl Raft<Leader> {
     pub(crate) fn on_transition(mut self) -> Result<Raft<Leader>> {
         let term = self.state.current_term;
         let next_index = self.log.next_index();
-        let entry = Entry { entry_type: EntryType::Control, term, index: next_index };
+        let entry = Entry {
+            id: None,
+            entry_type: EntryType::Control,
+            term,
+            index: next_index,
+        };
         self.state.last_applied = self.log.append(entry)?;
 
         let node_id = self.id;
@@ -71,7 +73,7 @@ impl Raft<Leader> {
             node_id,
             term,
             index,
-            success: true
+            success: true,
         })?;
         if let RaftHandle::Leader(raft) = raft {
             Ok(raft)
@@ -88,11 +90,11 @@ impl Raft<Leader> {
         self.role.heartbeat_time = Instant::now();
     }
 
-
-    fn append(mut self, data: Vec<u8>) -> Result<RaftHandle> {
+    fn append(mut self, id: Vec<u8>, data: Vec<u8>) -> Result<RaftHandle> {
         let term = self.state.current_term;
         let next_index = self.log.next_index();
         let entry = Entry {
+            id: Some(id),
             entry_type: EntryType::Entry { data },
             term,
             index: next_index,
@@ -172,17 +174,19 @@ impl Raft<Leader> {
                             .log
                             .get(progress.next)?
                             .expect("next entry didn't exist");
-                        self.rpc_tx.send(Message::new(
-                            Address::Peer(self.id),
-                            Address::Peer(node.id),
-                            Command::AppendEntries {
-                                term: self.state.current_term,
-                                leader_id: self.id,
-                                entries: vec![entry],
-                                prev_log_index,
-                                prev_log_term,
-                            },
-                        )).map_err(|err| RaftError::from(err))?;
+                        self.rpc_tx
+                            .send(Message::new(
+                                Address::Peer(self.id),
+                                Address::Peer(node.id),
+                                Command::AppendEntries {
+                                    term: self.state.current_term,
+                                    leader_id: self.id,
+                                    entries: vec![entry],
+                                    prev_log_index,
+                                    prev_log_term,
+                                },
+                            ))
+                            .map_err(|err| RaftError::from(err))?;
                     }
                     NodeProgress::Replicate(progress) => {
                         if !progress.next > progress.index {
@@ -197,17 +201,19 @@ impl Raft<Leader> {
                             .log
                             .get(progress.index)?
                             .expect("previous entry did not exist!");
-                        self.rpc_tx.send(Message::new(
-                            Address::Peer(self.id),
-                            Address::Peer(node.id),
-                            Command::AppendEntries {
-                                term,
-                                leader_id: self.id,
-                                entries,
-                                prev_log_index: prev.index,
-                                prev_log_term: prev.term,
-                            },
-                        )).map_err(|err| RaftError::from(err))?;
+                        self.rpc_tx
+                            .send(Message::new(
+                                Address::Peer(self.id),
+                                Address::Peer(node.id),
+                                Command::AppendEntries {
+                                    term,
+                                    leader_id: self.id,
+                                    entries,
+                                    prev_log_index: prev.index,
+                                    prev_log_term: prev.term,
+                                },
+                            ))
+                            .map_err(|err| RaftError::from(err))?;
                     }
                     _ => {}
                 }
@@ -234,7 +240,13 @@ impl Apply for Raft<Leader> {
 
                 Ok(RaftHandle::Leader(self))
             }
-            Command::HeartbeatResponse { commit_index, has_committed } => {
+            Command::HeartbeatResponse {
+                commit_index,
+                has_committed,
+            } => {
+                if !has_committed && commit_index != 0 {
+                    self.replicate();
+                }
                 Ok(RaftHandle::Leader(self))
             }
             Command::AppendResponse { node_id, index, .. } => {
@@ -251,9 +263,7 @@ impl Apply for Raft<Leader> {
 
                 Ok(RaftHandle::Leader(self))
             }
-            Command::ClientRequest { proposal, .. } => {
-                self.append(proposal.get())
-            }
+            Command::ClientRequest { id, proposal, .. } => self.append(id, proposal.get()),
             _ => Ok(RaftHandle::Leader(self)),
         }
     }
@@ -297,7 +307,7 @@ mod tests {
         let node = node
             .apply(Command::ClientRequest {
                 id: vec![1],
-                proposal: Proposal(vec![magic_number]),
+                proposal: Proposal::new(vec![magic_number]),
             })
             .unwrap();
         let node = node.apply(Command::Tick).unwrap();

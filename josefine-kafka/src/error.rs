@@ -1,14 +1,14 @@
-use std::fmt::{Display, Formatter};
-use std::error::Error;
-use kafka_protocol::protocol::{DecodeError, EncodeError};
 use kafka_protocol::protocol::buf::NotEnoughBytesError;
+use kafka_protocol::protocol::{DecodeError, EncodeError};
+use std::error::Error;
+use std::fmt::{Display, Formatter};
 
 #[derive(Debug)]
 pub enum ErrorKind {
     DecodeError,
     EncodeError,
     UnsupportedOperation,
-    IoError(std::io::Error)
+    IoError(std::io::Error),
 }
 
 impl Display for ErrorKind {
@@ -16,13 +16,13 @@ impl Display for ErrorKind {
         match self {
             ErrorKind::DecodeError => {
                 writeln!(f, "Error decoding message")
-            },
+            }
             ErrorKind::EncodeError => {
                 writeln!(f, "Error encoding message")
-            },
+            }
             ErrorKind::UnsupportedOperation => {
                 writeln!(f, "Unsupported API")
-            },
+            }
             ErrorKind::IoError(err) => {
                 writeln!(f, "IoError: {}", err)
             }
@@ -30,9 +30,7 @@ impl Display for ErrorKind {
     }
 }
 
-impl Error for ErrorKind {
-
-}
+impl Error for ErrorKind {}
 
 impl From<std::io::Error> for ErrorKind {
     fn from(err: std::io::Error) -> Self {

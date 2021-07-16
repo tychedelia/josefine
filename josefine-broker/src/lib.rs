@@ -12,9 +12,11 @@ use josefine_core::error::Result;
 use josefine_raft::client::RaftClient;
 use josefine_raft::rpc::Proposal;
 use josefine_raft::rpc::Response;
-use server::Broker;
 use server::Server;
 use sled::Db;
+use crate::broker::Broker;
+use crate::config::BrokerConfig;
+use std::net::SocketAddr;
 
 mod entry;
 mod index;
@@ -25,20 +27,23 @@ mod server;
 pub mod fsm;
 mod tcp;
 mod topic;
+mod broker;
+pub mod config;
 
 pub struct JosefineBroker {
-    db: &'static Db
+    config: BrokerConfig
 }
 
 impl JosefineBroker {
-    pub fn new(db: &'static Db) -> Self {
+    pub fn with_config(config: BrokerConfig) -> Self {
         JosefineBroker {
-            db
+            config
         }
     }
 
-    pub async fn run(self, client: RaftClient) -> Result<()> {
-        let server = Server::new("127.0.0.1:8844".to_string());
-        server.run(client).await
+    pub async fn run(self, client: RaftClient, db: &'static Db) -> Result<()> {
+        let socket_addr = SocketAddr::new(self.config.ip, self.config.port);
+        let server = Server::new(socket_addr);
+        server.run(client, Broker::new(db)).await
     }
 }

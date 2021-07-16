@@ -1,7 +1,7 @@
-use crate::{raft::LogIndex};
+use crate::raft::LogIndex;
 use josefine_core::error::Result;
 
-pub trait Store : Default {
+pub trait Store: Default {
     fn append(&mut self, entry: Vec<u8>) -> Result<LogIndex>;
 
     fn commit(&mut self, index: LogIndex) -> Result<LogIndex>;
@@ -21,7 +21,7 @@ pub trait Store : Default {
     fn is_empty(&self) -> bool {
         self.len() == 0
     }
-    
+
     fn next_index(&self) -> LogIndex {
         self.len() + 1
     }
@@ -34,7 +34,10 @@ pub struct MemoryStore {
 
 impl MemoryStore {
     pub fn new() -> Self {
-        Self { log: Vec::new(), committed: 0 }
+        Self {
+            log: Vec::new(),
+            committed: 0,
+        }
     }
 }
 
@@ -87,18 +90,24 @@ impl Store for MemoryStore {
 mod tests {
     use super::*;
 
-
     #[test]
     fn append() {
         let mut store = MemoryStore::new();
-        store.append(vec![1, 2, 3, 4]).expect("was unable to append");
+        store
+            .append(vec![1, 2, 3, 4])
+            .expect("was unable to append");
     }
 
     #[test]
     fn get() {
         let mut store = MemoryStore::new();
-        store.append(vec![1, 2, 3, 4]).expect("was unable to append");
-        let res = store.get(1).expect("was unable to get").expect("index did not exist");
+        store
+            .append(vec![1, 2, 3, 4])
+            .expect("was unable to append");
+        let res = store
+            .get(1)
+            .expect("was unable to get")
+            .expect("index did not exist");
         assert_eq!(res, vec![1, 2, 3, 4]);
     }
 }

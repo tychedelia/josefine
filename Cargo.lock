@@ -452,12 +452,15 @@ name = "josefine"
 version = "0.0.1"
 dependencies = [
  "clap",
+ "config",
  "futures",
  "futures-util",
  "josefine-broker",
  "josefine-core",
  "josefine-raft",
  "lazy_static",
+ "serde 1.0.126",
+ "serde_derive",
  "sled",
  "slog",
  "slog-async",
@@ -472,6 +475,7 @@ version = "0.0.1"
 dependencies = [
  "bincode",
  "byteorder",
+ "bytes",
  "futures",
  "josefine-core",
  "josefine-kafka",
@@ -487,6 +491,7 @@ dependencies = [
  "tokio",
  "tokio-stream",
  "tokio-util",
+ "uuid",
 ]
 
 [[package]]
@@ -557,7 +562,7 @@ dependencies = [
 [[package]]
 name = "kafka_protocol"
 version = "0.1.0"
-source = "git+https://github.com/0x1991babe/kafka-protocol-rs?branch=main#1df828a4d81f957b20c3bbdef1250d297983cbab"
+source = "git+https://github.com/0x1991babe/kafka-protocol-rs?branch=main#7b645ff076c2a17bc3db5b91d69fa1932a3a4870"
 dependencies = [
  "bytes",
  "crc",
@@ -1347,6 +1352,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bc5cf98d8186244414c848017f0e2676b3fcb46807f6668a97dfe67359a3c4b7"
 dependencies = [
  "getrandom",
+ "serde 1.0.126",
 ]
 
 [[package]]

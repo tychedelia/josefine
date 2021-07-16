@@ -3,14 +3,15 @@ use std::fmt;
 use slog::Logger;
 use tokio::sync::mpsc;
 
-use josefine_core::error::Result;
+use crate::raft::Command;
+use crate::raft::Command::ClientResponse;
+use crate::rpc::{Address, Message, Response};
 use crate::{
     raft::{Entry, EntryType, LogIndex},
     rpc,
 };
-use crate::rpc::{Message, Address, Response};
-use crate::raft::Command;
-use std::collections::{HashMap, BTreeMap};
+use josefine_core::error::Result;
+use std::collections::{BTreeMap, HashMap};
 
 pub trait Fsm: Send + Sync + fmt::Debug {
     fn transition(&mut self, data: Vec<u8>) -> Result<Vec<u8>>;
@@ -23,6 +24,7 @@ pub struct Driver<T: Fsm> {
     applied_idx: LogIndex,
     fsm: T,
 }
+
 impl<T: Fsm> Driver<T> {
     pub fn new(
         logger: Logger,
@@ -46,7 +48,15 @@ impl<T: Fsm> Driver<T> {
                 _ = shutdown.recv() => break,
 
                 Some(entry) = self.fsm_rx.recv() => {
-                    self.exec(entry).await?;
+                    let id = entry.id.clone();
+                    let res = self.exec(entry).await;
+
+                    if let Some(id) = id {
+                        self.rpc_tx.send(Message::new(Address::Local, Address::Client, ClientResponse {
+                            id,
+                            res: res.map(|x| Response::new(x)),
+                        }))?;
+                    }
                 }
             }
         }
@@ -54,12 +64,13 @@ impl<T: Fsm> Driver<T> {
         Ok(self.fsm)
     }
 
-    pub async fn exec(&mut self, entry: Entry) -> Result<()> {
+    pub async fn exec(&mut self, entry: Entry) -> Result<Vec<u8>> {
         debug!(self.logger, "exec"; "entry" => format!("{:?}", &entry));
         if let EntryType::Entry { data } = entry.entry_type {
-            self.fsm.transition(data)?;
+            return self.fsm.transition(data);
         }
-        Ok(())
+
+        Ok(vec![])
     }
 }
 
@@ -70,11 +81,13 @@ mod test {
     use crate::error::RaftError;
 
     use super::*;
+
     #[derive(Debug, PartialEq, Eq, Clone, Copy)]
     enum TestState {
         A,
         B,
     }
+
     #[derive(Debug, PartialEq, Eq, Clone)]
     struct TestFsm {
         state: TestState,
@@ -110,13 +123,15 @@ mod test {
         let driver = Driver::new(crate::logger::get_root_logger().new(o!()), rx, rpc_tx, fsm);
 
         let (shutdown_tx, shutdown_rx) = tokio::sync::broadcast::channel(1);
-        tx.send( Entry {
-                entry_type: crate::raft::EntryType::Entry {
-                    data: "B".as_bytes().to_owned(),
-                },
-                term: 0,
-                index: 0,
-            }).map_err(|err| RaftError::from(err))?;
+        tx.send(Entry {
+            id: None,
+            entry_type: crate::raft::EntryType::Entry {
+                data: "B".as_bytes().to_owned(),
+            },
+            term: 0,
+            index: 0,
+        })
+        .map_err(|err| RaftError::from(err))?;
 
         let (join, _) = tokio::join!(
             tokio::spawn(driver.run(shutdown_rx)),

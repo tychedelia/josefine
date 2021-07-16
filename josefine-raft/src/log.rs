@@ -1,19 +1,21 @@
-use crate::{raft::Entry, store::Store};
-use crate::raft::{EntryType, LogIndex};
 use crate::raft::Term;
+use crate::raft::{EntryType, LogIndex};
+use crate::{raft::Entry, store::Store};
 use josefine_core::error::Result;
 
 pub struct Log<T: Store + Default> {
     store: T,
 }
 
-impl <T: Store + Default> Default for Log<T> {
+impl<T: Store + Default> Default for Log<T> {
     fn default() -> Self {
-        Log { store: T::default() }
+        Log {
+            store: T::default(),
+        }
     }
 }
 
-impl <T: Store + Default> Log<T> {
+impl<T: Store + Default> Log<T> {
     pub fn new() -> Self {
         Default::default()
     }
@@ -32,13 +34,13 @@ impl <T: Store + Default> Log<T> {
 
     pub fn get(&self, index: LogIndex) -> Result<Option<Entry>> {
         if index == 0 {
-            return Ok(None)
+            return Ok(None);
         }
 
         let bytes = self.store.get(index)?;
         if let Some(bytes) = bytes {
             let entry = Self::deserialize(&bytes)?;
-            return Ok(Some(entry))
+            return Ok(Some(entry));
         }
 
         Ok(None)
@@ -46,15 +48,13 @@ impl <T: Store + Default> Log<T> {
 
     pub fn append(&mut self, entry: Entry) -> Result<LogIndex> {
         let bytes = Self::serialize(entry)?;
-        let index = self.store.append( bytes)?;
+        let index = self.store.append(bytes)?;
         Ok(index)
     }
 
     pub fn get_range(&self, start: LogIndex, end: LogIndex) -> Result<Vec<Entry>> {
         let bytes = self.store.get_range(start, end)?;
-        bytes.iter()
-            .map(|x| Self::deserialize(&x))
-            .collect()
+        bytes.iter().map(|x| Self::deserialize(&x)).collect()
     }
 
     pub fn commit(&mut self, index: LogIndex) -> Result<LogIndex> {
@@ -78,7 +78,7 @@ impl <T: Store + Default> Log<T> {
         Ok(bytes)
     }
 
-    fn deserialize(bytes: &[u8]) -> Result<Entry> { 
+    fn deserialize(bytes: &[u8]) -> Result<Entry> {
         let entry = serde_json::from_slice(bytes)?;
         Ok(entry)
     }

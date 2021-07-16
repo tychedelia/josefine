@@ -1,6 +1,8 @@
 use clap::App;
 use clap::Arg;
 use josefine;
+use josefine::config::config;
+use std::path::Path;
 
 #[tokio::main(flavor = "multi_thread", worker_threads = 3)]
 async fn main() {
@@ -19,5 +21,5 @@ async fn main() {
         .get_matches();
 
     let config_path = matches.value_of("config").unwrap();
-    josefine::josefine(config_path).await.unwrap();
+    josefine::josefine(Path::new(&config_path)).await.unwrap();
 }

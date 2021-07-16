@@ -24,13 +24,16 @@ members = [
 josefine-broker= { version = "0.0.1", path = "josefine-broker" }
 josefine-raft = { version = "0.0.1", path = "josefine-raft" }
 josefine-core = { version = "0.0.1", path = "josefine-core" }
-sled = "~0.34.6"
-tempfile = "3"
-lazy_static = "~1.4.0"
-slog = "2.4.1"
-slog-async = "2.3.0"
-slog-term = "2.4.0"
-clap = "2.32.0"
-futures = "~0.3.4"
-futures-util = "~0.3.4"
-tokio = { version = "~1.8.0", features = ["macros", "net", "io-util", "time", "sync", "rt", "rt-multi-thread"] }
+sled = "0.34.6"
+tempfile = "3.2.0"
+lazy_static = "1.4.0"
+config = "~0.10.1"
+serde = "~1.0.91"
+serde_derive = "~1.0.91"
+slog = "2.7.0"
+slog-async = "2.6.0"
+slog-term = "2.8.0"
+clap = "2.33.3"
+futures = "0.3.15"
+futures-util = "0.3.15"
+tokio = { version = "1.8.1", features = ["macros", "net", "io-util", "time", "sync", "rt", "rt-multi-thread"] }

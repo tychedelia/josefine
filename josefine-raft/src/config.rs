@@ -6,7 +6,7 @@ use std::time::Duration;
 use crate::raft::Node;
 use crate::raft::NodeId;
 
-use josefine_core::error::{Result, JosefineError};
+use josefine_core::error::{JosefineError, Result};
 
 #[serde(default)]
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -48,7 +48,7 @@ impl RaftConfig {
         settings
             .merge(config::File::from(config_path.as_ref()))
             .expect("Could not read configuration file")
-            .merge(config::Environment::with_prefix("JOSEFINE"))
+            .merge(config::Environment::with_prefix("JOSEFINE_RAFT"))
             .expect("Could not read environment variables");
 
         settings.try_into().expect("Could not create configuration")

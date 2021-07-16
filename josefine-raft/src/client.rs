@@ -1,17 +1,15 @@
-use tokio::sync::mpsc::UnboundedSender;
 use crate::rpc::{Proposal, Response};
+use josefine_core::error::{JosefineError, Result};
+use tokio::sync::mpsc::UnboundedSender;
 use tokio::sync::oneshot;
-use josefine_core::error::{Result, JosefineError};
 
 pub struct RaftClient {
-    request_tx: UnboundedSender<(Proposal, oneshot::Sender<Result<Response>>)>
+    request_tx: UnboundedSender<(Proposal, oneshot::Sender<Result<Response>>)>,
 }
 
 impl RaftClient {
     /// Creates a new Raft client.
-    pub fn new(
-        request_tx: UnboundedSender<(Proposal, oneshot::Sender<Result<Response>>)>,
-    ) -> Self {
+    pub fn new(request_tx: UnboundedSender<(Proposal, oneshot::Sender<Result<Response>>)>) -> Self {
         Self { request_tx }
     }
 
@@ -24,9 +22,6 @@ impl RaftClient {
 
     /// Proposes a state transition to the Raft state machine.
     pub async fn propose(&self, command: Vec<u8>) -> Result<Vec<u8>> {
-        match self.request(Proposal(command)).await? {
-            Response::State(response) => Ok(response),
-            resp => Err(JosefineError::Internal { error_msg: format!("Unexpected Raft mutate response {:?}", resp) }),
-        }
+        Ok(self.request(Proposal::new(command)).await?.get())
     }
 }
