@@ -46,25 +46,28 @@ impl Index {
         self.write_at(bytes.as_ref(), e.offset);
     }
 
-    // pub fn read_entry(&self, offset: usize) -> Entry {
-    //     let bytes = &self.mmap[offset..offset + 16];
-    //     let mut entry = Entry::from(bytes);
-    //     entry.offset += self.base_offset;
-    //     entry
-    // }
+    #[allow(dead_code)]
+    pub fn read_entry(&self, offset: usize) -> Entry {
+        let bytes = &self.mmap[offset..offset + 16];
+        let mut entry = Entry::from(bytes);
+        entry.offset += self.base_offset;
+        entry
+    }
 
-    // pub fn find_entry(&self, offset: u64) -> Option<Entry> {
-    //     let idx = self
-    //         .mmap
-    //         .windows(16)
-    //         .position(|x| Entry::from(x).offset == offset)?;
-    //     let entry = Entry::from(&self.mmap[idx..idx + 16]);
-    //     Some(entry)
-    // }
+    #[allow(dead_code)]
+    pub fn find_entry(&self, offset: u64) -> Option<Entry> {
+        let idx = self
+            .mmap
+            .windows(16)
+            .position(|x| Entry::from(x).offset == offset)?;
+        let entry = Entry::from(&self.mmap[idx..idx + 16]);
+        Some(entry)
+    }
 
-    // pub fn sync(&self) {
-    //     self.mmap.flush().unwrap();
-    // }
+    #[allow(dead_code)]
+    pub fn sync(&self) {
+        self.mmap.flush().unwrap();
+    }
 }
 
 #[cfg(test)]
@@ -78,7 +81,6 @@ mod tests {
     use std::io::SeekFrom;
 
     use crate::broker::entry::Entry;
-    use crate::entry::Entry;
 
     fn before() {
         let mut path = env::temp_dir();

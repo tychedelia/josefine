@@ -39,7 +39,7 @@ impl IntegrationFsm {
     }
 }
 
-impl crate::raft::fsm::Fsm for IntegrationFsm {
+impl josefine::raft::fsm::Fsm for IntegrationFsm {
     fn transition(&mut self, mut input: Vec<u8>) -> Result<Vec<u8>> {
         self.state.append(&mut input);
         Ok(vec![])

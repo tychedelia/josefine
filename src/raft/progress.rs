@@ -252,7 +252,7 @@ pub struct PendingReplication {
 
 #[cfg(test)]
 mod tests {
-    use crate::progress::{NodeProgress, ReplicationProgress};
+    use crate::raft::progress::{NodeProgress, ReplicationProgress};
 
     #[test]
     fn starts_active() {
@@ -270,7 +270,7 @@ mod tests {
 
     #[test]
     fn increments_to_higher() {
-        let mut progress = NodeProgress::new(0);
+        let progress = NodeProgress::new(0);
         let progress = progress.advance(666);
         assert!(progress.is_active());
         assert_eq!(progress.index(), 666);

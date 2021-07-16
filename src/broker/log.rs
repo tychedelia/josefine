@@ -1,11 +1,12 @@
 use std::io::Error;
 use std::io::Read;
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::{PathBuf, Path};
 
 use std::sync::RwLock;
 
 use crate::broker::segment::Segment;
+use std::fs;
 
 pub struct Log {
     path: PathBuf,
@@ -15,17 +16,18 @@ pub struct Log {
 }
 
 impl Log {
-    // pub fn new(path: &Path) -> Log {
-    //     fs::create_dir_all(&path).expect("Couldn't create log dir");
-    //     let segment = Segment::new(path.to_owned(), 0);
-    //     let segments = vec![segment];
-    //     Log {
-    //         path: path.to_owned(),
-    //         segments,
-    //         active_segment: 0,
-    //         rwlock: RwLock::new(255),
-    //     }
-    // }
+    #[allow(dead_code)]
+    pub fn new(path: &Path) -> Log {
+        fs::create_dir_all(&path).expect("Couldn't create log dir");
+        let segment = Segment::new(path.to_owned(), 0);
+        let segments = vec![segment];
+        Log {
+            path: path.to_owned(),
+            segments,
+            active_segment: 0,
+            rwlock: RwLock::new(255),
+        }
+    }
 
     fn newest_offset(&self) -> u64 {
         self.segments[self.active_segment].next_offset

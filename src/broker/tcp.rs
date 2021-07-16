@@ -60,8 +60,10 @@ async fn stream_messages(
         })?;
         let version = header.request_api_version;
         let correlation_id = header.correlation_id;
-        let mut header = ResponseHeader::default();
-        header.correlation_id = correlation_id;
+        let header = ResponseHeader {
+            correlation_id,
+            ..Default::default()
+        };
         stream_out
             .send((version, header, res))
             .await

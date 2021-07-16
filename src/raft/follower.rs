@@ -266,12 +266,10 @@ impl From<Raft<Follower>> for Raft<Candidate> {
 
 #[cfg(test)]
 mod tests {
-
-    use crate::test::new_follower;
-
-    use super::Apply;
     use super::Command;
     use super::RaftHandle;
+    use crate::raft::test::new_follower;
+    use crate::raft::Apply;
 
     #[test]
     fn follower_to_leader_single_node_cluster() {

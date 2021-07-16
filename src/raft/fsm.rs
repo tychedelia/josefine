@@ -73,7 +73,7 @@ impl<T: Fsm> Driver<T> {
 mod test {
     use tokio::sync::mpsc::unbounded_channel;
 
-    use crate::error::RaftError;
+    use crate::raft::error::RaftError;
 
     use super::*;
 
@@ -114,7 +114,7 @@ mod test {
         let fsm = TestFsm::new();
 
         let (tx, rx) = unbounded_channel();
-        let (rpc_tx, rpc_rx) = unbounded_channel();
+        let (rpc_tx, _rpc_rx) = unbounded_channel();
         let driver = Driver::new(crate::logger::get_root_logger().new(o!()), rx, rpc_tx, fsm);
 
         let (shutdown_tx, shutdown_rx) = tokio::sync::broadcast::channel(1);

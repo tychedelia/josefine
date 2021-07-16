@@ -172,7 +172,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     async fn event_loop() -> Result<()> {
         let (rpc_tx, rpc_rx) = mpsc::unbounded_channel();
-        let (fsm_tx, fsm_rx) = unbounded_channel();
+        let (fsm_tx, _fsm_rx) = unbounded_channel();
         let raft = RaftHandle::new(
             get_root_logger().new(o!()),
             RaftConfig::default(),
@@ -182,7 +182,7 @@ mod tests {
 
         let (_tcp_in_tx, tcp_in_rx) = mpsc::unbounded_channel();
         let (tcp_out_tx, _tcp_out_rx) = mpsc::unbounded_channel();
-        let (client_tx, client_rx) = tokio::sync::mpsc::unbounded_channel();
+        let (_client_tx, client_rx) = tokio::sync::mpsc::unbounded_channel();
         let (shutdown_tx, _shutdown_rx) = tokio::sync::broadcast::channel(1);
         let event_loop = super::event_loop(
             get_root_logger().new(o!()),

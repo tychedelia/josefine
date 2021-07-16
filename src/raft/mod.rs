@@ -365,27 +365,16 @@ impl RaftHandle {
     }
 
     pub fn is_follower(&self) -> bool {
-        if let Self::Follower(_) = self {
-            true
-        } else {
-            false
-        }
+        matches!(self, Self::Follower(_))
     }
 
     pub fn is_candidate(&self) -> bool {
-        if let Self::Candidate(_) = self {
-            true
-        } else {
-            false
-        }
+        matches!(self, Self::Candidate(_))
+
     }
 
     pub fn is_leader(&self) -> bool {
-        if let Self::Leader(_) = self {
-            true
-        } else {
-            false
-        }
+        matches!(self, Self::Leader(_))
     }
 }
 

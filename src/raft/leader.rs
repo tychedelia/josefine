@@ -285,9 +285,9 @@ impl From<Raft<Leader>> for Raft<Follower> {
 mod tests {
     use crate::{
         raft::{Apply, Command, EntryType, RaftHandle},
-        rpc::Proposal,
-        test::new_follower,
+        raft::rpc::Proposal,
     };
+    use crate::raft::test::new_follower;
 
     #[test]
     fn apply_entry_single_node() {

@@ -208,8 +208,10 @@ async fn handle_messages(
 
                 let topics = broker.get_topics()?;
                 for (name, topic) in topics.into_iter() {
-                    let mut t = MetadataResponseTopic::default();
-                    t.topic_id = topic.id;
+                    let t = MetadataResponseTopic {
+                        topic_id: topic.id,
+                        ..Default::default()
+                    };
                     let s = StrBytes::try_from(Bytes::from(name)).unwrap();
                     res.topics.insert(TopicName(s), t);
                 }

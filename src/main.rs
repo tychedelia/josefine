@@ -1,6 +1,5 @@
 use clap::App;
 use clap::Arg;
-use josefine;
 use std::path::Path;
 
 #[tokio::main(flavor = "multi_thread", worker_threads = 3)]
