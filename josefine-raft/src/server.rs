@@ -134,6 +134,7 @@ async fn event_loop(
                 match msg {
                     Message { to: Address::Peer(_), .. } => tcp_tx.send(msg).map_err(|err| RaftError::from(err))?,
                     Message { to: Address::Peers, ..  } => tcp_tx.send(msg).map_err(|err| RaftError::from(err))?,
+                    Message { to: Address::Local, .. } => raft = raft.apply(msg.command)?,
                     Message { to: Address::Client, command: Command::ClientResponse { id, res }, .. } => {
                         match requests.remove(&id) {
                             Some(tx) => tx.send(res).expect("the channel was dropped"),

@@ -69,17 +69,14 @@ impl Raft<Leader> {
 
         let node_id = self.id;
         let index = self.state.last_applied;
-        let raft = self.apply(Command::AppendResponse {
+        self.send(Address::Local, Command::AppendResponse {
             node_id,
             term,
             index,
             success: true,
         })?;
-        if let RaftHandle::Leader(raft) = raft {
-            Ok(raft)
-        } else {
-            panic!("AppendResponse should never transition");
-        }
+
+        Ok(self)
     }
 
     fn needs_heartbeat(&self) -> bool {
@@ -160,20 +157,21 @@ impl Raft<Leader> {
 
                 match &mut progress {
                     NodeProgress::Probe(progress) => {
-                        if !progress.next > progress.index {
-                            continue;
-                        }
-
                         let prev = self.log.get(progress.index)?;
                         let (prev_log_index, prev_log_term) = if let Some(prev) = prev {
                             (prev.index, prev.term)
                         } else {
                             (0, 0)
                         };
-                        let entry = self
-                            .log
-                            .get(progress.next)?
-                            .expect("next entry didn't exist");
+
+                        let entries = if let Some(entry) = self.log.get(progress.next)? {
+                            vec![entry]
+                        } else {
+                            vec![]
+                        };
+
+                        trace!(self.role.logger, "replicating to peer"; "peer" => progress.node_id, "entries" => format!("{:?}", entries));
+
                         self.rpc_tx
                             .send(Message::new(
                                 Address::Peer(self.id),
@@ -181,26 +179,23 @@ impl Raft<Leader> {
                                 Command::AppendEntries {
                                     term: self.state.current_term,
                                     leader_id: self.id,
-                                    entries: vec![entry],
+                                    entries,
                                     prev_log_index,
                                     prev_log_term,
                                 },
-                            ))
-                            .map_err(|err| RaftError::from(err))?;
+                            ))?;
                     }
                     NodeProgress::Replicate(progress) => {
-                        if !progress.next > progress.index {
-                            continue;
-                        }
-
                         let term = self.state.current_term;
                         let start = progress.next;
                         let end = progress.next + crate::progress::MAX_INFLIGHT;
                         let entries = self.log.get_range(start, end)?;
-                        let prev = self
-                            .log
-                            .get(progress.index)?
+                        // this is safe b/c replicate ensures we've set at least one entry
+                        let prev = self.log.get(progress.index)?
                             .expect("previous entry did not exist!");
+
+                        trace!(self.role.logger, "replicating to peer"; "peer" => progress.node_id, "entries" => format!("{:?}", entries));
+
                         self.rpc_tx
                             .send(Message::new(
                                 Address::Peer(self.id),
@@ -212,8 +207,7 @@ impl Raft<Leader> {
                                     prev_log_index: prev.index,
                                     prev_log_term: prev.term,
                                 },
-                            ))
-                            .map_err(|err| RaftError::from(err))?;
+                            ))?;
                     }
                     _ => {}
                 }
@@ -244,7 +238,7 @@ impl Apply for Raft<Leader> {
                 commit_index,
                 has_committed,
             } => {
-                if !has_committed && commit_index != 0 {
+                if !has_committed && commit_index > 0 {
                     self.replicate();
                 }
                 Ok(RaftHandle::Leader(self))
@@ -289,7 +283,6 @@ impl From<Raft<Leader>> for Raft<Follower> {
 
 #[cfg(test)]
 mod tests {
-
     use crate::{
         raft::{Apply, Command, EntryType, RaftHandle},
         rpc::Proposal,

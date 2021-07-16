@@ -164,7 +164,7 @@ impl Progress<Probe> {
             state: Probe { paused: false },
             active: false,
             index: 0,
-            next: 0,
+            next: 1,
         }
     }
 

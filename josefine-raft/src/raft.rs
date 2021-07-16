@@ -252,8 +252,9 @@ impl<T: Role> Raft<T> {
         match cmd {
             Command::Tick => {}
             Command::Heartbeat { .. } => {}
+            Command::HeartbeatResponse { .. } => {}
             _ => {
-                debug!(self.role.log(), ""; "role_state" => format!("{:?}", self.role), "state" => format!("{:?}", self.state), "cmd" => format!("{:?}", cmd))
+                trace!(self.role.log(), ""; "role_state" => format!("{:?}", self.role), "state" => format!("{:?}", self.state), "cmd" => format!("{:?}", cmd))
             }
         };
     }

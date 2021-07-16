@@ -53,7 +53,7 @@ async fn stream_messages(
     );
 
     while let Some(message) = stream.try_next().await? {
-        info!(log, "receive message"; "msg" => format!("{:?}", message));
+        trace!(log, "receive message"; "msg" => format!("{:?}", message));
         in_tx.send(message).map_err(|err| RaftError::from(err))?;
     }
     Ok(())

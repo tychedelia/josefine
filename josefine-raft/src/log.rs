@@ -2,8 +2,10 @@ use crate::raft::Term;
 use crate::raft::{EntryType, LogIndex};
 use crate::{raft::Entry, store::Store};
 use josefine_core::error::Result;
+use std::fmt::Debug;
 
-pub struct Log<T: Store + Default> {
+#[derive(Debug)]
+pub struct Log<T: Store + Default + Debug> {
     store: T,
 }
 

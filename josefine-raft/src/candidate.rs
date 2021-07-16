@@ -87,9 +87,14 @@ impl Apply for Raft<Candidate> {
             }
             Command::VoteRequest {
                 candidate_id,
-                term: _,
+                term,
                 ..
             } => {
+                if term > self.state.current_term {
+                    self.term(term);
+                    return Ok(RaftHandle::Follower(Raft::from(self)))
+                }
+
                 self.send(
                     Address::Peer(candidate_id),
                     Command::VoteResponse {

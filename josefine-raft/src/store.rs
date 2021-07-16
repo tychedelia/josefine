@@ -1,7 +1,9 @@
 use crate::raft::LogIndex;
 use josefine_core::error::Result;
+use std::fmt::Debug;
+use std::cmp::{min, max};
 
-pub trait Store: Default {
+pub trait Store: Default + Debug {
     fn append(&mut self, entry: Vec<u8>) -> Result<LogIndex>;
 
     fn commit(&mut self, index: LogIndex) -> Result<LogIndex>;
@@ -27,6 +29,7 @@ pub trait Store: Default {
     }
 }
 
+#[derive(Debug)]
 pub struct MemoryStore {
     log: Vec<Vec<u8>>,
     committed: LogIndex,
@@ -48,7 +51,7 @@ impl Default for MemoryStore {
 }
 
 impl Store for MemoryStore {
-    fn append(&mut self, entry: Vec<u8>) -> Result<u64> {
+    fn append(&mut self, entry: Vec<u8>) -> Result<LogIndex> {
         self.log.push(entry);
         Ok(self.log.len() as LogIndex)
     }
@@ -63,8 +66,20 @@ impl Store for MemoryStore {
     }
 
     fn get(&self, index: LogIndex) -> Result<Option<Vec<u8>>> {
-        assert!(index != 0);
+        assert_ne!(index, 0);
         Ok(self.log.get(index as usize - 1).cloned())
+    }
+
+    fn get_range(&self, start: LogIndex, end: LogIndex) -> Result<Vec<Vec<u8>>> {
+        let mut entries = Vec::new();
+        for n in start..end {
+            if let Some(n) = n.checked_sub(1) {
+                if let Some(entry) = self.get(n)? {
+                    entries.push(entry);
+                }
+            }
+        }
+        Ok(entries)
     }
 
     fn len(&self) -> LogIndex {
@@ -78,11 +93,6 @@ impl Store for MemoryStore {
     fn truncate(&mut self, index: u64) -> Result<LogIndex> {
         self.log.truncate(index as usize);
         Ok(self.len())
-    }
-
-    fn get_range(&self, start: LogIndex, end: LogIndex) -> Result<Vec<Vec<u8>>> {
-        let entries = self.log.get(start as usize..end as usize).unwrap();
-        Ok(entries.to_vec())
     }
 }
 

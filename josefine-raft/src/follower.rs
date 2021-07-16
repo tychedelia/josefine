@@ -75,9 +75,18 @@ impl Apply for Raft<Follower> {
                 }
 
                 // If we don't have a log at prev index and term, respond false
-                if !self.log.check_term(prev_log_index, prev_log_term) {
-                    // self.nodes[&leader_id];
-                    // let _ = Message::new(self.state.current_term, self.id, false);
+                if prev_log_index != 0 && !self.log.check_term(prev_log_index, prev_log_term) {
+                    self.rpc_tx
+                        .send(Message::new(
+                            Address::Peer(self.id),
+                            Address::Peer(leader_id),
+                                Command::AppendResponse {
+                                    node_id: self.id,
+                                    term: self.state.current_term,
+                                    index: self.state.last_applied,
+                                    success: false,
+                                }
+                        ))?;
                     return self.apply_self();
                 }
 
@@ -112,6 +121,7 @@ impl Apply for Raft<Follower> {
                 commit_index,
             } => {
                 self.set_election_timeout();
+                self.term(term);
                 self.role.leader_id = Some(leader_id);
                 self.state.voted_for = Some(leader_id);
 

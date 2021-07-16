@@ -18,10 +18,10 @@ use crate::topic::Topic;
 use crate::broker::Broker;
 use kafka_protocol::messages::create_topics_response::CreatableTopicResult;
 use uuid::Uuid;
-use std::convert::TryFrom;
 use bytes::Bytes;
 use slog::Logger;
 use josefine_core::logger::get_root_logger;
+use string::TryFrom;
 
 pub struct Server {
     address: SocketAddr,
@@ -157,10 +157,7 @@ async fn handle_messages(log: Logger, client: RaftClient, broker: Broker, mut ou
                 for (name, topic) in topics.into_iter() {
                     let mut t = MetadataResponseTopic::default();
                     t.topic_id = topic.id;
-                    let s = unsafe {
-                        // SAFETY: bytes are already checked by name
-                        StrBytes::from_utf8_unchecked(Bytes::from(name))
-                    };
+                    let s = StrBytes::try_from(Bytes::from(name)).unwrap();
                     res.topics.insert(TopicName(s), t);
                 }
 

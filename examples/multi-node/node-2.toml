@@ -3,11 +3,11 @@ id = 2
 ip = "127.0.0.1"
 port = 6668
 
-[[nodes]]
+[[raft.nodes]]
 id = 1
 addr = "127.0.0.1:6669"
 
-[[nodes]]
+[[raft.nodes]]
 id = 3
 addr = "127.0.0.1:6667"
 
