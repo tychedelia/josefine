@@ -65,24 +65,25 @@ impl Store for MemoryStore {
     }
 
     fn get(&self, index: LogIndex) -> Result<Option<Vec<u8>>> {
-        assert_ne!(index, 0);
+        if index == 0 {
+            return Ok(None)
+        }
+
         Ok(self.log.get(index as usize - 1).cloned())
     }
 
     fn get_range(&self, start: LogIndex, end: LogIndex) -> Result<Vec<Vec<u8>>> {
         let mut entries = Vec::new();
-        for n in start..end {
-            if let Some(n) = n.checked_sub(1) {
-                if let Some(entry) = self.get(n)? {
-                    entries.push(entry);
-                }
+        for n in start..end + 1 {
+            if let Some(entry) = self.get(n)? {
+                entries.push(entry);
             }
         }
         Ok(entries)
     }
 
     fn len(&self) -> LogIndex {
-        self.committed
+        self.log.len() as LogIndex
     }
 
     fn size(&self) -> u64 {
@@ -118,5 +119,19 @@ mod tests {
             .expect("was unable to get")
             .expect("index did not exist");
         assert_eq!(res, vec![1, 2, 3, 4]);
+    }
+
+    #[test]
+    fn get_range() {
+        let mut store = MemoryStore::new();
+        store.append(vec![1]).unwrap();
+        store.append(vec![2]).unwrap();
+        store.append(vec![3]).unwrap();
+        store.append(vec![4]).unwrap();
+        let res = store.get_range(0, 3).unwrap();
+        for (i, r) in res.iter().enumerate() {
+            assert_eq!(r[0], (i+1) as u8);
+        }
+
     }
 }

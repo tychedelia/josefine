@@ -100,7 +100,6 @@ impl Raft<Leader> {
         assert_eq!(next_index, index);
 
         self.state.last_applied = index;
-
         let node_id = self.id;
         self.apply(Command::AppendResponse {
             node_id,
@@ -120,7 +119,9 @@ impl Raft<Leader> {
             self.log
                 .get_range(prev, self.state.commit_index)?
                 .into_iter()
-                .for_each(|entry| self.fsm_tx.send(entry).unwrap());
+                .for_each(|entry| {
+                    self.fsm_tx.send(entry).unwrap();
+                });
         }
 
         Ok(quorum_idx)
@@ -244,6 +245,7 @@ impl Apply for Raft<Leader> {
                 Ok(RaftHandle::Leader(self))
             }
             Command::AppendResponse { node_id, index, .. } => {
+                println!("\n\n\n2\n\n\n");
                 self.role.progress.advance(node_id, index);
                 self.commit()?;
                 Ok(RaftHandle::Leader(self))

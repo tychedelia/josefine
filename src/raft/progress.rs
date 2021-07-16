@@ -141,7 +141,6 @@ impl<T: ProgressState> Progress<T> {
         if self.next < index + 1 {
             self.next = index + 1;
         }
-
         updated
     }
 }
