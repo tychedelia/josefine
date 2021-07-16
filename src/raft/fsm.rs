@@ -3,13 +3,12 @@ use std::fmt;
 use slog::Logger;
 use tokio::sync::mpsc;
 
-
-use crate::raft::Command::ClientResponse;
-use crate::{
-    raft::{Entry, EntryType, rpc::{Address, Message, Response, self}},
-};
 use crate::error::Result;
-
+use crate::raft::Command::ClientResponse;
+use crate::raft::{
+    rpc::{self, Address, Message, Response},
+    Entry, EntryType,
+};
 
 pub trait Fsm: Send + Sync + fmt::Debug {
     fn transition(&mut self, data: Vec<u8>) -> Result<Vec<u8>>;

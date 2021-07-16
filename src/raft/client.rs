@@ -1,5 +1,5 @@
+use crate::error::Result;
 use crate::raft::rpc::{Proposal, Response};
-use crate::error::{Result};
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::sync::oneshot;
 

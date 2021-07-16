@@ -1,7 +1,7 @@
-use sled::Db;
-use crate::error::Result;
-use std::collections::HashMap;
 use crate::broker::topic::Topic;
+use crate::error::Result;
+use sled::Db;
+use std::collections::HashMap;
 
 pub struct Broker {
     db: &'static Db,
@@ -9,9 +9,7 @@ pub struct Broker {
 
 impl Broker {
     pub fn new(db: &'static Db) -> Self {
-        Self {
-            db
-        }
+        Self { db }
     }
 
     pub fn topic_exists(&self, name: &str) -> Result<bool> {
@@ -25,7 +23,7 @@ impl Broker {
                     // TODO: unwrap
                     Ok(bincode::deserialize::<HashMap<String, Topic>>(&topics).unwrap())
                 }
-                None => Ok(HashMap::new())
+                None => Ok(HashMap::new()),
             }
         })?)
     }

@@ -1,6 +1,6 @@
-use crate::raft::Entry;
-use crate::raft::{rpc::Message};
 use crate::error::JosefineError;
+use crate::raft::rpc::Message;
+use crate::raft::Entry;
 
 #[derive(Debug, Serialize, Deserialize, Clone, Hash, PartialEq, PartialOrd)]
 pub enum RaftError {

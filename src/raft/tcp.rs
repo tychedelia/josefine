@@ -1,8 +1,8 @@
-use crate::raft::error::RaftError;
-use crate::raft::{Node, NodeId};
-use crate::raft::rpc::{Address, Message};
-use futures::SinkExt;
 use crate::error::Result;
+use crate::raft::error::RaftError;
+use crate::raft::rpc::{Address, Message};
+use crate::raft::{Node, NodeId};
+use futures::SinkExt;
 use std::collections::HashMap;
 
 use slog::Logger;

@@ -1,7 +1,6 @@
 use std::convert::TryFrom;
 
-
-use bytes::{BytesMut};
+use bytes::BytesMut;
 use kafka_protocol::messages::api_versions_response::ApiVersionsResponse;
 use kafka_protocol::messages::{
     ApiKey, ApiVersionsRequest, CreateTopicsRequest, CreateTopicsResponse, MetadataRequest,

@@ -77,8 +77,8 @@ mod tests {
     use std::io::Seek;
     use std::io::SeekFrom;
 
-    use crate::entry::Entry;
     use crate::broker::entry::Entry;
+    use crate::entry::Entry;
 
     fn before() {
         let mut path = env::temp_dir();

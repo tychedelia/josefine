@@ -5,21 +5,18 @@ use std::time::Instant;
 use crate::error::Result;
 use slog::Logger;
 
-
 use crate::raft::follower::Follower;
-use crate::raft::progress::{NodeProgress, MAX_INFLIGHT};
 use crate::raft::progress::ReplicationProgress;
-use crate::raft::{Command, Raft, LogIndex};
+use crate::raft::progress::{NodeProgress, MAX_INFLIGHT};
 use crate::raft::Entry;
 use crate::raft::EntryType;
+use crate::raft::{Command, LogIndex, Raft};
 
+use crate::raft::rpc::Address;
+use crate::raft::rpc::Message;
 use crate::raft::Role;
 use crate::raft::Term;
 use crate::raft::{Apply, NodeId, RaftHandle, RaftRole};
-use crate::raft::rpc::Address;
-use crate::raft::rpc::Message;
-
-
 
 ///
 #[derive(Debug)]
@@ -69,12 +66,15 @@ impl Raft<Leader> {
 
         let node_id = self.id;
         let index = self.state.last_applied;
-        self.send(Address::Local, Command::AppendResponse {
-            node_id,
-            term,
-            index,
-            success: true,
-        })?;
+        self.send(
+            Address::Local,
+            Command::AppendResponse {
+                node_id,
+                term,
+                index,
+                success: true,
+            },
+        )?;
 
         Ok(self)
     }
@@ -172,18 +172,17 @@ impl Raft<Leader> {
 
                         trace!(self.role.logger, "replicating to peer"; "peer" => progress.node_id, "entries" => format!("{:?}", entries));
 
-                        self.rpc_tx
-                            .send(Message::new(
-                                Address::Peer(self.id),
-                                Address::Peer(node.id),
-                                Command::AppendEntries {
-                                    term: self.state.current_term,
-                                    leader_id: self.id,
-                                    entries,
-                                    prev_log_index,
-                                    prev_log_term,
-                                },
-                            ))?;
+                        self.rpc_tx.send(Message::new(
+                            Address::Peer(self.id),
+                            Address::Peer(node.id),
+                            Command::AppendEntries {
+                                term: self.state.current_term,
+                                leader_id: self.id,
+                                entries,
+                                prev_log_index,
+                                prev_log_term,
+                            },
+                        ))?;
                     }
                     NodeProgress::Replicate(progress) => {
                         let term = self.state.current_term;
@@ -191,23 +190,24 @@ impl Raft<Leader> {
                         let end = progress.next + MAX_INFLIGHT;
                         let entries = self.log.get_range(start, end)?;
                         // this is safe b/c replicate ensures we've set at least one entry
-                        let prev = self.log.get(progress.index)?
+                        let prev = self
+                            .log
+                            .get(progress.index)?
                             .expect("previous entry did not exist!");
 
                         trace!(self.role.logger, "replicating to peer"; "peer" => progress.node_id, "entries" => format!("{:?}", entries));
 
-                        self.rpc_tx
-                            .send(Message::new(
-                                Address::Peer(self.id),
-                                Address::Peer(node.id),
-                                Command::AppendEntries {
-                                    term,
-                                    leader_id: self.id,
-                                    entries,
-                                    prev_log_index: prev.index,
-                                    prev_log_term: prev.term,
-                                },
-                            ))?;
+                        self.rpc_tx.send(Message::new(
+                            Address::Peer(self.id),
+                            Address::Peer(node.id),
+                            Command::AppendEntries {
+                                term,
+                                leader_id: self.id,
+                                entries,
+                                prev_log_index: prev.index,
+                                prev_log_term: prev.term,
+                            },
+                        ))?;
                     }
                     _ => {}
                 }

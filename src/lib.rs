@@ -1,14 +1,14 @@
+pub mod broker;
 pub mod config;
 pub mod error;
-pub mod logger;
-pub mod broker;
 pub mod kafka;
+pub mod logger;
 pub mod raft;
 
-use futures::FutureExt;
 use crate::broker::JosefineBroker;
-use crate::error::{Result};
+use crate::error::Result;
 use crate::raft::client::RaftClient;
+use futures::FutureExt;
 use sled::Db;
 
 use crate::raft::JosefineRaft;

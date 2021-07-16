@@ -1,7 +1,7 @@
-use crate::raft::Term;
-use crate::raft::{LogIndex};
-use crate::{raft::Entry, raft::store::Store};
 use crate::error::Result;
+use crate::raft::LogIndex;
+use crate::raft::Term;
+use crate::{raft::store::Store, raft::Entry};
 use std::fmt::Debug;
 
 #[derive(Debug)]

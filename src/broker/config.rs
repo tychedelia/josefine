@@ -11,7 +11,7 @@ impl Default for BrokerConfig {
     fn default() -> Self {
         Self {
             ip: resolve("localhost").unwrap_or_else(|| IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0))),
-            port: 8844
+            port: 8844,
         }
     }
 }

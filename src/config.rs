@@ -1,5 +1,5 @@
-use crate::raft::config::RaftConfig;
 use crate::broker::config::BrokerConfig;
+use crate::raft::config::RaftConfig;
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 #[serde(default)]

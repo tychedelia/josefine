@@ -1,10 +1,9 @@
 use tokio::sync::mpsc::{self, UnboundedReceiver};
 
-use crate::raft::{Entry, Raft};
 use crate::raft::{
-    config::RaftConfig, follower::Follower, fsm::Fsm, logger::get_root_logger,
-    rpc::Message,
+    config::RaftConfig, follower::Follower, fsm::Fsm, logger::get_root_logger, rpc::Message,
 };
+use crate::raft::{Entry, Raft};
 
 #[derive(Debug)]
 pub(crate) struct TestFsm {

@@ -8,10 +8,10 @@ use crate::raft::follower::Follower;
 use crate::raft::leader::Leader;
 use crate::raft::progress::ReplicationProgress;
 
-use crate::raft::{Role, Raft};
+use crate::raft::rpc::Address;
 use crate::raft::{Apply, RaftHandle, RaftRole};
 use crate::raft::{Command, NodeId};
-use crate::raft::rpc::Address;
+use crate::raft::{Raft, Role};
 
 #[derive(Debug)]
 pub struct Candidate {
@@ -86,13 +86,11 @@ impl Apply for Raft<Candidate> {
                 Ok(RaftHandle::Candidate(self))
             }
             Command::VoteRequest {
-                candidate_id,
-                term,
-                ..
+                candidate_id, term, ..
             } => {
                 if term > self.state.current_term {
                     self.term(term);
-                    return Ok(RaftHandle::Follower(Raft::from(self)))
+                    return Ok(RaftHandle::Follower(Raft::from(self)));
                 }
 
                 self.send(

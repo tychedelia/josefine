@@ -19,37 +19,33 @@ use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::sync::oneshot;
 
-
 use rpc::Response;
 
-use crate::raft::error::RaftError;
 use crate::error::Result;
-use crate::raft::{
-    candidate::Candidate,
-    rpc::Proposal,
-};
 use crate::raft::config::RaftConfig;
+use crate::raft::error::RaftError;
 use crate::raft::follower::Follower;
 use crate::raft::leader::Leader;
 use crate::raft::log::Log;
 use crate::raft::rpc::{Address, Message};
-use crate::raft::store::MemoryStore;
 use crate::raft::server::Server;
+use crate::raft::store::MemoryStore;
+use crate::raft::{candidate::Candidate, rpc::Proposal};
 
 mod candidate;
+pub mod client;
+pub mod config;
 mod election;
 pub mod error;
 mod follower;
+pub mod fsm;
 mod leader;
 mod log;
-pub mod rpc;
-mod store;
-pub mod client;
-pub mod config;
-pub mod fsm;
 mod logger;
 mod progress;
+pub mod rpc;
 mod server;
+mod store;
 mod tcp;
 mod test;
 
@@ -85,7 +81,6 @@ impl JosefineRaft {
         self.server.run(Some(duration), fsm, client_rx).await
     }
 }
-
 
 /// A unique id that uniquely identifies an instance of Raft.
 pub type NodeId = u32;

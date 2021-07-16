@@ -1,37 +1,31 @@
-
-
-
 use crate::error::Result;
 use crate::raft::client::RaftClient;
 
-
-use server::Server;
-use sled::Db;
 use crate::broker::broker::Broker;
 use crate::broker::config::BrokerConfig;
+use server::Server;
+use sled::Db;
 use std::net::SocketAddr;
 
+mod broker;
+pub mod config;
 mod entry;
+pub mod fsm;
 mod index;
 mod log;
 mod partition;
 mod segment;
 mod server;
-pub mod fsm;
 mod tcp;
 mod topic;
-mod broker;
-pub mod config;
 
 pub struct JosefineBroker {
-    config: BrokerConfig
+    config: BrokerConfig,
 }
 
 impl JosefineBroker {
     pub fn with_config(config: BrokerConfig) -> Self {
-        JosefineBroker {
-            config
-        }
+        JosefineBroker { config }
     }
 
     pub async fn run(self, client: RaftClient, db: &'static Db) -> Result<()> {

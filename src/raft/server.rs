@@ -1,14 +1,14 @@
-use crate::raft::error::RaftError;
+use crate::error::{JosefineError, Result};
 use crate::logger::get_root_logger;
-use crate::raft::{Apply, Command, RaftHandle};
+use crate::raft::error::RaftError;
 use crate::raft::rpc::{Address, Message, Proposal, Response};
 use crate::raft::tcp;
 use crate::raft::{
     config::RaftConfig,
     fsm::{self},
 };
+use crate::raft::{Apply, Command, RaftHandle};
 use futures::FutureExt;
-use crate::error::{JosefineError, Result};
 use slog::Logger;
 use std::{collections::HashMap, net::SocketAddr};
 use tokio::sync::mpsc;
@@ -161,10 +161,10 @@ async fn event_loop(
 
 #[cfg(test)]
 mod tests {
-    use crate::raft::RaftConfig;
-    use crate::logger::get_root_logger;
-    use crate::raft::RaftHandle;
     use crate::error::Result;
+    use crate::logger::get_root_logger;
+    use crate::raft::RaftConfig;
+    use crate::raft::RaftHandle;
 
     use std::time::Duration;
     use tokio::sync::mpsc::{self, unbounded_channel};

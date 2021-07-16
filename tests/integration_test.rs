@@ -1,9 +1,6 @@
-extern crate crate::raft;
-
-use crate::error::Result;
-use crate::raft::config::RaftConfig;
-use crate::raft::{Node, RaftHandle};
-use josefine::raft::JosefineRaft;
+use josefine::error::Result;
+use josefine::raft::config::RaftConfig;
+use josefine::raft::{JosefineRaft, Node, RaftHandle};
 use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::thread::JoinHandle;

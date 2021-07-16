@@ -1,6 +1,5 @@
 use crate::raft::{Command, NodeId};
 
-
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub enum Address {
     /// Broadcast to all peers.

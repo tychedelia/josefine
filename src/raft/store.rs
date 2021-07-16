@@ -1,7 +1,6 @@
-use crate::raft::LogIndex;
 use crate::error::Result;
+use crate::raft::LogIndex;
 use std::fmt::Debug;
-
 
 pub trait Store: Default + Debug {
     fn append(&mut self, entry: Vec<u8>) -> Result<LogIndex>;
