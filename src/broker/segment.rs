@@ -11,7 +11,7 @@ use crate::broker::index::Index;
 const MAX_SEGMENT_BYES: u64 = 1024 * 1024 * 1024;
 
 pub struct Segment {
-    base_offset: u64,
+    // base_offset: u64,
     pub next_offset: u64,
     bytes: u64,
     log: File,
@@ -31,7 +31,7 @@ impl Segment {
             .expect("Couldn't create segment file.");
 
         Segment {
-            base_offset,
+            // base_offset,
             next_offset: 0,
             bytes: 0,
             log,
@@ -43,9 +43,9 @@ impl Segment {
         self.bytes >= MAX_SEGMENT_BYES
     }
 
-    pub fn find_entry(&self, offset: u64) -> Option<Entry> {
-        self.index.find_entry(offset)
-    }
+    // pub fn find_entry(&self, offset: u64) -> Option<Entry> {
+    //     self.index.find_entry(offset)
+    // }
 
     fn log_name(offset: u64) -> String {
         format!("{}.log", offset)

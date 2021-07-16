@@ -16,7 +16,7 @@ impl JosefineFsm {
         }
     }
 
-    fn ensureTopic(&mut self, topic: Topic) -> Result<Vec<u8>> {
+    fn ensure_topic(&mut self, topic: Topic) -> Result<Vec<u8>> {
         let topic = self.db.transaction(move |tx| {
             let mut topics = match tx.get("topics")? {
                 Some(topics) => bincode::deserialize(&topics).unwrap(),
@@ -27,7 +27,7 @@ impl JosefineFsm {
                 topics.insert(topic.name.clone(), topic.clone());
             }
 
-            tx.insert("topics",bincode::serialize(&topics).unwrap());
+            tx.insert("topics",bincode::serialize(&topics).unwrap())?;
 
             // TODO: cleanup clones, move outside
             Ok(topic.clone())
@@ -41,7 +41,7 @@ impl Fsm for JosefineFsm{
     fn transition(&mut self, input: Vec<u8>) -> Result<Vec<u8>> {
         let t = Transition::deserialize(&input)?;
         match t {
-            Transition::EnsureTopic(topic) => self.ensureTopic(topic)
+            Transition::EnsureTopic(topic) => self.ensure_topic(topic)
         }
     }
 }

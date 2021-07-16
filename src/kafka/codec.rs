@@ -60,7 +60,7 @@ impl codec::Encoder<(i16, ResponseHeader, ResponseKind)> for KafkaServerCodec {
     ) -> Result<(), Self::Error> {
         let (version, header, response) = item;
         let mut bytes = BytesMut::new();
-        encode(&mut bytes, header, response, version);
+        encode(&mut bytes, header, response, version)?;
         self.length_codec
             .encode(bytes.get_bytes(bytes.len()), dst)?;
         Ok(())
@@ -80,11 +80,11 @@ fn encode(
         }
         ResponseKind::MetadataResponse(res) => {
             header.encode(bytes, MetadataResponse::header_version(version))?;
-            res.encode(bytes, version);
+            res.encode(bytes, version)?;
         }
         ResponseKind::CreateTopicsResponse(res) => {
             header.encode(bytes, CreateTopicsResponse::header_version(version))?;
-            res.encode(bytes, version);
+            res.encode(bytes, version)?;
         }
         _ => return Err(ErrorKind::UnsupportedOperation),
     };

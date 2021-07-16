@@ -239,7 +239,7 @@ impl Apply for Raft<Leader> {
                 has_committed,
             } => {
                 if !has_committed && commit_index > 0 {
-                    self.replicate();
+                    self.replicate()?;
                 }
                 Ok(RaftHandle::Leader(self))
             }

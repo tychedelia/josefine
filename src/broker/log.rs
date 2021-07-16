@@ -1,8 +1,6 @@
-use std::fs;
 use std::io::Error;
 use std::io::Read;
 use std::io::Write;
-use std::path::Path;
 use std::path::PathBuf;
 
 use std::sync::RwLock;
@@ -17,17 +15,17 @@ pub struct Log {
 }
 
 impl Log {
-    pub fn new(path: &Path) -> Log {
-        fs::create_dir_all(&path).expect("Couldn't create log dir");
-        let segment = Segment::new(path.to_owned(), 0);
-        let segments = vec![segment];
-        Log {
-            path: path.to_owned(),
-            segments,
-            active_segment: 0,
-            rwlock: RwLock::new(255),
-        }
-    }
+    // pub fn new(path: &Path) -> Log {
+    //     fs::create_dir_all(&path).expect("Couldn't create log dir");
+    //     let segment = Segment::new(path.to_owned(), 0);
+    //     let segments = vec![segment];
+    //     Log {
+    //         path: path.to_owned(),
+    //         segments,
+    //         active_segment: 0,
+    //         rwlock: RwLock::new(255),
+    //     }
+    // }
 
     fn newest_offset(&self) -> u64 {
         self.segments[self.active_segment].next_offset

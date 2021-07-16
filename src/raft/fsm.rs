@@ -6,7 +6,7 @@ use tokio::sync::mpsc;
 
 use crate::raft::Command::ClientResponse;
 use crate::{
-    raft::{Entry, EntryType, LogIndex, rpc::{Address, Message, Response, self}},
+    raft::{Entry, EntryType, rpc::{Address, Message, Response, self}},
 };
 use crate::error::Result;
 
@@ -19,7 +19,6 @@ pub struct Driver<T: Fsm> {
     logger: Logger,
     fsm_rx: mpsc::UnboundedReceiver<Entry>,
     rpc_tx: mpsc::UnboundedSender<rpc::Message>,
-    applied_idx: LogIndex,
     fsm: T,
 }
 
@@ -35,7 +34,6 @@ impl<T: Fsm> Driver<T> {
             fsm_rx,
             rpc_tx,
             fsm,
-            applied_idx: 0,
         }
     }
 

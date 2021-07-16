@@ -8,8 +8,8 @@ use crate::raft::NodeId;
 
 use crate::error::{JosefineError, Result};
 
-#[serde(default)]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(default)]
 /// The configuration for this Raft instance.
 pub struct RaftConfig {
     ///

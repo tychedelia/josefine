@@ -1,8 +1,8 @@
 use crate::raft::config::RaftConfig;
 use crate::broker::config::BrokerConfig;
 
-#[serde(default)]
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
+#[serde(default)]
 pub struct JosefineConfig {
     pub raft: RaftConfig,
     pub broker: BrokerConfig,

@@ -185,5 +185,4 @@ async fn handle_messages(log: Logger, client: RaftClient, broker: Broker, mut ou
             _ => panic!()
         }
     }
-    Ok(())
 }

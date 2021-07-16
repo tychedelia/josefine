@@ -19,6 +19,7 @@ impl Fsm for TestFsm {
     }
 }
 
+#[allow(dead_code)]
 pub(crate) fn new_follower() -> (
     (UnboundedReceiver<Message>, UnboundedReceiver<Entry>),
     Raft<Follower>,

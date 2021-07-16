@@ -1,7 +1,7 @@
 use std::net::{IpAddr, Ipv4Addr, ToSocketAddrs};
 
-#[serde(default)]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(default)]
 pub struct BrokerConfig {
     pub ip: IpAddr,
     pub port: u16,
