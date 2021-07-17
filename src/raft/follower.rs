@@ -12,15 +12,18 @@ use crate::raft::error::RaftError;
 use crate::raft::log::Log;
 use crate::raft::rpc::{Address, Message};
 use crate::raft::Command::VoteResponse;
-use crate::raft::RaftConfig;
-use crate::raft::{Apply, Entry, LogIndex, RaftHandle, RaftRole, Term};
+use crate::raft::{RaftConfig, ClientRequestId};
+use crate::raft::{Apply, LogIndex, RaftHandle, RaftRole, Term};
 use crate::raft::{Command, NodeId, Raft, Role, State};
 use tokio::sync::mpsc::UnboundedSender;
+use crate::raft::fsm::Instruction;
+use std::collections::HashSet;
 
 #[derive(Debug)]
 pub struct Follower {
     pub leader_id: Option<NodeId>,
     pub logger: Logger,
+    pub proxied_reqs: HashSet<ClientRequestId>,
 }
 
 impl Role for Follower {
@@ -93,6 +96,7 @@ impl Apply for Raft<Follower> {
                 if !entries.is_empty() {
                     for entry in entries {
                         let index = entry.index;
+                        debug!(self.role.logger, "appending"; "index" => index);
                         self.log.append(entry)?; // append the entry
                         self.state.last_applied = index; // update our last applied
                     }
@@ -129,9 +133,11 @@ impl Apply for Raft<Follower> {
                 if has_committed && commit_index > self.state.commit_index {
                     let prev = self.state.commit_index;
                     self.state.commit_index = self.log.commit(commit_index)?;
+                    debug!(self.role.logger, "committing entries"; "from" => prev + 1, "to" => commit_index, "log" => format!("{:?}", self.log), "log_len" => self.log.len());
                     let entries = self.log.get_range(prev + 1, commit_index)?;
                     for entry in entries {
-                        self.fsm_tx.send(entry)?;
+                        debug!(self.role.logger, "commit"; "index" => entry.index);
+                        self.fsm_tx.send(Instruction::Apply { entry })?;
                     }
                 }
 
@@ -181,6 +187,29 @@ impl Apply for Raft<Follower> {
 
                 self.apply_self()
             }
+            Command::ClientRequest { id, proposal, .. } => {
+                if let Some(leader_id) = self.role.leader_id {
+                    self.send(Address::Peer(leader_id), Command::ClientRequest {
+                        id: id.clone(),
+                        proposal,
+                        // rewrite address to our own so we can close out the request ourself
+                        client_address: Address::Peer(self.id),
+                    })?;
+                    self.role.proxied_reqs.insert(id);
+                    self.apply_self()
+                } else {
+                    // todo: implement request queue
+                    panic!()
+                }
+            }
+            Command::ClientResponse{ id, res } => {
+                self.send(Address::Client, Command::ClientResponse {
+                    id: id.clone(),
+                    res
+                })?;
+                self.role.proxied_reqs.remove(&id);
+                self.apply_self()
+            }
             _ => self.apply_self(),
         }
     }
@@ -192,7 +221,7 @@ impl Raft<Follower> {
         config: RaftConfig,
         logger: Logger,
         rpc_tx: UnboundedSender<Message>,
-        fsm_tx: UnboundedSender<Entry>,
+        fsm_tx: UnboundedSender<Instruction>,
     ) -> Result<Raft<Follower>> {
         config.validate()?;
         let logger = logger.new(o!("id" => config.id));
@@ -204,6 +233,7 @@ impl Raft<Follower> {
             role: Follower {
                 leader_id: None,
                 logger: logger.new(o!("role" => "follower")),
+                proxied_reqs: HashSet::new(),
             },
             logger,
             log: Log::new(),

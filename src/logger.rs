@@ -3,6 +3,11 @@ use slog::Logger;
 
 lazy_static! {
     pub static ref LOGGER: Logger = {
+        if let Err(_) = std::env::var("RUST_LOG") {
+            std::env::set_var("RUST_LOG", "INFO");
+        }
+
+
         let drain = slog_async::Async::default(slog_envlogger::new(
             slog_term::FullFormat::new(slog_term::TermDecorator::new().stderr().build())
                 .build()

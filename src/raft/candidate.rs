@@ -12,6 +12,7 @@ use crate::raft::rpc::Address;
 use crate::raft::{Apply, RaftHandle, RaftRole};
 use crate::raft::{Command, NodeId};
 use crate::raft::{Raft, Role};
+use std::collections::HashSet;
 
 #[derive(Debug)]
 pub struct Candidate {
@@ -21,7 +22,7 @@ pub struct Candidate {
 
 impl Raft<Candidate> {
     pub(crate) fn seek_election(mut self) -> Result<RaftHandle> {
-        info!(self.role.logger, "Seeking election");
+        debug!(self.role.logger, "seeking election");
         self.state.voted_for = Some(self.id);
         self.state.current_term += 1;
         let from = self.id;
@@ -68,13 +69,13 @@ impl Apply for Raft<Candidate> {
                 if self.needs_election() {
                     return match self.role.election.election_status() {
                         ElectionStatus::Voting => {
-                            info!(self.role.logger, "Election ended with missing votes");
+                            debug!(self.role.logger, "election ended with missing votes");
                             self.state.voted_for = None;
                             let raft: Raft<Follower> = Raft::from(self);
                             Ok(raft.apply(Command::Timeout)?)
                         }
                         ElectionStatus::Defeated => {
-                            info!(self.role.logger, "Defeated in election.");
+                            debug!(self.role.logger, "defeated in election.");
                             self.state.voted_for = None;
                             let raft: Raft<Follower> = Raft::from(self);
                             Ok(raft.apply(Command::Timeout)?)
@@ -105,21 +106,21 @@ impl Apply for Raft<Candidate> {
                 Ok(RaftHandle::Candidate(self))
             }
             Command::VoteResponse { granted, from, .. } => {
-                info!(self.role.logger, "Recieved vote"; "granted" => granted, "from" => from);
+                debug!(self.role.logger, "recieved vote"; "granted" => granted, "from" => from);
                 self.role.election.vote(from, granted);
                 match self.role.election.election_status() {
                     ElectionStatus::Elected => {
-                        info!(self.role.logger, "I have been elected leader");
+                        info!(self.role.logger, "i have been elected leader");
                         let raft = Raft::from(self);
                         raft.heartbeat()?;
                         Ok(RaftHandle::Leader(raft))
                     }
                     ElectionStatus::Voting => {
-                        info!(self.role.logger, "We are still voting");
+                        debug!(self.role.logger, "we are still voting");
                         Ok(RaftHandle::Candidate(self))
                     }
                     ElectionStatus::Defeated => {
-                        info!(self.role.logger, "I was defeated in the election");
+                        debug!(self.role.logger, "i was defeated in the election");
                         self.state.voted_for = None;
                         Ok(RaftHandle::Follower(Raft::from(self)))
                     }
@@ -137,7 +138,7 @@ impl Apply for Raft<Candidate> {
                 if term >= self.state.current_term {
                     info!(
                         self.role.logger,
-                        "Received higher term, transitioning to follower"
+                        "received higher term, transitioning to follower"
                     );
                     let raft: Raft<Follower> = Raft::from(self);
                     //                    raft.io.append(entries)?;
@@ -155,7 +156,7 @@ impl Apply for Raft<Candidate> {
                 if term >= self.state.current_term {
                     info!(
                         self.role.logger,
-                        "Received higher term, transitioning to follower"
+                        "received higher term, transitioning to follower"
                     );
                     let raft: Raft<Follower> = Raft::from(self);
                     return Ok(RaftHandle::Follower(raft));
@@ -176,6 +177,7 @@ impl From<Raft<Candidate>> for Raft<Follower> {
             role: Follower {
                 leader_id: None,
                 logger: val.logger.new(o!("role" => "follower")),
+                proxied_reqs: HashSet::new(),
             },
             logger: val.logger,
             config: val.config,
@@ -188,7 +190,7 @@ impl From<Raft<Candidate>> for Raft<Follower> {
 
 impl From<Raft<Candidate>> for Raft<Leader> {
     fn from(val: Raft<Candidate>) -> Raft<Leader> {
-        info!(val.role.logger, "Becoming the leader");
+        info!(val.role.logger, "becoming the leader");
 
         let mut nodes: Vec<NodeId> = val.config.nodes.iter().map(|x| x.id).collect();
         nodes.push(val.id);

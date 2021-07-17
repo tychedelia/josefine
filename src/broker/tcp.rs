@@ -20,11 +20,11 @@ pub async fn receive_task(
         tokio::select! {
             Ok((s, addr)) = listener.accept() => {
                 let log = log.new(o!("addr" => format!("{:?}", addr)));
-                info!(log, "peer connected");
+                debug!(log, "peer connected");
                 let peer_in_tx = in_tx.clone();
                 tokio::spawn(async move {
                     match stream_messages(log.clone(), s, peer_in_tx).await {
-                        Ok(()) => { info!(log, "peer disconnected") }
+                        Ok(()) => { debug!(log, "peer disconnected") }
                         Err(err) => { error!(log, "error reading from peer"; "err" => format!("{:?}", err)) }
                     }
                 });

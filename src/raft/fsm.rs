@@ -4,27 +4,31 @@ use slog::Logger;
 use tokio::sync::mpsc;
 
 use crate::error::Result;
-use crate::raft::Command::ClientResponse;
-use crate::raft::{
-    rpc::{self, Address, Message, Response},
-    Entry, EntryType,
-};
+use crate::raft::{rpc::{self, Address, Message, Response}, Entry, EntryType, LogIndex, Command, ClientRequestId};
+use std::collections::HashMap;
 
 pub trait Fsm: Send + Sync + fmt::Debug {
     fn transition(&mut self, data: Vec<u8>) -> Result<Vec<u8>>;
 }
 
+#[derive(Debug)]
+pub enum Instruction {
+    Apply { entry: Entry },
+    Notify { id: Vec<u8>, client_address: Address, index: LogIndex }
+}
+
 pub struct Driver<T: Fsm> {
     logger: Logger,
-    fsm_rx: mpsc::UnboundedReceiver<Entry>,
+    fsm_rx: mpsc::UnboundedReceiver<Instruction>,
     rpc_tx: mpsc::UnboundedSender<rpc::Message>,
     fsm: T,
+    notifications: HashMap<LogIndex, (Address, ClientRequestId)>,
 }
 
 impl<T: Fsm> Driver<T> {
     pub fn new(
         logger: Logger,
-        fsm_rx: mpsc::UnboundedReceiver<Entry>,
+        fsm_rx: mpsc::UnboundedReceiver<Instruction>,
         rpc_tx: mpsc::UnboundedSender<rpc::Message>,
         fsm: T,
     ) -> Self {
@@ -33,6 +37,7 @@ impl<T: Fsm> Driver<T> {
             fsm_rx,
             rpc_tx,
             fsm,
+            notifications: HashMap::new(),
         }
     }
 
@@ -42,16 +47,26 @@ impl<T: Fsm> Driver<T> {
             tokio::select! {
                 _ = shutdown.recv() => break,
 
-                Some(entry) = self.fsm_rx.recv() => {
-                    let id = entry.id.clone();
-                    let res = self.exec(entry).await;
-
-                    if let Some(id) = id {
-                        self.rpc_tx.send(Message::new(Address::Local, Address::Client, ClientResponse {
-                            id,
-                            res: res.map(Response::new),
-                        }))?;
-                    }
+                Some(instruction) = self.fsm_rx.recv() => {
+                    match instruction {
+                        Instruction::Apply { entry } => {
+                            let index = entry.index;
+                            let res = self.exec(entry);
+                            if let Some((to, id)) = self.notifications.remove(&index) {
+                                self.rpc_tx.send(Message {
+                                    to,
+                                    from: Address::Local,
+                                    command: Command::ClientResponse {
+                                        id,
+                                        res: res.map(|x| Response::new(x)),
+                                    }
+                                })?;
+                            }
+                        }
+                        Instruction::Notify { index, id, client_address } => {
+                            self.notifications.insert(index, (client_address, id));
+                        }
+                    };
                 }
             }
         }
@@ -59,7 +74,7 @@ impl<T: Fsm> Driver<T> {
         Ok(self.fsm)
     }
 
-    pub async fn exec(&mut self, entry: Entry) -> Result<Vec<u8>> {
+    pub fn exec(&mut self, entry: Entry) -> Result<Vec<u8>> {
         debug!(self.logger, "exec"; "entry" => format!("{:?}", &entry));
         if let EntryType::Entry { data } = entry.entry_type {
             return self.fsm.transition(data);
@@ -73,7 +88,6 @@ impl<T: Fsm> Driver<T> {
 mod test {
     use tokio::sync::mpsc::unbounded_channel;
 
-    use crate::raft::error::RaftError;
 
     use super::*;
 
@@ -118,15 +132,15 @@ mod test {
         let driver = Driver::new(crate::logger::get_root_logger().new(o!()), rx, rpc_tx, fsm);
 
         let (shutdown_tx, shutdown_rx) = tokio::sync::broadcast::channel(1);
-        tx.send(Entry {
-            id: None,
-            entry_type: crate::raft::EntryType::Entry {
-                data: "B".as_bytes().to_owned(),
-            },
-            term: 0,
-            index: 0,
-        })
-        .map_err(|err| RaftError::from(err))?;
+        tx.send(Instruction::Apply {
+            entry: Entry {
+                entry_type: crate::raft::EntryType::Entry {
+                    data: "B".as_bytes().to_owned(),
+                },
+                term: 0,
+                index: 0,
+            }
+        })?;
 
         let (join, _) = tokio::join!(
             tokio::spawn(driver.run(shutdown_rx)),

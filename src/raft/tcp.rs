@@ -25,11 +25,11 @@ pub async fn receive_task(
 
             Ok((s, addr)) = listener.accept() => {
                 let log = log.new(o!("addr" => format!("{:?}", addr)));
-                info!(log, "peer connected");
+                debug!(log, "peer connected");
                 let peer_in_tx = in_tx.clone();
                 tokio::spawn(async move {
                     match stream_messages(log.clone(), s, peer_in_tx).await {
-                        Ok(()) => { info!(log, "peer disconnected") }
+                        Ok(()) => { debug!(log, "peer disconnected") }
                         Err(_) => { error!(log, "error reading from peer") }
                     }
                 });
@@ -117,11 +117,11 @@ async fn connect_and_send(
             Ok(socket) => match send_messages(socket, &mut out_rx).await {
                 Ok(()) => break Ok(()),
                 Err(err) => {
-                    error!(log, "Failed sending to Raft peer"; "peer" => node.addr, "error" => format!("{:?}", err))
+                    warn!(log, "failed sending to raft peer"; "peer" => node.addr, "error" => format!("{:?}", err))
                 }
             },
             Err(err) => {
-                error!(log, "Failed connecting to Raft peer"; "peer" => node.addr, "error" => format!("{:?}", err))
+                warn!(log, "failed connecting to raft peer"; "peer" => node.addr, "error" => format!("{:?}", err))
             }
         }
         // TODO: use back-off

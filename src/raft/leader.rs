@@ -17,6 +17,8 @@ use crate::raft::rpc::Message;
 use crate::raft::Role;
 use crate::raft::Term;
 use crate::raft::{Apply, NodeId, RaftHandle, RaftRole};
+use crate::raft::fsm::Instruction;
+use std::collections::HashSet;
 
 ///
 #[derive(Debug)]
@@ -57,7 +59,6 @@ impl Raft<Leader> {
         let term = self.state.current_term;
         let next_index = self.log.next_index();
         let entry = Entry {
-            id: None,
             entry_type: EntryType::Control,
             term,
             index: next_index,
@@ -87,28 +88,6 @@ impl Raft<Leader> {
         self.role.heartbeat_time = Instant::now();
     }
 
-    fn append(mut self, id: Vec<u8>, data: Vec<u8>) -> Result<RaftHandle> {
-        let term = self.state.current_term;
-        let next_index = self.log.next_index();
-        let entry = Entry {
-            id: Some(id),
-            entry_type: EntryType::Entry { data },
-            term,
-            index: next_index,
-        };
-        let index = self.log.append(entry)?;
-        assert_eq!(next_index, index);
-
-        self.state.last_applied = index;
-        let node_id = self.id;
-        self.apply(Command::AppendResponse {
-            node_id,
-            term,
-            index,
-            success: true,
-        })
-    }
-
     fn commit(&mut self) -> Result<LogIndex> {
         let quorum_idx = self.role.progress.committed_index();
         if quorum_idx > self.state.commit_index
@@ -120,7 +99,7 @@ impl Raft<Leader> {
                 .get_range(prev, self.state.commit_index)?
                 .into_iter()
                 .for_each(|entry| {
-                    self.fsm_tx.send(entry).unwrap();
+                    self.fsm_tx.send(Instruction::Apply { entry }).unwrap();
                 });
         }
 
@@ -245,7 +224,6 @@ impl Apply for Raft<Leader> {
                 Ok(RaftHandle::Leader(self))
             }
             Command::AppendResponse { node_id, index, .. } => {
-                println!("\n\n\n2\n\n\n");
                 self.role.progress.advance(node_id, index);
                 self.commit()?;
                 Ok(RaftHandle::Leader(self))
@@ -259,7 +237,29 @@ impl Apply for Raft<Leader> {
 
                 Ok(RaftHandle::Leader(self))
             }
-            Command::ClientRequest { id, proposal, .. } => self.append(id, proposal.get()),
+            Command::ClientRequest { id, proposal, client_address } => {
+                let term = self.state.current_term;
+                let next_index = self.log.next_index();
+                let entry = Entry {
+                    entry_type: EntryType::Entry { data: proposal.get() },
+                    term,
+                    index: next_index,
+                };
+                let index = self.log.append(entry)?;
+                assert_eq!(next_index, index);
+
+                self.state.last_applied = index;
+                let node_id = self.id;
+
+                self.fsm_tx.send(Instruction::Notify { id, index, client_address })?;
+
+                self.apply(Command::AppendResponse {
+                    node_id,
+                    term,
+                    index,
+                    success: true,
+                })
+            },
             _ => Ok(RaftHandle::Leader(self)),
         }
     }
@@ -273,6 +273,7 @@ impl From<Raft<Leader>> for Raft<Follower> {
             role: Follower {
                 leader_id: None,
                 logger: val.logger.new(o!("role" => "follower")),
+                proxied_reqs: HashSet::new(),
             },
             logger: val.logger,
             config: val.config,
@@ -285,11 +286,9 @@ impl From<Raft<Leader>> for Raft<Follower> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        raft::{Apply, Command, EntryType, RaftHandle},
-        raft::rpc::Proposal,
-    };
+    use crate::{raft::{Apply, Command, EntryType, RaftHandle}, raft::{fsm::Instruction, rpc::Proposal}};
     use crate::raft::test::new_follower;
+    use crate::raft::rpc::Address;
 
     #[test]
     fn apply_entry_single_node() {
@@ -302,6 +301,7 @@ mod tests {
         let node = node
             .apply(Command::ClientRequest {
                 id: vec![1],
+                client_address: Address::Client,
                 proposal: Proposal::new(vec![magic_number]),
             })
             .unwrap();
@@ -311,9 +311,15 @@ mod tests {
             if let EntryType::Entry { data } = entry.entry_type {
                 assert_eq!(data, vec![magic_number]);
             }
-            let entry = fsm_rx.blocking_recv().unwrap();
-            if let EntryType::Entry { data } = entry.entry_type {
-                assert_eq!(data, vec![magic_number]);
+            let _ = fsm_rx.blocking_recv().unwrap();
+            let instruction = fsm_rx.blocking_recv().unwrap();
+
+            if let Instruction::Apply { entry } = instruction {
+                if let EntryType::Entry { data } = entry.entry_type {
+                    assert_eq!(data, vec![magic_number]);
+                }
+            } else {
+                panic!()
             }
         } else {
             panic!()

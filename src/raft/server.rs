@@ -42,7 +42,7 @@ impl Server {
         fsm: T,
         client_rx: UnboundedReceiver<(Proposal, oneshot::Sender<Result<Response>>)>,
     ) -> Result<RaftHandle> {
-        info!(self.log, "Using config"; "config" => format!("{:?}", self.config));
+        info!(self.log, "using config"; "config" => format!("{:?}", self.config));
 
         // shutdown broadcaster
         let (shutdown_tx, _shutdown_rx) = tokio::sync::broadcast::channel(1);
@@ -151,7 +151,7 @@ async fn event_loop(
             Some((proposal, res)) = client_rx.recv() => {
                 let id = Uuid::new_v4().as_bytes().to_vec();
                 requests.insert(id.clone(), res);
-                raft = raft.apply(Command::ClientRequest { id, proposal, })?;
+                raft = raft.apply(Command::ClientRequest { id, proposal, client_address: Address::Client })?;
             },
         }
     }

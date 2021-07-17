@@ -44,9 +44,14 @@ impl<T: Store + Default> Log<T> {
         Ok(None)
     }
 
+    pub fn len(&self) -> LogIndex {
+        self.store.len()
+    }
+
     pub fn append(&mut self, entry: Entry) -> Result<LogIndex> {
+        let index = entry.index;
         let bytes = Self::serialize(entry)?;
-        let index = self.store.append(bytes)?;
+        let index = self.store.append(index, bytes)?;
         Ok(index)
     }
 

@@ -1,9 +1,10 @@
 use crate::error::Result;
 use crate::raft::LogIndex;
+use std::collections::BTreeMap;
 use std::fmt::Debug;
 
 pub trait Store: Default + Debug {
-    fn append(&mut self, entry: Vec<u8>) -> Result<LogIndex>;
+    fn append(&mut self, index: LogIndex, entry: Vec<u8>) -> Result<LogIndex>;
 
     fn commit(&mut self, index: LogIndex) -> Result<LogIndex>;
 
@@ -30,14 +31,14 @@ pub trait Store: Default + Debug {
 
 #[derive(Debug)]
 pub struct MemoryStore {
-    log: Vec<Vec<u8>>,
+    log: BTreeMap<LogIndex, Vec<u8>>,
     committed: LogIndex,
 }
 
 impl MemoryStore {
     pub fn new() -> Self {
         Self {
-            log: Vec::new(),
+            log: BTreeMap::new(), 
             committed: 0,
         }
     }
@@ -50,8 +51,8 @@ impl Default for MemoryStore {
 }
 
 impl Store for MemoryStore {
-    fn append(&mut self, entry: Vec<u8>) -> Result<LogIndex> {
-        self.log.push(entry);
+    fn append(&mut self, index: LogIndex, entry: Vec<u8>) -> Result<LogIndex> {
+        self.log.insert(index, entry);
         Ok(self.log.len() as LogIndex)
     }
 
@@ -69,7 +70,7 @@ impl Store for MemoryStore {
             return Ok(None)
         }
 
-        Ok(self.log.get(index as usize - 1).cloned())
+        Ok(self.log.get(&index).cloned())
     }
 
     fn get_range(&self, start: LogIndex, end: LogIndex) -> Result<Vec<Vec<u8>>> {
@@ -91,7 +92,7 @@ impl Store for MemoryStore {
     }
 
     fn truncate(&mut self, index: u64) -> Result<LogIndex> {
-        self.log.truncate(index as usize);
+        self.log.retain(|&k, _| { k >= index });
         Ok(self.len())
     }
 }
@@ -104,7 +105,7 @@ mod tests {
     fn append() {
         let mut store = MemoryStore::new();
         store
-            .append(vec![1, 2, 3, 4])
+            .append(1, vec![1, 2, 3, 4])
             .expect("was unable to append");
     }
 
@@ -112,7 +113,7 @@ mod tests {
     fn get() {
         let mut store = MemoryStore::new();
         store
-            .append(vec![1, 2, 3, 4])
+            .append(1, vec![1, 2, 3, 4])
             .expect("was unable to append");
         let res = store
             .get(1)
@@ -124,10 +125,10 @@ mod tests {
     #[test]
     fn get_range() {
         let mut store = MemoryStore::new();
-        store.append(vec![1]).unwrap();
-        store.append(vec![2]).unwrap();
-        store.append(vec![3]).unwrap();
-        store.append(vec![4]).unwrap();
+        store.append(1, vec![1]).unwrap();
+        store.append(2, vec![2]).unwrap();
+        store.append(3, vec![3]).unwrap();
+        store.append(4, vec![4]).unwrap();
         let res = store.get_range(0, 3).unwrap();
         for (i, r) in res.iter().enumerate() {
             assert_eq!(r[0], (i+1) as u8);
