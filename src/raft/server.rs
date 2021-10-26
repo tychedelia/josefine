@@ -28,6 +28,16 @@ pub struct Server {
     log: Logger,
 }
 
+pub struct ServerRunOpts<T: 'static + fsm::Fsm> {
+    pub duration: Option<Duration>,
+    pub fsm: T,
+    pub client_rx: UnboundedReceiver<(Proposal, oneshot::Sender<Result<Response>>)>,
+    pub shutdown: (
+        tokio::sync::broadcast::Sender<()>,
+        tokio::sync::broadcast::Receiver<()>,
+    ),
+}
+
 impl Server {
     pub fn new(config: RaftConfig) -> Self {
         Server {
@@ -38,14 +48,17 @@ impl Server {
 
     pub async fn run<T: 'static + fsm::Fsm>(
         self,
-        duration: Option<Duration>,
-        fsm: T,
-        client_rx: UnboundedReceiver<(Proposal, oneshot::Sender<Result<Response>>)>,
+        run_opts: ServerRunOpts<T>,
     ) -> Result<RaftHandle> {
         info!(self.log, "using config"; "config" => format!("{:?}", self.config));
 
-        // shutdown broadcaster
-        let (shutdown_tx, _shutdown_rx) = tokio::sync::broadcast::channel(1);
+        let ServerRunOpts {
+            duration,
+            fsm,
+            client_rx,
+            shutdown,
+        } = run_opts;
+        let (shutdown_tx, _shutdown_rx) = shutdown;
 
         // tcp receive
         let socket_addr = SocketAddr::new(self.config.ip, self.config.port);

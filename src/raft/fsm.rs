@@ -4,7 +4,10 @@ use slog::Logger;
 use tokio::sync::mpsc;
 
 use crate::error::Result;
-use crate::raft::{rpc::{self, Address, Message, Response}, Entry, EntryType, LogIndex, Command, ClientRequestId};
+use crate::raft::{
+    rpc::{self, Address, Message, Response},
+    ClientRequestId, Command, Entry, EntryType, LogIndex,
+};
 use std::collections::HashMap;
 
 pub trait Fsm: Send + Sync + fmt::Debug {
@@ -13,8 +16,14 @@ pub trait Fsm: Send + Sync + fmt::Debug {
 
 #[derive(Debug)]
 pub enum Instruction {
-    Apply { entry: Entry },
-    Notify { id: Vec<u8>, client_address: Address, index: LogIndex }
+    Apply {
+        entry: Entry,
+    },
+    Notify {
+        id: Vec<u8>,
+        client_address: Address,
+        index: LogIndex,
+    },
 }
 
 pub struct Driver<T: Fsm> {
@@ -88,7 +97,6 @@ impl<T: Fsm> Driver<T> {
 mod test {
     use tokio::sync::mpsc::unbounded_channel;
 
-
     use super::*;
 
     #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -139,7 +147,7 @@ mod test {
                 },
                 term: 0,
                 index: 0,
-            }
+            },
         })?;
 
         let (join, _) = tokio::join!(

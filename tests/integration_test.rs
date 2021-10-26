@@ -56,7 +56,13 @@ fn it_elects() {
             std::thread::spawn(|| {
                 let rt = tokio::runtime::Runtime::new().unwrap();
                 let (_, client_rx) = tokio::sync::mpsc::unbounded_channel();
-                rt.block_on(node.run_for(Duration::from_secs(2), IntegrationFsm::new(), client_rx))
+                let shutdown = tokio::sync::broadcast::channel(1);
+                rt.block_on(node.run_for(
+                    Duration::from_secs(2),
+                    IntegrationFsm::new(),
+                    client_rx,
+                    shutdown,
+                ))
             })
         })
         .collect();

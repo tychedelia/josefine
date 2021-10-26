@@ -28,9 +28,14 @@ impl JosefineBroker {
         JosefineBroker { config }
     }
 
-    pub async fn run(self, client: RaftClient, db: &'static Db) -> Result<()> {
+    pub async fn run(
+        self,
+        client: RaftClient,
+        db: &'static Db,
+        shutdown: (tokio::sync::broadcast::Sender<()>, tokio::sync::broadcast::Receiver<()>),
+    ) -> Result<()> {
         let socket_addr = SocketAddr::new(self.config.ip, self.config.port);
         let server = Server::new(socket_addr);
-        server.run(client, Broker::new(db)).await
+        server.run(client, Broker::new(db), shutdown).await
     }
 }

@@ -15,9 +15,12 @@ pub async fn receive_task(
     log: Logger,
     listener: TcpListener,
     in_tx: UnboundedSender<(RequestKind, oneshot::Sender<ResponseKind>)>,
+    mut shutdown: tokio::sync::broadcast::Receiver<()>,
 ) -> Result<()> {
     loop {
         tokio::select! {
+            _ = shutdown.recv() => break,
+
             Ok((s, addr)) = listener.accept() => {
                 let log = log.new(o!("addr" => format!("{:?}", addr)));
                 debug!(log, "peer connected");
@@ -31,6 +34,8 @@ pub async fn receive_task(
             }
         }
     }
+
+    Ok(())
 }
 
 async fn stream_messages(

@@ -12,12 +12,12 @@ use crate::raft::Entry;
 use crate::raft::EntryType;
 use crate::raft::{Command, LogIndex, Raft};
 
+use crate::raft::fsm::Instruction;
 use crate::raft::rpc::Address;
 use crate::raft::rpc::Message;
 use crate::raft::Role;
 use crate::raft::Term;
 use crate::raft::{Apply, NodeId, RaftHandle, RaftRole};
-use crate::raft::fsm::Instruction;
 use std::collections::HashSet;
 
 ///
@@ -237,11 +237,17 @@ impl Apply for Raft<Leader> {
 
                 Ok(RaftHandle::Leader(self))
             }
-            Command::ClientRequest { id, proposal, client_address } => {
+            Command::ClientRequest {
+                id,
+                proposal,
+                client_address,
+            } => {
                 let term = self.state.current_term;
                 let next_index = self.log.next_index();
                 let entry = Entry {
-                    entry_type: EntryType::Entry { data: proposal.get() },
+                    entry_type: EntryType::Entry {
+                        data: proposal.get(),
+                    },
                     term,
                     index: next_index,
                 };
@@ -251,7 +257,11 @@ impl Apply for Raft<Leader> {
                 self.state.last_applied = index;
                 let node_id = self.id;
 
-                self.fsm_tx.send(Instruction::Notify { id, index, client_address })?;
+                self.fsm_tx.send(Instruction::Notify {
+                    id,
+                    index,
+                    client_address,
+                })?;
 
                 self.apply(Command::AppendResponse {
                     node_id,
@@ -259,7 +269,7 @@ impl Apply for Raft<Leader> {
                     index,
                     success: true,
                 })
-            },
+            }
             _ => Ok(RaftHandle::Leader(self)),
         }
     }
@@ -286,9 +296,12 @@ impl From<Raft<Leader>> for Raft<Follower> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{raft::{Apply, Command, EntryType, RaftHandle}, raft::{fsm::Instruction, rpc::Proposal}};
-    use crate::raft::test::new_follower;
     use crate::raft::rpc::Address;
+    use crate::raft::test::new_follower;
+    use crate::{
+        raft::{fsm::Instruction, rpc::Proposal},
+        raft::{Apply, Command, EntryType, RaftHandle},
+    };
 
     #[test]
     fn apply_entry_single_node() {

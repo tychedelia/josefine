@@ -151,8 +151,8 @@ async fn send_messages(socket: TcpStream, out_rx: &mut mpsc::Receiver<Message>) 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::raft::Command;
     use crate::raft::rpc::Address;
+    use crate::raft::Command;
     use bytes::Bytes;
     use futures::SinkExt;
 

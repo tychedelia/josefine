@@ -25,13 +25,13 @@ use crate::error::Result;
 use crate::raft::config::RaftConfig;
 use crate::raft::error::RaftError;
 use crate::raft::follower::Follower;
+use crate::raft::fsm::Instruction;
 use crate::raft::leader::Leader;
 use crate::raft::log::Log;
 use crate::raft::rpc::{Address, Message};
-use crate::raft::server::Server;
+use crate::raft::server::{Server, ServerRunOpts};
 use crate::raft::store::MemoryStore;
 use crate::raft::{candidate::Candidate, rpc::Proposal};
-use crate::raft::fsm::Instruction;
 
 mod candidate;
 pub mod client;
@@ -69,8 +69,19 @@ impl JosefineRaft {
         self,
         fsm: T,
         client_rx: UnboundedReceiver<(Proposal, oneshot::Sender<Result<Response>>)>,
+        shutdown: (
+            tokio::sync::broadcast::Sender<()>,
+            tokio::sync::broadcast::Receiver<()>,
+        ),
     ) -> Result<RaftHandle> {
-        self.server.run(None, fsm, client_rx).await
+        self.server
+            .run(ServerRunOpts {
+                duration: None,
+                fsm,
+                client_rx,
+                shutdown,
+            })
+            .await
     }
 
     pub async fn run_for<T: 'static + fsm::Fsm>(
@@ -78,8 +89,19 @@ impl JosefineRaft {
         duration: Duration,
         fsm: T,
         client_rx: UnboundedReceiver<(Proposal, oneshot::Sender<Result<Response>>)>,
+        shutdown: (
+            tokio::sync::broadcast::Sender<()>,
+            tokio::sync::broadcast::Receiver<()>,
+        ),
     ) -> Result<RaftHandle> {
-        self.server.run(Some(duration), fsm, client_rx).await
+        self.server
+            .run(ServerRunOpts {
+                duration: Some(duration),
+                fsm,
+                client_rx,
+                shutdown,
+            })
+            .await
     }
 }
 
@@ -372,7 +394,6 @@ impl RaftHandle {
 
     pub fn is_candidate(&self) -> bool {
         matches!(self, Self::Candidate(_))
-
     }
 
     pub fn is_leader(&self) -> bool {

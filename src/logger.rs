@@ -7,7 +7,6 @@ lazy_static! {
             std::env::set_var("RUST_LOG", "INFO");
         }
 
-
         let drain = slog_async::Async::default(slog_envlogger::new(
             slog_term::FullFormat::new(slog_term::TermDecorator::new().stderr().build())
                 .build()

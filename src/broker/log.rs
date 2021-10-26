@@ -1,7 +1,7 @@
 use std::io::Error;
 use std::io::Read;
 use std::io::Write;
-use std::path::{PathBuf, Path};
+use std::path::{Path, PathBuf};
 
 use std::sync::RwLock;
 

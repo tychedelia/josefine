@@ -1,5 +1,6 @@
 use clap::App;
 use clap::Arg;
+use ctrlc;
 use std::path::Path;
 
 #[tokio::main(flavor = "multi_thread", worker_threads = 3)]
@@ -19,5 +20,17 @@ async fn main() {
         .get_matches();
 
     let config_path = matches.value_of("config").unwrap();
-    josefine::josefine(Path::new(&config_path)).await.unwrap();
+
+    let shutdown = tokio::sync::broadcast::channel(1);
+    let shutdown_tx = shutdown.0.clone();
+    ctrlc::set_handler(move || {
+        shutdown_tx
+            .send(())
+            .expect("could not send shutdown signal");
+    })
+    .unwrap();
+
+    josefine::josefine(Path::new(&config_path), shutdown)
+        .await
+        .unwrap();
 }

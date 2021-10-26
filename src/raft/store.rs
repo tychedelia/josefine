@@ -38,7 +38,7 @@ pub struct MemoryStore {
 impl MemoryStore {
     pub fn new() -> Self {
         Self {
-            log: BTreeMap::new(), 
+            log: BTreeMap::new(),
             committed: 0,
         }
     }
@@ -67,7 +67,7 @@ impl Store for MemoryStore {
 
     fn get(&self, index: LogIndex) -> Result<Option<Vec<u8>>> {
         if index == 0 {
-            return Ok(None)
+            return Ok(None);
         }
 
         Ok(self.log.get(&index).cloned())
@@ -92,7 +92,7 @@ impl Store for MemoryStore {
     }
 
     fn truncate(&mut self, index: u64) -> Result<LogIndex> {
-        self.log.retain(|&k, _| { k >= index });
+        self.log.retain(|&k, _| k >= index);
         Ok(self.len())
     }
 }
@@ -131,8 +131,7 @@ mod tests {
         store.append(4, vec![4]).unwrap();
         let res = store.get_range(0, 3).unwrap();
         for (i, r) in res.iter().enumerate() {
-            assert_eq!(r[0], (i+1) as u8);
+            assert_eq!(r[0], (i + 1) as u8);
         }
-
     }
 }

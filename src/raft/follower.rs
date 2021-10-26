@@ -9,15 +9,15 @@ use crate::error::Result;
 use crate::raft::candidate::Candidate;
 use crate::raft::election::Election;
 use crate::raft::error::RaftError;
+use crate::raft::fsm::Instruction;
 use crate::raft::log::Log;
 use crate::raft::rpc::{Address, Message};
 use crate::raft::Command::VoteResponse;
-use crate::raft::{RaftConfig, ClientRequestId};
 use crate::raft::{Apply, LogIndex, RaftHandle, RaftRole, Term};
+use crate::raft::{ClientRequestId, RaftConfig};
 use crate::raft::{Command, NodeId, Raft, Role, State};
-use tokio::sync::mpsc::UnboundedSender;
-use crate::raft::fsm::Instruction;
 use std::collections::HashSet;
+use tokio::sync::mpsc::UnboundedSender;
 
 #[derive(Debug)]
 pub struct Follower {
@@ -189,12 +189,15 @@ impl Apply for Raft<Follower> {
             }
             Command::ClientRequest { id, proposal, .. } => {
                 if let Some(leader_id) = self.role.leader_id {
-                    self.send(Address::Peer(leader_id), Command::ClientRequest {
-                        id: id.clone(),
-                        proposal,
-                        // rewrite address to our own so we can close out the request ourself
-                        client_address: Address::Peer(self.id),
-                    })?;
+                    self.send(
+                        Address::Peer(leader_id),
+                        Command::ClientRequest {
+                            id: id.clone(),
+                            proposal,
+                            // rewrite address to our own so we can close out the request ourself
+                            client_address: Address::Peer(self.id),
+                        },
+                    )?;
                     self.role.proxied_reqs.insert(id);
                     self.apply_self()
                 } else {
@@ -202,11 +205,14 @@ impl Apply for Raft<Follower> {
                     panic!()
                 }
             }
-            Command::ClientResponse{ id, res } => {
-                self.send(Address::Client, Command::ClientResponse {
-                    id: id.clone(),
-                    res
-                })?;
+            Command::ClientResponse { id, res } => {
+                self.send(
+                    Address::Client,
+                    Command::ClientResponse {
+                        id: id.clone(),
+                        res,
+                    },
+                )?;
                 self.role.proxied_reqs.remove(&id);
                 self.apply_self()
             }
