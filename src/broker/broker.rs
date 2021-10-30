@@ -3,13 +3,32 @@ use crate::error::Result;
 use sled::Db;
 use std::collections::HashMap;
 
+#[derive(Clone, Debug)]
 pub struct Broker {
-    db: &'static Db,
+    db: Db,
 }
 
 impl Broker {
-    pub fn new(db: &'static Db) -> Self {
+    pub fn new(db: Db) -> Self {
         Self { db }
+    }
+
+    pub fn create_topic(&self, topic: Topic) -> Result<Topic> {
+        Ok(self.db.transaction(move |tx| {
+            let mut topics = match tx.get("topics")? {
+                Some(topics) => bincode::deserialize(&topics).unwrap(),
+                None => HashMap::new(),
+            };
+
+            if !topics.contains_key(&topic.name) {
+                topics.insert(topic.name.clone(), topic.clone());
+            }
+
+            tx.insert("topics", bincode::serialize(&topics).unwrap())?;
+
+            // TODO: cleanup clones, move outside
+            Ok(topic.clone())
+        })?)
     }
 
     pub fn topic_exists(&self, name: &str) -> Result<bool> {

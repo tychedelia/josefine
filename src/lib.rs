@@ -32,22 +32,24 @@ pub async fn josefine<P: AsRef<std::path::Path>>(
     ),
 ) -> Result<()> {
     let config = config::config(config_path);
+    let db = sled::open(&config.broker.file).unwrap();
 
     let (client_tx, client_rx) = tokio::sync::mpsc::unbounded_channel();
     let client = RaftClient::new(client_tx);
-    let broker = JosefineBroker::with_config(config.broker);
-    let (task, broker) = broker.run(client, &DB, (shutdown.0.clone(), shutdown.0.subscribe())).remote_handle();
+    let josefine_broker = JosefineBroker::with_config(config.broker);
+    let broker = crate::broker::broker::Broker::new(db);
+    let (task, b) = josefine_broker.run(client, broker.clone(), (shutdown.0.clone(), shutdown.0.subscribe())).remote_handle();
     tokio::spawn(task);
 
     let raft = JosefineRaft::with_config(config.raft);
     let (task, raft) = raft
         .run(
-            crate::broker::fsm::JosefineFsm::new(&DB),
+            crate::broker::fsm::JosefineFsm::new(broker),
             client_rx,
             (shutdown.0.clone(), shutdown.0.subscribe()),
         )
         .remote_handle();
     tokio::spawn(task);
-    let (_, _) = tokio::try_join!(broker, raft)?;
+    let (_, _) = tokio::try_join!(b, raft)?;
     Ok(())
 }

@@ -1,6 +1,6 @@
 use clap::App;
 use clap::Arg;
-use ctrlc;
+
 use std::path::Path;
 
 #[tokio::main(flavor = "multi_thread", worker_threads = 3)]

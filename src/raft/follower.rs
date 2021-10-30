@@ -71,10 +71,7 @@ impl Apply for Raft<Follower> {
                 // If we voted for someone...
                 if let Some(voted_for) = self.state.voted_for {
                     // And the entries rpc is from another "leader" with a lower term
-                    if voted_for != leader_id && term < self.state.current_term {
-                        // Something is wrong, fail fast.
-                        panic!();
-                    }
+                    assert!(!(voted_for != leader_id && term < self.state.current_term), "{:?}", ..);
                 }
 
                 // If we don't have a log at prev index and term, respond false

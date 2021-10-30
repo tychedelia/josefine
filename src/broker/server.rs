@@ -13,7 +13,7 @@ use tokio::sync::oneshot;
 
 use crate::broker::fsm::Transition;
 use crate::broker::topic::Topic;
-use crate::broker::Broker;
+use crate::broker::broker::Broker;
 use crate::logger::get_root_logger;
 use crate::raft::client::RaftClient;
 use bytes::Bytes;
@@ -86,7 +86,7 @@ async fn handle_message(
     msg: RequestKind,
     cb: oneshot::Sender<ResponseKind>,
 ) -> Result<()> {
-    Ok(match msg {
+    match msg {
         RequestKind::ApiVersionsRequest(_req) => {
             let mut res = ApiVersionsResponse::default();
             res.api_keys.insert(
@@ -224,7 +224,7 @@ async fn handle_message(
             res.brokers.insert(
                 BrokerId(1),
                 MetadataResponseBroker {
-                    host: StrBytes::from_str("127.0.0.1"),
+                    host: StrBytes::from_str("[::1]"),
                     port: 8844,
                     rack: None,
                     unknown_tagged_fields: Default::default(),
@@ -269,5 +269,6 @@ async fn handle_message(
             cb.send(ResponseKind::CreateTopicsResponse(res)).unwrap();
         }
         _ => panic!(),
-    })
+    };
+    Ok(())
 }

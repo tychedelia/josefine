@@ -1,36 +1,22 @@
 use crate::broker::topic::Topic;
 use crate::error::Result;
 use crate::raft::fsm::Fsm;
-use sled::Db;
-use std::collections::HashMap;
+
+
+use crate::broker::broker::Broker;
 
 #[derive(Debug)]
 pub struct JosefineFsm {
-    db: &'static sled::Db,
+    broker: Broker
 }
 
 impl JosefineFsm {
-    pub fn new(db: &'static Db) -> Self {
-        Self { db }
+    pub fn new(broker: Broker) -> Self {
+        Self { broker }
     }
 
     fn ensure_topic(&mut self, topic: Topic) -> Result<Vec<u8>> {
-        let topic = self.db.transaction(move |tx| {
-            let mut topics = match tx.get("topics")? {
-                Some(topics) => bincode::deserialize(&topics).unwrap(),
-                None => HashMap::new(),
-            };
-
-            if !topics.contains_key(&topic.name) {
-                topics.insert(topic.name.clone(), topic.clone());
-            }
-
-            tx.insert("topics", bincode::serialize(&topics).unwrap())?;
-
-            // TODO: cleanup clones, move outside
-            Ok(topic.clone())
-        })?;
-
+        let topic = self.broker.create_topic(topic)?;
         Ok(bincode::serialize(&topic)?)
     }
 }

@@ -67,7 +67,7 @@ impl<T: Fsm> Driver<T> {
                                     from: Address::Local,
                                     command: Command::ClientResponse {
                                         id,
-                                        res: res.map(|x| Response::new(x)),
+                                        res: res.map(Response::new),
                                     }
                                 })?;
                             }

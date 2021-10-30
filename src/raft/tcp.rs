@@ -212,14 +212,14 @@ mod tests {
 
         let out_msg = Message::new(Address::Peer(1), Address::Peer(2), Command::Tick);
         let out_msg2 = Message::new(Address::Peer(1), Address::Peer(2), Command::Tick);
-        tx.send(out_msg).map_err(|err| RaftError::from(err))?;
+        tx.send(out_msg).map_err(RaftError::from)?;
 
         let mut stream = stream::ListenerStream(listener);
         let (stream, _addr) = stream.next().await.unwrap()?;
         let mut frame = FramedRead::new(stream, LengthDelimitedCodec::new());
         match frame.next().await {
             Some(Ok(mut bytes)) => {
-                let in_msg = serde_json::from_slice(&mut bytes.as_mut())?;
+                let in_msg = serde_json::from_slice(bytes.as_mut())?;
                 assert_eq!(out_msg2, in_msg);
             }
             _ => panic!(),
