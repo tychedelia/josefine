@@ -18,6 +18,7 @@ mod segment;
 mod server;
 mod tcp;
 mod topic;
+mod command;
 
 pub struct JosefineBroker {
     config: BrokerConfig,
