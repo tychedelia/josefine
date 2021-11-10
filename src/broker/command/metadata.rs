@@ -5,6 +5,7 @@ use kafka_protocol::messages::metadata_response::{MetadataResponseBroker, Metada
 use kafka_protocol::messages::{BrokerId, MetadataRequest, MetadataResponse, TopicName};
 use kafka_protocol::protocol::StrBytes;
 use string::TryFrom;
+use crate::kafka::util::ToStrBytes;
 
 pub struct MetadataCommand;
 
@@ -19,9 +20,7 @@ impl Command for MetadataCommand {
             BrokerId(ctrl.config.id),
             MetadataResponseBroker {
                 // SAFETY: parsed ip address can be trivially converted to utf-8
-                host: unsafe {
-                    StrBytes::from_utf8_unchecked(Bytes::from(ctrl.config.ip.to_string()))
-                },
+                host: ctrl.config.ip.to_string().to_str_bytes(),
                 port: ctrl.config.port as i32,
                 rack: None,
                 unknown_tagged_fields: Default::default(),

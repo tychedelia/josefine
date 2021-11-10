@@ -4,6 +4,7 @@ use async_trait::async_trait;
 use kafka_protocol::protocol::StrBytes;
 use bytes::Bytes;
 use kafka_protocol::messages::find_coordinator_response::Coordinator;
+use crate::kafka::util::ToStrBytes;
 
 pub struct FindCoordinatorCommand;
 
@@ -17,8 +18,7 @@ impl Command for FindCoordinatorCommand {
 
         let mut coordinator = Coordinator::default();
         coordinator.node_id = BrokerId(ctrl.config.id);
-        coordinator.host = unsafe { StrBytes::from_utf8_unchecked(Bytes::from(ctrl.config.ip.to_string()))
-        };
+        coordinator.host = ctrl.config.ip.to_string().to_str_bytes();
         coordinator.port = ctrl.config.port as i32;
 
         res.coordinators.push(coordinator);
