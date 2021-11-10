@@ -39,7 +39,7 @@ pub async fn receive_task(
 }
 
 async fn stream_messages(
-    _log: Logger,
+    log: Logger,
     mut stream: TcpStream,
     in_tx: UnboundedSender<(RequestKind, oneshot::Sender<ResponseKind>)>,
 ) -> Result<()> {
@@ -50,9 +50,11 @@ async fn stream_messages(
         stream_in
             .try_next()
             .await
-            .map_err(|_err| JosefineError::MessageError {
-                error_msg: "broke".to_string(),
-            })?
+            .map_err(|err| {
+                error!(log, "error!"; "err" => format!("{:?}", err));
+                JosefineError::MessageError {
+                    error_msg: "broke".to_string(),
+                } })?
     {
         let (cb_tx, cb_rx) = oneshot::channel();
         in_tx

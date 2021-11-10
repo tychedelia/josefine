@@ -25,16 +25,18 @@ use slog::Logger;
 
 
 use crate::broker::command::{Controller};
-
+use crate::broker::config::BrokerConfig;
 
 
 pub struct Server {
     address: SocketAddr,
+    config: BrokerConfig,
 }
 
 impl Server {
-    pub fn new(address: SocketAddr) -> Self {
-        Server { address }
+    pub fn new(config: BrokerConfig) -> Self {
+        let address = SocketAddr::new(config.ip, config.port);
+        Server { address, config }
     }
 
     pub async fn run(
@@ -55,7 +57,7 @@ impl Server {
                 .remote_handle();
         tokio::spawn(task);
 
-        let ctrl = Controller::new(broker, client);
+        let ctrl = Controller::new(broker, client, self.config);
         let (task, handle_messages) =
             handle_messages(log.new(o!()), ctrl, out_tx, shutdown.0.subscribe()).remote_handle();
         tokio::spawn(task);

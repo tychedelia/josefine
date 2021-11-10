@@ -4,7 +4,7 @@ use crate::raft::client::RaftClient;
 use crate::broker::config::BrokerConfig;
 use server::Server;
 
-use std::net::SocketAddr;
+
 use crate::broker::broker::Broker;
 
 pub(crate) mod broker;
@@ -35,8 +35,7 @@ impl JosefineBroker {
         broker: Broker,
         shutdown: (tokio::sync::broadcast::Sender<()>, tokio::sync::broadcast::Receiver<()>),
     ) -> Result<()> {
-        let socket_addr = SocketAddr::new(self.config.ip, self.config.port);
-        let server = Server::new(socket_addr);
+        let server = Server::new(self.config);
         server.run(client, broker, shutdown).await
     }
 }

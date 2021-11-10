@@ -2,10 +2,8 @@ use std::convert::TryFrom;
 
 use bytes::BytesMut;
 use kafka_protocol::messages::api_versions_response::ApiVersionsResponse;
-use kafka_protocol::messages::{
-    ApiKey, ApiVersionsRequest, CreateTopicsRequest, CreateTopicsResponse, MetadataRequest,
-    MetadataResponse, RequestHeader, RequestKind, ResponseHeader, ResponseKind,
-};
+use kafka_protocol::messages::{ApiKey, ApiVersionsRequest, CreateTopicsRequest, CreateTopicsResponse, ListGroupsRequest, ListGroupsResponse, MetadataRequest, MetadataResponse, RequestHeader, RequestKind, ResponseHeader, ResponseKind};
+
 use kafka_protocol::protocol::buf::ByteBuf;
 use kafka_protocol::protocol::{Decodable, Encodable, HeaderVersion};
 use tokio_util::codec;
@@ -85,6 +83,10 @@ fn encode(
             header.encode(bytes, CreateTopicsResponse::header_version(version))?;
             res.encode(bytes, version)?;
         }
+        ResponseKind::ListGroupsResponse(res) => {
+            header.encode(bytes, ListGroupsResponse::header_version(version))?;
+            res.encode(bytes, version)?;
+        }
         _ => return Err(ErrorKind::UnsupportedOperation),
     };
 
@@ -104,6 +106,10 @@ fn decode(bytes: &mut BytesMut, api_key: ApiKey, version: i16) -> Result<Request
         ApiKey::CreateTopicsKey => {
             let req = CreateTopicsRequest::decode(bytes, version)?;
             Ok(RequestKind::CreateTopicsRequest(req))
+        }
+        ApiKey::ListGroupsKey => {
+            let req = ListGroupsRequest::decode(bytes, version)?;
+            Ok(RequestKind::ListGroupsRequest(req))
         }
         _ => Err(ErrorKind::UnsupportedOperation),
     }

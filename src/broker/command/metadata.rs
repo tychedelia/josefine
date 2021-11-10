@@ -14,12 +14,13 @@ impl Command for MetadataCommand {
     type Response = MetadataResponse;
 
     async fn execute(_: Self::Request, ctrl: &Controller) -> crate::error::Result<Self::Response> {
-        let mut res = Self::response()  ;
+        let mut res = Self::response() ;
         res.brokers.insert(
             BrokerId(1),
             MetadataResponseBroker {
-                host: StrBytes::from_str("[::1]"),
-                port: 8844,
+                // SAFETY: parsed ip address can be trivially converted to utf-8
+                host: unsafe { StrBytes::from_utf8_unchecked(Bytes::from(ctrl.config.ip.to_string())) },
+                port: ctrl.config.port as i32,
                 rack: None,
                 unknown_tagged_fields: Default::default(),
             },
