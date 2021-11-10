@@ -38,7 +38,13 @@ pub async fn josefine<P: AsRef<std::path::Path>>(
     let client = RaftClient::new(client_tx);
     let josefine_broker = JosefineBroker::with_config(config.broker);
     let broker = crate::broker::broker::Broker::new(db);
-    let (task, b) = josefine_broker.run(client, broker.clone(), (shutdown.0.clone(), shutdown.0.subscribe())).remote_handle();
+    let (task, b) = josefine_broker
+        .run(
+            client,
+            broker.clone(),
+            (shutdown.0.clone(), shutdown.0.subscribe()),
+        )
+        .remote_handle();
     tokio::spawn(task);
 
     let raft = JosefineRaft::with_config(config.raft);

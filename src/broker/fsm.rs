@@ -1,13 +1,12 @@
-use crate::broker::topic::Topic;
 use crate::error::Result;
 use crate::raft::fsm::Fsm;
 
-
 use crate::broker::broker::Broker;
+use crate::broker::model::topic::Topic;
 
 #[derive(Debug)]
 pub struct JosefineFsm {
-    broker: Broker
+    broker: Broker,
 }
 
 impl JosefineFsm {

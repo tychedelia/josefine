@@ -1,8 +1,8 @@
-use kafka_protocol::messages::*;
-use kafka_protocol::messages::api_versions_response::ApiVersion;
-use kafka_protocol::protocol::Message;
 use crate::broker::command::{Command, Controller};
 use async_trait::async_trait;
+use kafka_protocol::messages::api_versions_response::ApiVersion;
+use kafka_protocol::messages::*;
+use kafka_protocol::protocol::Message;
 
 pub struct ApiVersionsCommand;
 

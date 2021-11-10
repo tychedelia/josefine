@@ -1,10 +1,10 @@
-use kafka_protocol::messages::{CreateTopicsRequest, CreateTopicsResponse};
-use kafka_protocol::messages::create_topics_response::CreatableTopicResult;
-use uuid::Uuid;
 use crate::broker::command::{Command, Controller};
 use crate::broker::fsm::Transition;
-use crate::broker::topic::Topic;
+use crate::broker::model::topic::Topic;
 use async_trait::async_trait;
+use kafka_protocol::messages::create_topics_response::CreatableTopicResult;
+use kafka_protocol::messages::{CreateTopicsRequest, CreateTopicsResponse};
+use uuid::Uuid;
 
 pub struct CreateTopicsCommand;
 
@@ -13,7 +13,10 @@ impl Command for CreateTopicsCommand {
     type Request = CreateTopicsRequest;
     type Response = CreateTopicsResponse;
 
-    async fn execute(req: Self::Request, ctrl: &Controller) -> crate::error::Result<Self::Response> {
+    async fn execute(
+        req: Self::Request,
+        ctrl: &Controller,
+    ) -> crate::error::Result<Self::Response> {
         let mut res = Self::response();
         for (name, _) in req.topics.into_iter() {
             let topic = Topic {
@@ -26,7 +29,8 @@ impl Command for CreateTopicsCommand {
             }
 
             let _topic: Topic = bincode::deserialize(
-                &ctrl.client
+                &ctrl
+                    .client
                     .propose(Transition::EnsureTopic(topic).serialize()?)
                     .await?,
             )?;

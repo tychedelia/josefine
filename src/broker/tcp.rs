@@ -46,16 +46,12 @@ async fn stream_messages(
     let (r, w) = stream.split();
     let mut stream_in = FramedRead::new(r, KafkaServerCodec::new());
     let mut stream_out = FramedWrite::new(w, KafkaServerCodec::new());
-    while let Some((header, message)) =
-        stream_in
-            .try_next()
-            .await
-            .map_err(|err| {
-                error!(log, "error!"; "err" => format!("{:?}", err));
-                JosefineError::MessageError {
-                    error_msg: "broke".to_string(),
-                } })?
-    {
+    while let Some((header, message)) = stream_in.try_next().await.map_err(|err| {
+        error!(log, "error!"; "err" => format!("{:?}", err));
+        JosefineError::MessageError {
+            error_msg: "broke".to_string(),
+        }
+    })? {
         let (cb_tx, cb_rx) = oneshot::channel();
         in_tx
             .send((message, cb_tx))

@@ -1,6 +1,5 @@
 //! A multi-node cluster that shares a single tokio runtime.
 
-
 #[tokio::main]
 pub async fn main() {
     let path = std::env::current_dir().unwrap();

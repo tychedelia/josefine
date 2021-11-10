@@ -1,4 +1,5 @@
-use crate::broker::topic::Topic;
+use crate::broker::model::group::Group;
+use crate::broker::model::topic::Topic;
 use crate::error::Result;
 use sled::Db;
 use std::collections::HashMap;
@@ -41,6 +42,18 @@ impl Broker {
                 Some(topics) => {
                     // TODO: unwrap
                     Ok(bincode::deserialize::<HashMap<String, Topic>>(&topics).unwrap())
+                }
+                None => Ok(HashMap::new()),
+            }
+        })?)
+    }
+
+    pub fn get_groups(&self) -> Result<HashMap<String, Group>> {
+        Ok(self.db.transaction(|tx| {
+            match tx.get("topics")? {
+                Some(topics) => {
+                    // TODO: unwrap
+                    Ok(bincode::deserialize::<HashMap<String, Group>>(&topics).unwrap())
                 }
                 None => Ok(HashMap::new()),
             }

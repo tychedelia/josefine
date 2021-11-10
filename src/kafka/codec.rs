@@ -2,7 +2,7 @@ use std::convert::TryFrom;
 
 use bytes::BytesMut;
 use kafka_protocol::messages::api_versions_response::ApiVersionsResponse;
-use kafka_protocol::messages::{ApiKey, ApiVersionsRequest, CreateTopicsRequest, CreateTopicsResponse, ListGroupsRequest, ListGroupsResponse, MetadataRequest, MetadataResponse, RequestHeader, RequestKind, ResponseHeader, ResponseKind};
+use kafka_protocol::messages::*;
 
 use kafka_protocol::protocol::buf::ByteBuf;
 use kafka_protocol::protocol::{Decodable, Encodable, HeaderVersion};
@@ -38,6 +38,7 @@ impl codec::Decoder for KafkaServerCodec {
         if let Some(mut bytes) = self.length_codec.decode(src)? {
             let version = Self::read_version(&mut bytes)?;
             let header = RequestHeader::decode(&mut bytes, version)?;
+            println!("{:?}", header);
             let api_key = ApiKey::try_from(header.request_api_key)?;
             let request = decode(&mut bytes, api_key, version)?;
             Ok(Some((header, request)))
@@ -87,6 +88,10 @@ fn encode(
             header.encode(bytes, ListGroupsResponse::header_version(version))?;
             res.encode(bytes, version)?;
         }
+        ResponseKind::FindCoordinatorResponse(res) => {
+            header.encode(bytes, FindCoordinatorResponse::header_version(version))?;
+            res.encode(bytes, version)?;
+        }
         _ => return Err(ErrorKind::UnsupportedOperation),
     };
 
@@ -110,6 +115,10 @@ fn decode(bytes: &mut BytesMut, api_key: ApiKey, version: i16) -> Result<Request
         ApiKey::ListGroupsKey => {
             let req = ListGroupsRequest::decode(bytes, version)?;
             Ok(RequestKind::ListGroupsRequest(req))
+        }
+        ApiKey::FindCoordinatorKey => {
+            let req = FindCoordinatorRequest::decode(bytes, version)?;
+            Ok(RequestKind::FindCoordinatorRequest(req))
         }
         _ => Err(ErrorKind::UnsupportedOperation),
     }

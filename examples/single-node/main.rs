@@ -1,5 +1,3 @@
-
-
 #[tokio::main]
 pub async fn main() {
     let mut path = std::env::current_dir().unwrap();

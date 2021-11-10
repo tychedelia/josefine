@@ -1,10 +1,10 @@
-use string::TryFrom;
-use bytes::Bytes;
-use kafka_protocol::messages::{BrokerId, MetadataRequest, MetadataResponse, TopicName};
-use kafka_protocol::messages::metadata_response::{MetadataResponseBroker, MetadataResponseTopic};
-use kafka_protocol::protocol::StrBytes;
 use crate::broker::command::{Command, Controller};
 use async_trait::async_trait;
+use bytes::Bytes;
+use kafka_protocol::messages::metadata_response::{MetadataResponseBroker, MetadataResponseTopic};
+use kafka_protocol::messages::{BrokerId, MetadataRequest, MetadataResponse, TopicName};
+use kafka_protocol::protocol::StrBytes;
+use string::TryFrom;
 
 pub struct MetadataCommand;
 
@@ -14,12 +14,14 @@ impl Command for MetadataCommand {
     type Response = MetadataResponse;
 
     async fn execute(_: Self::Request, ctrl: &Controller) -> crate::error::Result<Self::Response> {
-        let mut res = Self::response() ;
+        let mut res = Self::response();
         res.brokers.insert(
-            BrokerId(1),
+            BrokerId(ctrl.config.id),
             MetadataResponseBroker {
                 // SAFETY: parsed ip address can be trivially converted to utf-8
-                host: unsafe { StrBytes::from_utf8_unchecked(Bytes::from(ctrl.config.ip.to_string())) },
+                host: unsafe {
+                    StrBytes::from_utf8_unchecked(Bytes::from(ctrl.config.ip.to_string()))
+                },
                 port: ctrl.config.port as i32,
                 rack: None,
                 unknown_tagged_fields: Default::default(),

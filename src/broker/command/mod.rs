@@ -1,5 +1,3 @@
-
-
 use kafka_protocol::messages::{RequestKind, ResponseKind};
 
 use async_trait::async_trait;
@@ -7,21 +5,23 @@ use async_trait::async_trait;
 use crate::broker::broker::Broker;
 use crate::broker::command::api_versions::ApiVersionsCommand;
 use crate::broker::command::create_topics::CreateTopicsCommand;
+use crate::broker::command::find_coordinator::FindCoordinatorCommand;
 use crate::broker::command::list_groups::ListGroupsCommand;
 use crate::broker::command::metadata::MetadataCommand;
 use crate::broker::config::BrokerConfig;
 use crate::error::Result;
 use crate::raft::client::RaftClient;
 
-mod create_topics;
-mod metadata;
 mod api_versions;
+mod create_topics;
 mod list_groups;
+mod metadata;
+mod find_coordinator;
 
 #[async_trait]
 trait Command {
-    type Request : Default;
-    type Response : Default;
+    type Request: Default;
+    type Response: Default;
 
     async fn execute(req: Self::Request, ctrl: &Controller) -> Result<Self::Response>;
 
@@ -39,7 +39,9 @@ pub struct Controller {
 impl Controller {
     pub fn new(broker: Broker, client: RaftClient, config: BrokerConfig) -> Self {
         Self {
-            broker, client, config
+            broker,
+            client,
+            config,
         }
     }
 
@@ -61,7 +63,11 @@ impl Controller {
                 let res = ListGroupsCommand::execute(req, self).await?;
                 ResponseKind::ListGroupsResponse(res)
             }
-            _ => panic!()
+            RequestKind::FindCoordinatorRequest(req) => {
+                let res = FindCoordinatorCommand::execute(req, self).await?;
+                ResponseKind::FindCoordinatorResponse(res)
+            }
+            _ => panic!(),
         };
 
         Ok(res)

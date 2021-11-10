@@ -1,4 +1,3 @@
-
 use std::net::SocketAddr;
 
 use crate::error::Result;
@@ -12,21 +11,14 @@ use kafka_protocol::messages::*;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::oneshot;
 
-
-
 use crate::broker::broker::Broker;
 use crate::logger::get_root_logger;
 use crate::raft::client::RaftClient;
 
-
-
 use slog::Logger;
 
-
-
-use crate::broker::command::{Controller};
+use crate::broker::command::Controller;
 use crate::broker::config::BrokerConfig;
-
 
 pub struct Server {
     address: SocketAddr,
@@ -52,9 +44,13 @@ impl Server {
         info!(log, "broker listening"; "address" => &self.address);
         let listener = TcpListener::bind(self.address).await?;
         let (in_tx, out_tx) = tokio::sync::mpsc::unbounded_channel();
-        let (task, tcp_receiver) =
-            tcp::receive_task(crate::logger::get_root_logger().new(o!()), listener, in_tx, shutdown.0.subscribe())
-                .remote_handle();
+        let (task, tcp_receiver) = tcp::receive_task(
+            crate::logger::get_root_logger().new(o!()),
+            listener,
+            in_tx,
+            shutdown.0.subscribe(),
+        )
+        .remote_handle();
         tokio::spawn(task);
 
         let ctrl = Controller::new(broker, client, self.config);
