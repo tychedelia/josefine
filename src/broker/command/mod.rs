@@ -17,6 +17,7 @@ mod create_topics;
 mod list_groups;
 mod metadata;
 mod find_coordinator;
+mod test;
 
 #[async_trait]
 trait Command {

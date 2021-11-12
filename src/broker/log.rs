@@ -61,7 +61,7 @@ impl Read for Log {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use std::env;
     use std::fs::File;
     use std::io::Read;

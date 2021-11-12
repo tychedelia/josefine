@@ -17,3 +17,22 @@ impl Command for ListGroupsCommand {
         Ok(res)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use kafka_protocol::messages::ListGroupsRequest;
+    
+    use crate::broker::command::Command;
+    use crate::broker::command::list_groups::ListGroupsCommand;
+    use crate::broker::command::test::new_controller;
+    
+    use crate::error::Result;
+
+    #[tokio::test]
+    async fn execute() -> Result<()> {
+        let (_rx, ctrl) = new_controller();
+        let req = ListGroupsRequest::default();
+        let _res = ListGroupsCommand::execute(req, &ctrl).await?;
+        Ok(())
+    }
+}

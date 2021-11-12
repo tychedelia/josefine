@@ -145,3 +145,22 @@ impl Command for ApiVersionsCommand {
         Ok(res)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use kafka_protocol::messages::ApiVersionsRequest;
+    
+    use crate::broker::command::api_versions::ApiVersionsCommand;
+    use crate::broker::command::Command;
+    use crate::broker::command::test::new_controller;
+    
+    use crate::error::Result;
+
+    #[tokio::test]
+    async fn execute() -> Result<()> {
+        let (_rx, ctrl) = new_controller();
+        let req = ApiVersionsRequest::default();
+        let _res = ApiVersionsCommand::execute(req, &ctrl).await?;
+        Ok(())
+    }
+}

@@ -41,3 +41,37 @@ impl Command for CreateTopicsCommand {
         Ok(res)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use kafka_protocol::messages::{CreateTopicsRequest, TopicName};
+    use kafka_protocol::messages::create_topics_request::CreatableTopic;
+    use kafka_protocol::protocol::StrBytes;
+    use crate::broker::command::Command;
+    use crate::broker::command::create_topics::CreateTopicsCommand;
+    use crate::broker::command::test::new_controller;
+    use crate::broker::model::topic::Topic;
+    use crate::error::Result;
+
+    #[tokio::test]
+    async fn execute() -> Result<()> {
+        let (mut rx, ctrl) = new_controller();
+        let mut req = CreateTopicsRequest::default();
+        let topic_name = TopicName(StrBytes::from_str("Test"));
+        req.topics.insert(topic_name.clone(), CreatableTopic::default());
+        let (res, _) = tokio::join!(
+            tokio::spawn(async move { Result::Ok(CreateTopicsCommand::execute(req, &ctrl).await?) }),
+            tokio::spawn(async move {
+                let (_, cb) = rx.recv().await.unwrap();
+                let topic = Topic { id: uuid::Uuid::new_v4(), name: "Test".to_string() };
+                cb.send(Ok(crate::raft::rpc::Response::new(bincode::serialize(&topic)?)));
+                Result::Ok(())
+            }),
+        );
+
+        let res = res??;
+        let name = res.topics.keys().next().unwrap();
+        assert_eq!(&topic_name, name);
+        Ok(())
+    }
+}

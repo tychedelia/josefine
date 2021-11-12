@@ -11,7 +11,7 @@ impl Command for FindCoordinatorCommand {
     type Request = FindCoordinatorRequest;
     type Response = FindCoordinatorResponse;
 
-    async fn execute(req: Self::Request, ctrl: &Controller) -> crate::error::Result<Self::Response> {
+    async fn execute(_: Self::Request, ctrl: &Controller) -> crate::error::Result<Self::Response> {
         let mut res = Self::response();
 
         let mut coordinator = Coordinator::default();

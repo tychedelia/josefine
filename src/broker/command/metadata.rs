@@ -42,3 +42,23 @@ impl Command for MetadataCommand {
         Ok(res)
     }
 }
+
+
+#[cfg(test)]
+mod tests {
+    use kafka_protocol::messages::MetadataRequest;
+    
+    use crate::broker::command::Command;
+    use crate::broker::command::metadata::MetadataCommand;
+    use crate::broker::command::test::new_controller;
+    
+    use crate::error::Result;
+
+    #[tokio::test]
+    async fn execute() -> Result<()> {
+        let (_rx, ctrl) = new_controller();
+        let req = MetadataRequest::default();
+        let _res = MetadataCommand::execute(req, &ctrl).await?;
+        Ok(())
+    }
+}
