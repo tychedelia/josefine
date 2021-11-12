@@ -4,9 +4,9 @@ use crate::raft::client::RaftClient;
 use crate::broker::config::BrokerConfig;
 use server::Server;
 
-use crate::broker::broker::Broker;
+use crate::broker::store::Store;
 
-pub(crate) mod broker;
+pub(crate) mod store;
 mod command;
 pub mod config;
 mod entry;
@@ -31,13 +31,13 @@ impl JosefineBroker {
     pub async fn run(
         self,
         client: RaftClient,
-        broker: Broker,
+        store: Store,
         shutdown: (
             tokio::sync::broadcast::Sender<()>,
             tokio::sync::broadcast::Receiver<()>,
         ),
     ) -> Result<()> {
         let server = Server::new(self.config);
-        server.run(client, broker, shutdown).await
+        server.run(client, store, shutdown).await
     }
 }

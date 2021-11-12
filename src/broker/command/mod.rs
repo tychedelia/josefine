@@ -2,7 +2,7 @@ use kafka_protocol::messages::{RequestKind, ResponseKind};
 
 use async_trait::async_trait;
 
-use crate::broker::broker::Broker;
+use crate::broker::store::Store;
 use crate::broker::command::api_versions::ApiVersionsCommand;
 use crate::broker::command::create_topics::CreateTopicsCommand;
 use crate::broker::command::find_coordinator::FindCoordinatorCommand;
@@ -31,15 +31,15 @@ trait Command {
 }
 
 pub struct Controller {
-    broker: Broker,
+    store: Store,
     client: RaftClient,
     config: BrokerConfig,
 }
 
 impl Controller {
-    pub fn new(broker: Broker, client: RaftClient, config: BrokerConfig) -> Self {
+    pub fn new(store: Store, client: RaftClient, config: BrokerConfig) -> Self {
         Self {
-            broker,
+            store,
             client,
             config,
         }

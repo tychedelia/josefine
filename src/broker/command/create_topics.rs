@@ -24,7 +24,7 @@ impl Command for CreateTopicsCommand {
                 name: (*name).to_string(),
             };
 
-            if ctrl.broker.topic_exists(&name)? {
+            if ctrl.store.topic_exists(&name)? {
                 // TODO
             }
 

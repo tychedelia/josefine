@@ -29,7 +29,7 @@ impl Command for MetadataCommand {
         res.controller_id = BrokerId(1);
         res.cluster_id = Some(StrBytes::from_str("josefine"));
 
-        let topics = ctrl.broker.get_topics()?;
+        let topics = ctrl.store.get_topics()?;
         for (name, topic) in topics.into_iter() {
             let t = MetadataResponseTopic {
                 topic_id: topic.id,

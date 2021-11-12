@@ -1,8 +1,6 @@
 use kafka_protocol::messages::{BrokerId, FindCoordinatorRequest, FindCoordinatorResponse};
 use crate::broker::command::{Command, Controller};
 use async_trait::async_trait;
-use kafka_protocol::protocol::StrBytes;
-use bytes::Bytes;
 use kafka_protocol::messages::find_coordinator_response::Coordinator;
 use crate::kafka::util::ToStrBytes;
 

@@ -1,21 +1,21 @@
 use crate::error::Result;
 use crate::raft::fsm::Fsm;
 
-use crate::broker::broker::Broker;
+use crate::broker::store::Store;
 use crate::broker::model::topic::Topic;
 
 #[derive(Debug)]
 pub struct JosefineFsm {
-    broker: Broker,
+    store: Store,
 }
 
 impl JosefineFsm {
-    pub fn new(broker: Broker) -> Self {
-        Self { broker }
+    pub fn new(store: Store) -> Self {
+        Self { store }
     }
 
     fn ensure_topic(&mut self, topic: Topic) -> Result<Vec<u8>> {
-        let topic = self.broker.create_topic(topic)?;
+        let topic = self.store.create_topic(topic)?;
         Ok(bincode::serialize(&topic)?)
     }
 }

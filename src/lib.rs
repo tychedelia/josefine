@@ -37,7 +37,7 @@ pub async fn josefine<P: AsRef<std::path::Path>>(
     let (client_tx, client_rx) = tokio::sync::mpsc::unbounded_channel();
     let client = RaftClient::new(client_tx);
     let josefine_broker = JosefineBroker::with_config(config.broker);
-    let broker = crate::broker::broker::Broker::new(db);
+    let broker = crate::broker::store::Store::new(db);
     let (task, b) = josefine_broker
         .run(
             client,

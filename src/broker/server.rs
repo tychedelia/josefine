@@ -11,7 +11,7 @@ use kafka_protocol::messages::*;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::oneshot;
 
-use crate::broker::broker::Broker;
+use crate::broker::store::Store;
 use crate::logger::get_root_logger;
 use crate::raft::client::RaftClient;
 
@@ -34,7 +34,7 @@ impl Server {
     pub async fn run(
         self,
         client: RaftClient,
-        broker: Broker,
+        store: Store,
         shutdown: (
             tokio::sync::broadcast::Sender<()>,
             tokio::sync::broadcast::Receiver<()>,
@@ -53,7 +53,7 @@ impl Server {
         .remote_handle();
         tokio::spawn(task);
 
-        let ctrl = Controller::new(broker, client, self.config);
+        let ctrl = Controller::new(store, client, self.config);
         let (task, handle_messages) =
             handle_messages(log.new(o!()), ctrl, out_tx, shutdown.0.subscribe()).remote_handle();
         tokio::spawn(task);
