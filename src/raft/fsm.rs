@@ -1,6 +1,5 @@
 use std::fmt;
 
-use slog::Logger;
 use tokio::sync::mpsc;
 
 use crate::error::Result;
@@ -27,7 +26,6 @@ pub enum Instruction {
 }
 
 pub struct Driver<T: Fsm> {
-    logger: Logger,
     fsm_rx: mpsc::UnboundedReceiver<Instruction>,
     rpc_tx: mpsc::UnboundedSender<rpc::Message>,
     fsm: T,
@@ -36,13 +34,11 @@ pub struct Driver<T: Fsm> {
 
 impl<T: Fsm> Driver<T> {
     pub fn new(
-        logger: Logger,
         fsm_rx: mpsc::UnboundedReceiver<Instruction>,
         rpc_tx: mpsc::UnboundedSender<rpc::Message>,
         fsm: T,
     ) -> Self {
         Self {
-            logger,
             fsm_rx,
             rpc_tx,
             fsm,
@@ -51,7 +47,6 @@ impl<T: Fsm> Driver<T> {
     }
 
     pub async fn run(mut self, mut shutdown: tokio::sync::broadcast::Receiver<()>) -> Result<T> {
-        debug!(self.logger, "starting driver"; "fsm" => format!("{:?}", self.fsm));
         loop {
             tokio::select! {
                 _ = shutdown.recv() => break,
@@ -84,7 +79,6 @@ impl<T: Fsm> Driver<T> {
     }
 
     pub fn exec(&mut self, entry: Entry) -> Result<Vec<u8>> {
-        debug!(self.logger, "exec"; "entry" => format!("{:?}", &entry));
         if let EntryType::Entry { data } = entry.entry_type {
             return self.fsm.transition(data);
         }
@@ -137,7 +131,7 @@ mod test {
 
         let (tx, rx) = unbounded_channel();
         let (rpc_tx, _rpc_rx) = unbounded_channel();
-        let driver = Driver::new(crate::logger::get_root_logger().new(o!()), rx, rpc_tx, fsm);
+        let driver = Driver::new(rx, rpc_tx, fsm);
 
         let (shutdown_tx, shutdown_rx) = tokio::sync::broadcast::channel(1);
         tx.send(Instruction::Apply {

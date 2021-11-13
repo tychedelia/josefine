@@ -23,7 +23,6 @@ ctrlc = "3.2.1"
 futures = "0.3.15"
 futures-util = "0.3.15"
 kafka_protocol = { version = "0.1", git = "https://github.com/0x1991babe/kafka-protocol-rs", branch = "main" }
-lazy_static = "1.4.0"
 memmap = "0.7.0"
 rand = "0.8.4"
 regex = "1.5.4"
@@ -31,11 +30,6 @@ serde = "1.0.126"
 serde_derive = "1.0.126"
 serde_json = "1.0.64"
 sled = "0.34.6"
-slog = { version = "2.7.0", features = ["max_level_trace"] }
-slog-async = "2.6.0"
-slog-envlogger = "2.2.0"
-slog-stdlog = "4.1.0"
-slog-term = "2.8.0"
 string = { version = "0.3.0", git = "https://github.com/0x1991babe/string.git", features = ["bytes"] }
 tempfile = "3.2.0"
 tokio = { version = "1.8.1", features = ["macros", "net", "io-util", "time", "sync", "rt", "rt-multi-thread"] }

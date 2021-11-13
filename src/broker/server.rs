@@ -12,10 +12,7 @@ use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::oneshot;
 
 use crate::broker::store::Store;
-use crate::logger::get_root_logger;
 use crate::raft::client::RaftClient;
-
-use slog::Logger;
 
 use crate::broker::command::Controller;
 use crate::broker::config::BrokerConfig;
@@ -40,12 +37,9 @@ impl Server {
             tokio::sync::broadcast::Receiver<()>,
         ),
     ) -> Result<()> {
-        let log = get_root_logger();
-        info!(log, "broker listening"; "address" => &self.address);
         let listener = TcpListener::bind(self.address).await?;
         let (in_tx, out_tx) = tokio::sync::mpsc::unbounded_channel();
         let (task, tcp_receiver) = tcp::receive_task(
-            crate::logger::get_root_logger().new(o!()),
             listener,
             in_tx,
             shutdown.0.subscribe(),
@@ -55,7 +49,7 @@ impl Server {
 
         let ctrl = Controller::new(store, client, self.config);
         let (task, handle_messages) =
-            handle_messages(log.new(o!()), ctrl, out_tx, shutdown.0.subscribe()).remote_handle();
+            handle_messages(ctrl, out_tx, shutdown.0.subscribe()).remote_handle();
         tokio::spawn(task);
 
         let (_, _) = tokio::try_join!(tcp_receiver, handle_messages)?;
@@ -64,7 +58,6 @@ impl Server {
 }
 
 async fn handle_messages(
-    log: Logger,
     ctrl: Controller,
     mut out_tx: UnboundedReceiver<(RequestKind, oneshot::Sender<ResponseKind>)>,
     mut shutdown: tokio::sync::broadcast::Receiver<()>,
@@ -74,7 +67,6 @@ async fn handle_messages(
             _ = shutdown.recv() => break,
 
             Some((msg, cb)) = out_tx.recv() => {
-                debug!(log, "received message"; "msg" => format!("{:?}", msg));
                 let res = ctrl.handle_request(msg).await?;
                 cb.send(res).unwrap();
             }

@@ -3,7 +3,6 @@ use std::time::Duration;
 use std::time::Instant;
 
 use crate::error::Result;
-use slog::Logger;
 
 use crate::raft::follower::Follower;
 use crate::raft::progress::ReplicationProgress;
@@ -23,7 +22,6 @@ use std::collections::HashSet;
 ///
 #[derive(Debug)]
 pub struct Leader {
-    pub logger: Logger,
     pub progress: ReplicationProgress,
     /// The time of the last heartbeat.
     pub heartbeat_time: Instant,
@@ -38,10 +36,6 @@ impl Role for Leader {
 
     fn role(&self) -> RaftRole {
         RaftRole::Leader
-    }
-
-    fn log(&self) -> &Logger {
-        &self.logger
     }
 }
 
@@ -150,8 +144,6 @@ impl Raft<Leader> {
                             vec![]
                         };
 
-                        trace!(self.role.logger, "replicating to peer"; "peer" => progress.node_id, "entries" => format!("{:?}", entries));
-
                         self.rpc_tx.send(Message::new(
                             Address::Peer(self.id),
                             Address::Peer(node.id),
@@ -174,8 +166,6 @@ impl Raft<Leader> {
                             .log
                             .get(progress.index)?
                             .expect("previous entry did not exist!");
-
-                        trace!(self.role.logger, "replicating to peer"; "peer" => progress.node_id, "entries" => format!("{:?}", entries));
 
                         self.rpc_tx.send(Message::new(
                             Address::Peer(self.id),
@@ -282,10 +272,8 @@ impl From<Raft<Leader>> for Raft<Follower> {
             state: val.state,
             role: Follower {
                 leader_id: None,
-                logger: val.logger.new(o!("role" => "follower")),
                 proxied_reqs: HashSet::new(),
             },
-            logger: val.logger,
             config: val.config,
             log: val.log,
             rpc_tx: val.rpc_tx,

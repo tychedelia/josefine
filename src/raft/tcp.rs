@@ -5,7 +5,6 @@ use crate::raft::{Node, NodeId};
 use futures::SinkExt;
 use std::collections::HashMap;
 
-use slog::Logger;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::{Receiver, UnboundedReceiver, UnboundedSender};
@@ -14,7 +13,6 @@ use tokio_stream::StreamExt;
 use tokio_util::codec::{FramedRead, FramedWrite, LengthDelimitedCodec};
 
 pub async fn receive_task(
-    log: Logger,
     mut shutdown: tokio::sync::broadcast::Receiver<()>,
     listener: TcpListener,
     in_tx: UnboundedSender<Message>,
@@ -24,25 +22,21 @@ pub async fn receive_task(
             _ = shutdown.recv() => break,
 
             Ok((s, addr)) = listener.accept() => {
-                let log = log.new(o!("addr" => format!("{:?}", addr)));
-                debug!(log, "peer connected");
                 let peer_in_tx = in_tx.clone();
                 tokio::spawn(async move {
-                    match stream_messages(log.clone(), s, peer_in_tx).await {
-                        Ok(()) => { debug!(log, "peer disconnected") }
-                        Err(_) => { error!(log, "error reading from peer") }
+                    match stream_messages(s, peer_in_tx).await {
+                        Ok(()) => { }
+                        Err(_) => { }
                     }
                 });
             }
         }
     }
 
-    info!(log, "receive complete");
     Ok(())
 }
 
 async fn stream_messages(
-    log: Logger,
     stream: TcpStream,
     in_tx: UnboundedSender<Message>,
 ) -> Result<()> {
@@ -53,14 +47,12 @@ async fn stream_messages(
     );
 
     while let Some(message) = stream.try_next().await? {
-        trace!(log, "receive message"; "msg" => format!("{:?}", message));
         in_tx.send(message).map_err(RaftError::from)?;
     }
     Ok(())
 }
 
 pub async fn send_task(
-    log: Logger,
     _shutdown: tokio::sync::broadcast::Receiver<()>,
     id: NodeId,
     nodes: Vec<Node>,
@@ -71,7 +63,7 @@ pub async fn send_task(
     for node in nodes.iter() {
         let (tx, rx) = mpsc::channel::<Message>(1000);
         node_txs.insert(node.id, tx);
-        tokio::spawn(connect_and_send(*node, log.new(o!()), rx));
+        tokio::spawn(connect_and_send(*node, rx));
     }
 
     let mut s = stream::UnboundedReceiverStream(out_rx);
@@ -83,7 +75,6 @@ pub async fn send_task(
             Address::Peers => node_txs.keys().cloned().collect(),
             Address::Peer(peer) => vec![*peer],
             addr => {
-                error!(log, "received outbound message for non-TCP address"; "addr" => format!("{:?}", addr));
                 continue;
             }
         };
@@ -92,11 +83,10 @@ pub async fn send_task(
                 Some(tx) => match tx.try_send(message.clone()) {
                     Ok(()) => {}
                     Err(mpsc::error::TrySendError::Full(_)) => {
-                        error!(log, "Full send buffer for peer, discarding message"; "peer" => id)
                     }
                     Err(error) => return Err(RaftError::from(error).into()),
                 },
-                None => error!(log, "received outbound message for non-TCP address"; " id" => id),
+                None => {},
             }
         }
     }
@@ -109,7 +99,6 @@ pub async fn send_task(
 /// * `out_rx` - The channel messages to send are written to.
 async fn connect_and_send(
     node: Node,
-    log: slog::Logger,
     mut out_rx: Receiver<Message>,
 ) -> Result<()> {
     loop {
@@ -117,11 +106,9 @@ async fn connect_and_send(
             Ok(socket) => match send_messages(socket, &mut out_rx).await {
                 Ok(()) => break Ok(()),
                 Err(err) => {
-                    warn!(log, "failed sending to raft peer"; "peer" => node.addr, "error" => format!("{:?}", err))
                 }
             },
             Err(err) => {
-                warn!(log, "failed connecting to raft peer"; "peer" => node.addr, "error" => format!("{:?}", err))
             }
         }
         // TODO: use back-off
@@ -169,7 +156,6 @@ mod tests {
         let (tx, mut rx) = mpsc::unbounded_channel();
         let (shutdown_tx, _shutdown_rx) = tokio::sync::broadcast::channel(1);
         tokio::spawn(receive_task(
-            get_root_logger().new(o!()),
             shutdown_tx.subscribe(),
             listener,
             tx,
@@ -190,7 +176,6 @@ mod tests {
         Ok(())
     }
 
-    use crate::logger::get_root_logger;
     use futures::StreamExt;
     use tokio_util::codec::FramedRead;
 
@@ -200,7 +185,6 @@ mod tests {
         let (tx, rx) = mpsc::unbounded_channel();
         let (shutdown_tx, _shutdown_rx) = tokio::sync::broadcast::channel(1);
         tokio::spawn(send_task(
-            get_root_logger().new(o!()),
             shutdown_tx.subscribe(),
             1,
             vec![Node {

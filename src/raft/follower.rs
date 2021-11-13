@@ -2,8 +2,6 @@ use std::time::Duration;
 use std::time::Instant;
 
 use rand::Rng;
-use slog;
-use slog::Logger;
 
 use crate::error::Result;
 use crate::raft::candidate::Candidate;
@@ -22,7 +20,6 @@ use tokio::sync::mpsc::UnboundedSender;
 #[derive(Debug)]
 pub struct Follower {
     pub leader_id: Option<NodeId>,
-    pub logger: Logger,
     pub proxied_reqs: HashSet<ClientRequestId>,
 }
 
@@ -33,10 +30,6 @@ impl Role for Follower {
 
     fn role(&self) -> RaftRole {
         RaftRole::Follower
-    }
-
-    fn log(&self) -> &Logger {
-        &self.logger
     }
 }
 
@@ -97,7 +90,6 @@ impl Apply for Raft<Follower> {
                 if !entries.is_empty() {
                     for entry in entries {
                         let index = entry.index;
-                        debug!(self.role.logger, "appending"; "index" => index);
                         self.log.append(entry)?; // append the entry
                         self.state.last_applied = index; // update our last applied
                     }
@@ -134,10 +126,8 @@ impl Apply for Raft<Follower> {
                 if has_committed && commit_index > self.state.commit_index {
                     let prev = self.state.commit_index;
                     self.state.commit_index = self.log.commit(commit_index)?;
-                    debug!(self.role.logger, "committing entries"; "from" => prev + 1, "to" => commit_index, "log" => format!("{:?}", self.log), "log_len" => self.log.len());
                     let entries = self.log.get_range(prev + 1, commit_index)?;
                     for entry in entries {
-                        debug!(self.role.logger, "commit"; "index" => entry.index);
                         self.fsm_tx.send(Instruction::Apply { entry })?;
                     }
                 }
@@ -226,23 +216,18 @@ impl Raft<Follower> {
     /// Creates an initialized instance of Raft in the follower with the provided configuration.
     pub fn new(
         config: RaftConfig,
-        logger: Logger,
         rpc_tx: UnboundedSender<Message>,
         fsm_tx: UnboundedSender<Instruction>,
     ) -> Result<Raft<Follower>> {
         config.validate()?;
-        let logger = logger.new(o!("id" => config.id));
-
         let mut raft = Raft {
             id: config.id,
             config,
             state: State::default(),
             role: Follower {
                 leader_id: None,
-                logger: logger.new(o!("role" => "follower")),
                 proxied_reqs: HashSet::new(),
             },
-            logger,
             log: Log::new(),
             rpc_tx,
             fsm_tx,
@@ -290,9 +275,7 @@ impl From<Raft<Follower>> for Raft<Candidate> {
             state: val.state,
             role: Candidate {
                 election,
-                logger: val.logger.new(o!("role" => "candidate")),
             },
-            logger: val.logger,
             config: val.config,
             log: val.log,
             rpc_tx: val.rpc_tx,

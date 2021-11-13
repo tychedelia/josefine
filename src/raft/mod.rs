@@ -14,7 +14,6 @@ use std::net::SocketAddr;
 use std::time::Duration;
 use std::time::Instant;
 
-use slog::Logger;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::sync::oneshot;
@@ -42,7 +41,6 @@ mod follower;
 pub mod fsm;
 mod leader;
 mod log;
-mod logger;
 mod progress;
 pub mod rpc;
 mod server;
@@ -203,7 +201,6 @@ pub trait Role: Debug {
     /// Set the term for the node, reseting the current election.
     fn term(&mut self, term: Term);
     fn role(&self) -> RaftRole;
-    fn log(&self) -> &Logger;
 }
 
 #[derive(Serialize, PartialEq, Deserialize, Debug, Clone)]
@@ -295,8 +292,6 @@ impl Default for State {
 pub struct Raft<T: Role> {
     /// The identifier for this node.
     pub id: NodeId,
-    /// The logger implementation for this node.
-    pub(crate) logger: Logger,
     /// Configuration for this instance.
     pub config: RaftConfig,
     /// Volatile and persistent state for the state machine. Note that specific additional per-role
@@ -336,7 +331,6 @@ impl<T: Role> Raft<T> {
             Command::Heartbeat { .. } => {}
             Command::HeartbeatResponse { .. } => {}
             _ => {
-                trace!(self.role.log(), ""; "role_state" => format!("{:?}", self.role), "state" => format!("{:?}", self.state), "cmd" => format!("{:?}", cmd))
             }
         };
     }
@@ -379,12 +373,11 @@ pub enum RaftHandle {
 impl RaftHandle {
     /// Obtain a new instance of raft initialized in the default follower state.
     pub fn new(
-        logger: Logger,
         config: RaftConfig,
         rpc_tx: UnboundedSender<Message>,
         fsm_tx: UnboundedSender<Instruction>,
     ) -> RaftHandle {
-        let raft = Raft::new(config, logger, rpc_tx, fsm_tx);
+        let raft = Raft::new(config, rpc_tx, fsm_tx);
         RaftHandle::Follower(raft.unwrap())
     }
 

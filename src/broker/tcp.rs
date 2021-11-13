@@ -2,7 +2,6 @@ use crate::error::{JosefineError, Result};
 use crate::kafka::codec::KafkaServerCodec;
 use futures::SinkExt;
 use kafka_protocol::messages::{RequestKind, ResponseHeader, ResponseKind};
-use slog::Logger;
 use tokio::sync::oneshot;
 use tokio::{
     net::{TcpListener, TcpStream},
@@ -12,7 +11,6 @@ use tokio_stream::StreamExt;
 use tokio_util::codec::{FramedRead, FramedWrite};
 
 pub async fn receive_task(
-    log: Logger,
     listener: TcpListener,
     in_tx: UnboundedSender<(RequestKind, oneshot::Sender<ResponseKind>)>,
     mut shutdown: tokio::sync::broadcast::Receiver<()>,
@@ -22,13 +20,11 @@ pub async fn receive_task(
             _ = shutdown.recv() => break,
 
             Ok((s, addr)) = listener.accept() => {
-                let log = log.new(o!("addr" => format!("{:?}", addr)));
-                debug!(log, "peer connected");
                 let peer_in_tx = in_tx.clone();
                 tokio::spawn(async move {
-                    match stream_messages(log.clone(), s, peer_in_tx).await {
-                        Ok(()) => { debug!(log, "peer disconnected") }
-                        Err(err) => { error!(log, "error reading from peer"; "err" => format!("{:?}", err)) }
+                    match stream_messages(s, peer_in_tx).await {
+                        Ok(()) => {  }
+                        Err(err) => {  }
                     }
                 });
             }
@@ -39,7 +35,6 @@ pub async fn receive_task(
 }
 
 async fn stream_messages(
-    log: Logger,
     mut stream: TcpStream,
     in_tx: UnboundedSender<(RequestKind, oneshot::Sender<ResponseKind>)>,
 ) -> Result<()> {
@@ -47,7 +42,6 @@ async fn stream_messages(
     let mut stream_in = FramedRead::new(r, KafkaServerCodec::new());
     let mut stream_out = FramedWrite::new(w, KafkaServerCodec::new());
     while let Some((header, message)) = stream_in.try_next().await.map_err(|err| {
-        error!(log, "error!"; "err" => format!("{:?}", err));
         JosefineError::MessageError {
             error_msg: "broke".to_string(),
         }

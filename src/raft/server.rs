@@ -1,5 +1,4 @@
 use crate::error::{JosefineError, Result};
-use crate::logger::get_root_logger;
 use crate::raft::error::RaftError;
 use crate::raft::rpc::{Address, Message, Proposal, Response};
 use crate::raft::tcp;
@@ -9,7 +8,6 @@ use crate::raft::{
 };
 use crate::raft::{Apply, Command, RaftHandle};
 use futures::FutureExt;
-use slog::Logger;
 use std::{collections::HashMap, net::SocketAddr};
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
@@ -25,7 +23,6 @@ const TICK: Duration = Duration::from_millis(100);
 
 pub struct Server {
     config: RaftConfig,
-    log: Logger,
 }
 
 pub struct ServerRunOpts<T: 'static + fsm::Fsm> {
@@ -42,7 +39,6 @@ impl Server {
     pub fn new(config: RaftConfig) -> Self {
         Server {
             config,
-            log: get_root_logger().new(o!()),
         }
     }
 
@@ -50,8 +46,6 @@ impl Server {
         self,
         run_opts: ServerRunOpts<T>,
     ) -> Result<RaftHandle> {
-        info!(self.log, "using config"; "config" => format!("{:?}", self.config));
-
         let ServerRunOpts {
             duration,
             fsm,
@@ -66,7 +60,6 @@ impl Server {
         let (rpc_tx, rpc_rx) = mpsc::unbounded_channel();
         let (tcp_in_tx, tcp_in_rx) = mpsc::unbounded_channel::<Message>();
         let (task, tcp_receiver) = tcp::receive_task(
-            self.log.new(o!()),
             shutdown_tx.subscribe(),
             listener,
             tcp_in_tx,
@@ -77,7 +70,6 @@ impl Server {
         // tcp send
         let (tcp_out_tx, tcp_out_rx) = mpsc::unbounded_channel::<Message>();
         let (task, tcp_sender) = tcp::send_task(
-            self.log.new(o!()),
             shutdown_tx.subscribe(),
             self.config.id,
             self.config.clone().nodes,
@@ -88,19 +80,17 @@ impl Server {
 
         // state machine driver
         let (fsm_tx, fsm_rx) = unbounded_channel();
-        let driver = fsm::Driver::new(self.log.new(o!()), fsm_rx, rpc_tx.clone(), fsm);
+        let driver = fsm::Driver::new(fsm_rx, rpc_tx.clone(), fsm);
         let (task, driver) = driver.run(shutdown_tx.subscribe()).remote_handle();
         tokio::spawn(task);
 
         // main event loop
         let raft = RaftHandle::new(
-            self.log.new(o!()),
             self.config,
             rpc_tx.clone(),
             fsm_tx.clone(),
         );
         let (task, event_loop) = event_loop(
-            self.log.new(o!()),
             shutdown_tx.subscribe(),
             raft,
             tcp_out_tx,
@@ -122,7 +112,6 @@ impl Server {
 }
 
 async fn event_loop(
-    log: Logger,
     mut shutdown: tokio::sync::broadcast::Receiver<()>,
     mut raft: RaftHandle,
     tcp_tx: UnboundedSender<Message>,
@@ -132,7 +121,6 @@ async fn event_loop(
 ) -> Result<RaftHandle> {
     let mut step_interval = tokio::time::interval(TICK);
     let mut requests = HashMap::<Vec<u8>, oneshot::Sender<Result<Response>>>::new();
-    info!(log, "starting event loop");
 
     loop {
         tokio::select! {
@@ -152,7 +140,6 @@ async fn event_loop(
                         match requests.remove(&id) {
                             Some(tx) => tx.send(res).expect("the channel was dropped"),
                             None => {
-                                error!(log, "cound not find response tx"; "id" => format!("{:?}", id));
                                 panic!("could not find response tx");
                             }
                         };
@@ -175,7 +162,6 @@ async fn event_loop(
 #[cfg(test)]
 mod tests {
     use crate::error::Result;
-    use crate::logger::get_root_logger;
     use crate::raft::RaftConfig;
     use crate::raft::RaftHandle;
 
@@ -187,7 +173,6 @@ mod tests {
         let (rpc_tx, rpc_rx) = mpsc::unbounded_channel();
         let (fsm_tx, _fsm_rx) = unbounded_channel();
         let raft = RaftHandle::new(
-            get_root_logger().new(o!()),
             RaftConfig::default(),
             rpc_tx.clone(),
             fsm_tx.clone(),
@@ -198,7 +183,6 @@ mod tests {
         let (_client_tx, client_rx) = tokio::sync::mpsc::unbounded_channel();
         let (shutdown_tx, _shutdown_rx) = tokio::sync::broadcast::channel(1);
         let event_loop = super::event_loop(
-            get_root_logger().new(o!()),
             shutdown_tx.subscribe(),
             raft,
             tcp_out_tx,

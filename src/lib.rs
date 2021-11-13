@@ -2,7 +2,6 @@ pub mod broker;
 pub mod config;
 pub mod error;
 pub mod kafka;
-pub mod logger;
 pub mod raft;
 
 use crate::broker::JosefineBroker;
@@ -14,15 +13,7 @@ use sled::Db;
 use crate::raft::JosefineRaft;
 
 #[macro_use]
-extern crate slog;
-#[macro_use]
 extern crate serde_derive;
-#[macro_use]
-extern crate lazy_static;
-
-lazy_static! {
-    pub static ref DB: Db = sled::open(tempfile::tempdir().unwrap().into_path()).unwrap();
-}
 
 pub async fn josefine<P: AsRef<std::path::Path>>(
     config_path: P,
