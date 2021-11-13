@@ -1,3 +1,4 @@
+use std::fmt::{Debug, Formatter};
 use kafka_protocol::messages::{RequestKind, ResponseKind};
 
 use async_trait::async_trait;
@@ -21,8 +22,14 @@ mod test;
 
 #[async_trait]
 trait Command {
-    type Request: Default;
-    type Response: Default;
+    type Request: Default + Debug + Send;
+    type Response: Default + Debug + Send;
+
+    #[tracing::instrument]
+    async fn doExecute(req: Self::Request, ctrl: &Controller) -> Result<Self::Response> {
+        tracing::debug!("executing request");
+        Self::execute(req, ctrl).await
+    }
 
     async fn execute(req: Self::Request, ctrl: &Controller) -> Result<Self::Response>;
 
@@ -37,6 +44,12 @@ pub struct Controller {
     config: BrokerConfig,
 }
 
+impl Debug for Controller {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Controller {{}}")
+    }
+}
+
 impl Controller {
     pub fn new(store: Store, client: RaftClient, config: BrokerConfig) -> Self {
         Self {
@@ -46,26 +59,28 @@ impl Controller {
         }
     }
 
+    #[tracing::instrument]
     pub async fn handle_request(&self, req: RequestKind) -> Result<ResponseKind> {
+        tracing::info!("handle_request");
         let res = match req {
             RequestKind::ApiVersionsRequest(req) => {
-                let res = ApiVersionsCommand::execute(req, self).await?;
+                let res = ApiVersionsCommand::doExecute(req, self).await?;
                 ResponseKind::ApiVersionsResponse(res)
             }
             RequestKind::MetadataRequest(req) => {
-                let res = MetadataCommand::execute(req, self).await?;
+                let res = MetadataCommand::doExecute(req, self).await?;
                 ResponseKind::MetadataResponse(res)
             }
             RequestKind::CreateTopicsRequest(req) => {
-                let res = CreateTopicsCommand::execute(req, self).await?;
+                let res = CreateTopicsCommand::doExecute(req, self).await?;
                 ResponseKind::CreateTopicsResponse(res)
             }
             RequestKind::ListGroupsRequest(req) => {
-                let res = ListGroupsCommand::execute(req, self).await?;
+                let res = ListGroupsCommand::doExecute(req, self).await?;
                 ResponseKind::ListGroupsResponse(res)
             }
             RequestKind::FindCoordinatorRequest(req) => {
-                let res = FindCoordinatorCommand::execute(req, self).await?;
+                let res = FindCoordinatorCommand::doExecute(req, self).await?;
                 ResponseKind::FindCoordinatorResponse(res)
             }
             _ => panic!(),

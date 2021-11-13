@@ -10,6 +10,7 @@ use kafka_protocol::messages::*;
 
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::oneshot;
+use tracing_futures::Instrument;
 
 use crate::broker::store::Store;
 use crate::raft::client::RaftClient;
@@ -37,6 +38,7 @@ impl Server {
             tokio::sync::broadcast::Receiver<()>,
         ),
     ) -> Result<()> {
+        tracing::info!("starting broker");
         let listener = TcpListener::bind(self.address).await?;
         let (in_tx, out_tx) = tokio::sync::mpsc::unbounded_channel();
         let (task, tcp_receiver) = tcp::receive_task(

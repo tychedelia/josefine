@@ -196,6 +196,13 @@ pub enum Command {
     },
 }
 
+impl fmt::Display for Command {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+
 /// Shared behavior that all roles of the state machine must implement.
 pub trait Role: Debug {
     /// Set the term for the node, reseting the current election.
@@ -289,7 +296,8 @@ impl Default for State {
 }
 
 /// The primary struct representing the state machine. Contains fields common all roles.
-pub struct Raft<T: Role> {
+
+pub struct Raft<T: Role + Debug> {
     /// The identifier for this node.
     pub id: NodeId,
     /// Configuration for this instance.
@@ -305,6 +313,12 @@ pub struct Raft<T: Role> {
     pub rpc_tx: UnboundedSender<Message>,
     /// Channel to send entries to fsm driver.
     pub fsm_tx: UnboundedSender<Instruction>,
+}
+
+impl<T: Role + Debug> Debug for Raft<T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "Raft {{ id: {}, state: {:?} }}", self.id, self.state)
+    }
 }
 
 // Base methods for general operations (+ debugging and testing).
@@ -331,6 +345,7 @@ impl<T: Role> Raft<T> {
             Command::Heartbeat { .. } => {}
             Command::HeartbeatResponse { .. } => {}
             _ => {
+                tracing::info!("start command {}", cmd);
             }
         };
     }
@@ -361,6 +376,7 @@ pub enum RaftRole {
 // the result that we get back needs to be general to the possible return types -- easiest
 // way here is just to store the differently sized structs per state in an enum, which will be
 // sized to the largest variant.
+#[derive(Debug)]
 pub enum RaftHandle {
     /// An instance of the state machine in the follower role.
     Follower(Raft<Follower>),
@@ -410,5 +426,6 @@ pub trait Apply {
     /// Apply a command to the raft state machine, which may result in a new raft state. Errors
     /// should occur for only truly exceptional conditions, and are provided to allow the wrapping
     /// server containing this state machine to shut down gracefully.
+
     fn apply(self, cmd: Command) -> Result<RaftHandle>;
 }

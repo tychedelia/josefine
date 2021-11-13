@@ -14,7 +14,7 @@ impl Default for BrokerConfig {
     fn default() -> Self {
         Self {
             id: 1,
-            ip: resolve("localhost").unwrap(), //unwrap_or_else(|| IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0))),
+            ip: resolve("josefine.local").unwrap(), //unwrap_or_else(|| IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0))),
             port: 8844,
             file: tempfile::tempdir().unwrap().into_path(),
         }

@@ -3,6 +3,7 @@ use crate::raft::rpc::{Proposal, Response};
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::sync::oneshot;
 
+#[derive(Debug)]
 pub struct RaftClient {
     request_tx: UnboundedSender<(Proposal, oneshot::Sender<Result<Response>>)>,
 }

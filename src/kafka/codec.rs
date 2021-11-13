@@ -38,7 +38,6 @@ impl codec::Decoder for KafkaServerCodec {
         if let Some(mut bytes) = self.length_codec.decode(src)? {
             let version = Self::read_version(&mut bytes)?;
             let header = RequestHeader::decode(&mut bytes, version)?;
-            println!("{:?}", header);
             let api_key = ApiKey::try_from(header.request_api_key)?;
             let request = decode(&mut bytes, api_key, version)?;
             Ok(Some((header, request)))

@@ -34,11 +34,13 @@ impl Role for Follower {
 }
 
 impl Apply for Raft<Follower> {
+    #[tracing::instrument]
     fn apply(mut self, cmd: Command) -> Result<RaftHandle> {
         self.log_command(&cmd);
         match cmd {
             Command::Tick => {
                 if self.needs_election() {
+                    tracing::info!("we need an election");
                     return self.apply(Command::Timeout);
                 }
 

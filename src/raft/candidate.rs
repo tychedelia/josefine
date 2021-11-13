@@ -54,6 +54,7 @@ impl Role for Candidate {
 }
 
 impl Apply for Raft<Candidate> {
+    #[tracing::instrument]
     fn apply(mut self, cmd: Command) -> Result<RaftHandle> {
         self.log_command(&cmd);
 
@@ -100,6 +101,7 @@ impl Apply for Raft<Candidate> {
                 self.role.election.vote(from, granted);
                 match self.role.election.election_status() {
                     ElectionStatus::Elected => {
+                        tracing::info!("i have been elected leader");
                         let raft = Raft::from(self);
                         raft.heartbeat()?;
                         Ok(RaftHandle::Leader(raft))
@@ -108,6 +110,7 @@ impl Apply for Raft<Candidate> {
                         Ok(RaftHandle::Candidate(self))
                     }
                     ElectionStatus::Defeated => {
+                        tracing::info!("i have been defeated");
                         self.state.voted_for = None;
                         Ok(RaftHandle::Follower(Raft::from(self)))
                     }
