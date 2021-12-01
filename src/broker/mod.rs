@@ -13,7 +13,7 @@ mod entry;
 pub mod fsm;
 mod index;
 mod log;
-mod model;
+mod state;
 mod partition;
 mod segment;
 mod server;

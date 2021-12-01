@@ -1,6 +1,6 @@
 use crate::broker::command::{Command, Controller};
 use crate::broker::fsm::Transition;
-use crate::broker::model::topic::Topic;
+use crate::broker::state::topic::Topic;
 use async_trait::async_trait;
 use kafka_protocol::messages::create_topics_response::CreatableTopicResult;
 use kafka_protocol::messages::{CreateTopicsRequest, CreateTopicsResponse};
@@ -50,7 +50,7 @@ mod tests {
     use crate::broker::command::Command;
     use crate::broker::command::create_topics::CreateTopicsCommand;
     use crate::broker::command::test::new_controller;
-    use crate::broker::model::topic::Topic;
+    use crate::broker::state::topic::Topic;
     use crate::error::Result;
 
     #[tokio::test]

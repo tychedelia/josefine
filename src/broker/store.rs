@@ -1,5 +1,5 @@
-use crate::broker::model::group::Group;
-use crate::broker::model::topic::Topic;
+use crate::broker::state::group::Group;
+use crate::broker::state::topic::Topic;
 use crate::error::Result;
 use sled::Db;
 use std::collections::HashMap;
