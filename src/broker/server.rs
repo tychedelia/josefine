@@ -10,13 +10,13 @@ use kafka_protocol::messages::*;
 
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::oneshot;
-use tracing_futures::Instrument;
+
 
 use crate::broker::store::Store;
 use crate::raft::client::RaftClient;
 
-use crate::broker::command::Controller;
 use crate::broker::config::BrokerConfig;
+use crate::broker::handler::Controller;
 
 pub struct Server {
     address: SocketAddr,
@@ -41,12 +41,8 @@ impl Server {
         tracing::info!("starting broker");
         let listener = TcpListener::bind(self.address).await?;
         let (in_tx, out_tx) = tokio::sync::mpsc::unbounded_channel();
-        let (task, tcp_receiver) = tcp::receive_task(
-            listener,
-            in_tx,
-            shutdown.0.subscribe(),
-        )
-        .remote_handle();
+        let (task, tcp_receiver) =
+            tcp::receive_task(listener, in_tx, shutdown.0.subscribe()).remote_handle();
         tokio::spawn(task);
 
         let ctrl = Controller::new(store, client, self.config);

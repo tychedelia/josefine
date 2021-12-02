@@ -37,9 +37,7 @@ pub struct ServerRunOpts<T: 'static + fsm::Fsm> {
 
 impl Server {
     pub fn new(config: RaftConfig) -> Self {
-        Server {
-            config,
-        }
+        Server { config }
     }
 
     pub async fn run<T: 'static + fsm::Fsm>(
@@ -59,12 +57,8 @@ impl Server {
         let listener = TcpListener::bind(socket_addr).await?;
         let (rpc_tx, rpc_rx) = mpsc::unbounded_channel();
         let (tcp_in_tx, tcp_in_rx) = mpsc::unbounded_channel::<Message>();
-        let (task, tcp_receiver) = tcp::receive_task(
-            shutdown_tx.subscribe(),
-            listener,
-            tcp_in_tx,
-        )
-        .remote_handle();
+        let (task, tcp_receiver) =
+            tcp::receive_task(shutdown_tx.subscribe(), listener, tcp_in_tx).remote_handle();
         tokio::spawn(task);
 
         // tcp send
@@ -85,11 +79,7 @@ impl Server {
         tokio::spawn(task);
 
         // main event loop
-        let raft = RaftHandle::new(
-            self.config,
-            rpc_tx.clone(),
-            fsm_tx.clone(),
-        );
+        let raft = RaftHandle::new(self.config, rpc_tx.clone(), fsm_tx.clone());
         let (task, event_loop) = event_loop(
             shutdown_tx.subscribe(),
             raft,
@@ -172,11 +162,7 @@ mod tests {
     async fn event_loop() -> Result<()> {
         let (rpc_tx, rpc_rx) = mpsc::unbounded_channel();
         let (fsm_tx, _fsm_rx) = unbounded_channel();
-        let raft = RaftHandle::new(
-            RaftConfig::default(),
-            rpc_tx.clone(),
-            fsm_tx.clone(),
-        );
+        let raft = RaftHandle::new(RaftConfig::default(), rpc_tx.clone(), fsm_tx.clone());
 
         let (_tcp_in_tx, tcp_in_rx) = mpsc::unbounded_channel();
         let (tcp_out_tx, _tcp_out_rx) = mpsc::unbounded_channel();

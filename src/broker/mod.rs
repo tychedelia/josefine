@@ -6,17 +6,17 @@ use server::Server;
 
 use crate::broker::store::Store;
 
-pub(crate) mod store;
-mod command;
 pub mod config;
 mod entry;
 pub mod fsm;
+mod handler;
 mod index;
 mod log;
-mod state;
 mod partition;
 mod segment;
 mod server;
+mod state;
+pub(crate) mod store;
 mod tcp;
 
 pub struct JosefineBroker {

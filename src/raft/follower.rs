@@ -275,9 +275,7 @@ impl From<Raft<Follower>> for Raft<Candidate> {
         Raft {
             id: val.id,
             state: val.state,
-            role: Candidate {
-                election,
-            },
+            role: Candidate { election },
             config: val.config,
             log: val.log,
             rpc_tx: val.rpc_tx,

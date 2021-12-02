@@ -1,18 +1,19 @@
-use crate::broker::command::{Command, Controller};
+use crate::broker::handler::{Controller, Handler};
 use async_trait::async_trait;
 use kafka_protocol::messages::api_versions_response::ApiVersion;
 use kafka_protocol::messages::*;
 use kafka_protocol::protocol::Message;
 
-pub struct ApiVersionsCommand;
+#[derive(Debug)]
+pub struct ApiVersionsHandler;
 
 #[async_trait]
-impl Command for ApiVersionsCommand {
-    type Request = ApiVersionsRequest;
-    type Response = ApiVersionsResponse;
-
-    async fn execute(_req: Self::Request, _: &Controller) -> crate::error::Result<Self::Response> {
-        let mut res = Self::response();
+impl Handler<ApiVersionsRequest> for ApiVersionsHandler {
+    async fn handle(
+        _req: ApiVersionsRequest,
+        mut res: ApiVersionsResponse,
+        _: &Controller,
+    ) -> crate::error::Result<ApiVersionsResponse> {
         res.api_keys.insert(
             ApiKey::ProduceKey as i16,
             ApiVersion {
@@ -149,18 +150,18 @@ impl Command for ApiVersionsCommand {
 #[cfg(test)]
 mod tests {
     use kafka_protocol::messages::ApiVersionsRequest;
-    
-    use crate::broker::command::api_versions::ApiVersionsCommand;
-    use crate::broker::command::Command;
-    use crate::broker::command::test::new_controller;
-    
+
+    use crate::broker::handler::api_versions::ApiVersionsHandler;
+    use crate::broker::handler::test::new_controller;
+    use crate::broker::handler::Handler;
+
     use crate::error::Result;
 
     #[tokio::test]
     async fn execute() -> Result<()> {
         let (_rx, ctrl) = new_controller();
         let req = ApiVersionsRequest::default();
-        let _res = ApiVersionsCommand::execute(req, &ctrl).await?;
+        let _res = ApiVersionsHandler::handle(req, ApiVersionsHandler::response(), &ctrl).await?;
         Ok(())
     }
 }

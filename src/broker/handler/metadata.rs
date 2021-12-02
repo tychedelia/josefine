@@ -1,21 +1,22 @@
-use crate::broker::command::{Command, Controller};
+use crate::broker::handler::{Controller, Handler};
+use crate::kafka::util::ToStrBytes;
 use async_trait::async_trait;
 use bytes::Bytes;
 use kafka_protocol::messages::metadata_response::{MetadataResponseBroker, MetadataResponseTopic};
 use kafka_protocol::messages::{BrokerId, MetadataRequest, MetadataResponse, TopicName};
 use kafka_protocol::protocol::StrBytes;
 use string::TryFrom;
-use crate::kafka::util::ToStrBytes;
 
-pub struct MetadataCommand;
+#[derive(Debug)]
+pub struct MetadataHandler;
 
 #[async_trait]
-impl Command for MetadataCommand {
-    type Request = MetadataRequest;
-    type Response = MetadataResponse;
-
-    async fn execute(_: Self::Request, ctrl: &Controller) -> crate::error::Result<Self::Response> {
-        let mut res = Self::response();
+impl Handler<MetadataRequest> for MetadataHandler {
+    async fn handle(
+        _: MetadataRequest,
+        mut res: MetadataResponse,
+        ctrl: &Controller,
+    ) -> crate::error::Result<MetadataResponse> {
         res.brokers.insert(
             BrokerId(ctrl.config.id),
             MetadataResponseBroker {
@@ -43,22 +44,21 @@ impl Command for MetadataCommand {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use kafka_protocol::messages::MetadataRequest;
-    
-    use crate::broker::command::Command;
-    use crate::broker::command::metadata::MetadataCommand;
-    use crate::broker::command::test::new_controller;
-    
+
+    use crate::broker::handler::metadata::MetadataHandler;
+    use crate::broker::handler::test::new_controller;
+    use crate::broker::handler::Handler;
+
     use crate::error::Result;
 
     #[tokio::test]
     async fn execute() -> Result<()> {
         let (_rx, ctrl) = new_controller();
         let req = MetadataRequest::default();
-        let _res = MetadataCommand::execute(req, &ctrl).await?;
+        let _res = MetadataHandler::handle(req, MetadataHandler::response(), &ctrl).await?;
         Ok(())
     }
 }

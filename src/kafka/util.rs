@@ -1,5 +1,5 @@
-use kafka_protocol::protocol::StrBytes;
 use bytes::Bytes;
+use kafka_protocol::protocol::StrBytes;
 
 pub trait ToStrBytes {
     fn to_str_bytes(self) -> StrBytes;

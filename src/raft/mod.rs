@@ -202,7 +202,6 @@ impl fmt::Display for Command {
     }
 }
 
-
 /// Shared behavior that all roles of the state machine must implement.
 pub trait Role: Debug {
     /// Set the term for the node, reseting the current election.

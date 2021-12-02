@@ -19,12 +19,12 @@ pub async fn receive_task(
         tokio::select! {
             _ = shutdown.recv() => break,
 
-            Ok((s, addr)) = listener.accept() => {
+            Ok((s, _addr)) = listener.accept() => {
                 let peer_in_tx = in_tx.clone();
                 tokio::spawn(async move {
                     match stream_messages(s, peer_in_tx).await {
                         Ok(()) => {  }
-                        Err(err) => {  }
+                        Err(_err) => {  }
                     }
                 });
             }
@@ -41,11 +41,14 @@ async fn stream_messages(
     let (r, w) = stream.split();
     let mut stream_in = FramedRead::new(r, KafkaServerCodec::new());
     let mut stream_out = FramedWrite::new(w, KafkaServerCodec::new());
-    while let Some((header, message)) = stream_in.try_next().await.map_err(|err| {
-        JosefineError::MessageError {
-            error_msg: "broke".to_string(),
-        }
-    })? {
+    while let Some((header, message)) =
+        stream_in
+            .try_next()
+            .await
+            .map_err(|_err| JosefineError::MessageError {
+                error_msg: "broke".to_string(),
+            })?
+    {
         let (cb_tx, cb_rx) = oneshot::channel();
         in_tx
             .send((message, cb_tx))

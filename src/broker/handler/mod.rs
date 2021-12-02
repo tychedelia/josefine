@@ -1,40 +1,42 @@
-use std::fmt::{Debug, Formatter};
 use kafka_protocol::messages::{RequestKind, ResponseKind};
+use std::fmt::{Debug, Formatter};
 
 use async_trait::async_trait;
+use kafka_protocol::protocol::{Request};
 
-use crate::broker::store::Store;
-use crate::broker::command::api_versions::ApiVersionsCommand;
-use crate::broker::command::create_topics::CreateTopicsCommand;
-use crate::broker::command::find_coordinator::FindCoordinatorCommand;
-use crate::broker::command::list_groups::ListGroupsCommand;
-use crate::broker::command::metadata::MetadataCommand;
 use crate::broker::config::BrokerConfig;
+use crate::broker::handler::api_versions::ApiVersionsHandler;
+use crate::broker::handler::create_topics::CreateTopicsHandler;
+use crate::broker::handler::find_coordinator::FindCoordinatorHandler;
+use crate::broker::handler::list_groups::ListGroupsHandler;
+use crate::broker::handler::metadata::MetadataHandler;
+use crate::broker::store::Store;
 use crate::error::Result;
 use crate::raft::client::RaftClient;
 
 mod api_versions;
 mod create_topics;
+mod find_coordinator;
 mod list_groups;
 mod metadata;
-mod find_coordinator;
 mod test;
 
 #[async_trait]
-trait Command {
-    type Request: Default + Debug + Send;
-    type Response: Default + Debug + Send;
-
+trait Handler<Req, Res = <Req as Request>::Response>: Debug
+where
+    Req: Request + Default + Debug + Send + 'static,
+    Res: Default + Debug + Send,
+{
     #[tracing::instrument]
-    async fn doExecute(req: Self::Request, ctrl: &Controller) -> Result<Self::Response> {
+    async fn do_handle(req: Req, ctrl: &Controller) -> Result<Res> {
         tracing::debug!("executing request");
-        Self::execute(req, ctrl).await
+        Self::handle(req, Self::response(), ctrl).await
     }
 
-    async fn execute(req: Self::Request, ctrl: &Controller) -> Result<Self::Response>;
+    async fn handle(req: Req, mut res: Res, ctrl: &Controller) -> Result<Res>;
 
-    fn response() -> Self::Response {
-        Self::Response::default()
+    fn response() -> Res {
+        Res::default()
     }
 }
 
@@ -64,23 +66,23 @@ impl Controller {
         tracing::info!("handle_request");
         let res = match req {
             RequestKind::ApiVersionsRequest(req) => {
-                let res = ApiVersionsCommand::doExecute(req, self).await?;
+                let res = ApiVersionsHandler::do_handle(req, self).await?;
                 ResponseKind::ApiVersionsResponse(res)
             }
             RequestKind::MetadataRequest(req) => {
-                let res = MetadataCommand::doExecute(req, self).await?;
+                let res = MetadataHandler::do_handle(req, self).await?;
                 ResponseKind::MetadataResponse(res)
             }
             RequestKind::CreateTopicsRequest(req) => {
-                let res = CreateTopicsCommand::doExecute(req, self).await?;
+                let res = CreateTopicsHandler::do_handle(req, self).await?;
                 ResponseKind::CreateTopicsResponse(res)
             }
             RequestKind::ListGroupsRequest(req) => {
-                let res = ListGroupsCommand::doExecute(req, self).await?;
+                let res = ListGroupsHandler::do_handle(req, self).await?;
                 ResponseKind::ListGroupsResponse(res)
             }
             RequestKind::FindCoordinatorRequest(req) => {
-                let res = FindCoordinatorCommand::doExecute(req, self).await?;
+                let res = FindCoordinatorHandler::do_handle(req, self).await?;
                 ResponseKind::FindCoordinatorResponse(res)
             }
             _ => panic!(),

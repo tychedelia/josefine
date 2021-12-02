@@ -2,9 +2,7 @@ use tokio::sync::mpsc::{self, UnboundedReceiver};
 
 use crate::raft::fsm::Instruction;
 use crate::raft::Raft;
-use crate::raft::{
-    config::RaftConfig, follower::Follower, fsm::Fsm, rpc::Message,
-};
+use crate::raft::{config::RaftConfig, follower::Follower, fsm::Fsm, rpc::Message};
 
 #[derive(Debug)]
 pub(crate) struct TestFsm {
@@ -27,8 +25,5 @@ pub(crate) fn new_follower() -> (
     let config = RaftConfig::default();
     let (rpc_tx, rpc_rx) = mpsc::unbounded_channel();
     let (fsm_tx, fsm_rx) = mpsc::unbounded_channel();
-    (
-        (rpc_rx, fsm_rx),
-        Raft::new(config, rpc_tx, fsm_tx).unwrap(),
-    )
+    ((rpc_rx, fsm_rx), Raft::new(config, rpc_tx, fsm_tx).unwrap())
 }

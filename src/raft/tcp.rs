@@ -21,7 +21,7 @@ pub async fn receive_task(
         tokio::select! {
             _ = shutdown.recv() => break,
 
-            Ok((s, addr)) = listener.accept() => {
+            Ok((s, _addr)) = listener.accept() => {
                 let peer_in_tx = in_tx.clone();
                 tokio::spawn(async move {
                     match stream_messages(s, peer_in_tx).await {
@@ -36,10 +36,7 @@ pub async fn receive_task(
     Ok(())
 }
 
-async fn stream_messages(
-    stream: TcpStream,
-    in_tx: UnboundedSender<Message>,
-) -> Result<()> {
+async fn stream_messages(stream: TcpStream, in_tx: UnboundedSender<Message>) -> Result<()> {
     let length_delimited = FramedRead::new(stream, LengthDelimitedCodec::new());
     let mut stream = tokio_serde::SymmetricallyFramed::new(
         length_delimited,
@@ -74,7 +71,7 @@ pub async fn send_task(
         let to = match &message.to {
             Address::Peers => node_txs.keys().cloned().collect(),
             Address::Peer(peer) => vec![*peer],
-            addr => {
+            _addr => {
                 continue;
             }
         };
@@ -82,11 +79,10 @@ pub async fn send_task(
             match node_txs.get_mut(&id) {
                 Some(tx) => match tx.try_send(message.clone()) {
                     Ok(()) => {}
-                    Err(mpsc::error::TrySendError::Full(_)) => {
-                    }
+                    Err(mpsc::error::TrySendError::Full(_)) => {}
                     Err(error) => return Err(RaftError::from(error).into()),
                 },
-                None => {},
+                None => {}
             }
         }
     }
@@ -97,19 +93,14 @@ pub async fn send_task(
 ///
 /// * `node` - The node which messages will be sent to.
 /// * `out_rx` - The channel messages to send are written to.
-async fn connect_and_send(
-    node: Node,
-    mut out_rx: Receiver<Message>,
-) -> Result<()> {
+async fn connect_and_send(node: Node, mut out_rx: Receiver<Message>) -> Result<()> {
     loop {
         match TcpStream::connect(node.addr).await {
             Ok(socket) => match send_messages(socket, &mut out_rx).await {
                 Ok(()) => break Ok(()),
-                Err(err) => {
-                }
+                Err(_err) => {}
             },
-            Err(err) => {
-            }
+            Err(_err) => {}
         }
         // TODO: use back-off
         tokio::time::sleep(Duration::from_millis(1000)).await;
@@ -155,11 +146,7 @@ mod tests {
         let listener = TcpListener::bind(&addr).await?;
         let (tx, mut rx) = mpsc::unbounded_channel();
         let (shutdown_tx, _shutdown_rx) = tokio::sync::broadcast::channel(1);
-        tokio::spawn(receive_task(
-            shutdown_tx.subscribe(),
-            listener,
-            tx,
-        ));
+        tokio::spawn(receive_task(shutdown_tx.subscribe(), listener, tx));
         let stream = TcpStream::connect(&addr).await?;
         let out_msg = Message::new(Address::Peer(1), Address::Peer(2), Command::Tick);
 

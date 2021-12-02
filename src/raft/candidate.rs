@@ -106,9 +106,7 @@ impl Apply for Raft<Candidate> {
                         raft.heartbeat()?;
                         Ok(RaftHandle::Leader(raft))
                     }
-                    ElectionStatus::Voting => {
-                        Ok(RaftHandle::Candidate(self))
-                    }
+                    ElectionStatus::Voting => Ok(RaftHandle::Candidate(self)),
                     ElectionStatus::Defeated => {
                         tracing::info!("i have been defeated");
                         self.state.voted_for = None;
