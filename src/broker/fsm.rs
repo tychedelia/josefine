@@ -2,7 +2,7 @@ use crate::error::Result;
 use crate::raft::fsm::Fsm;
 
 use crate::broker::state::topic::Topic;
-use crate::broker::store::Store;
+use crate::broker::state::Store;
 
 #[derive(Debug)]
 pub struct JosefineFsm {

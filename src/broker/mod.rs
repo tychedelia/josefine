@@ -4,7 +4,7 @@ use crate::raft::client::RaftClient;
 use crate::broker::config::BrokerConfig;
 use server::Server;
 
-use crate::broker::store::Store;
+use state::Store;
 
 pub mod config;
 mod entry;
@@ -12,11 +12,9 @@ pub mod fsm;
 mod handler;
 mod index;
 mod log;
-mod partition;
 mod segment;
 mod server;
-mod state;
-pub(crate) mod store;
+pub(crate) mod state;
 mod tcp;
 
 pub struct JosefineBroker {
@@ -24,7 +22,7 @@ pub struct JosefineBroker {
 }
 
 impl JosefineBroker {
-    pub fn with_config(config: BrokerConfig) -> Self {
+    pub fn new(config: BrokerConfig) -> Self {
         JosefineBroker { config }
     }
 

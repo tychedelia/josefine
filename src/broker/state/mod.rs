@@ -1,2 +1,71 @@
 pub mod group;
 pub mod topic;
+mod partition;
+
+use crate::broker::state::group::Group;
+use crate::broker::state::topic::Topic;
+use crate::error::Result;
+use sled::{Db, IVec};
+use std::collections::HashMap;
+use serde::{Deserialize, Serialize};
+use serde::de::DeserializeOwned;
+use crate::broker::state::partition::Partition;
+
+#[derive(Clone, Debug)]
+pub struct Store {
+    db: Db,
+}
+
+impl Store {
+    pub fn new(db: Db) -> Self {
+        Self { db }
+    }
+
+    pub fn create_topic(&self, topic: Topic) -> Result<Topic> {
+        let mut topics = self.get_topics()?;
+
+        if !topics.contains_key(&topic.name) {
+            topics.insert(topic.name.clone(), topic.clone());
+        }
+
+        self.insert("topics", &topics);
+        Ok(topic)
+    }
+
+    pub fn topic_exists(&self, name: &str) -> Result<bool> {
+        Ok(self.get_topics()?.contains_key(name))
+    }
+
+    pub fn get_topics(&self) -> Result<HashMap<String, Topic>> {
+        Ok(self.get("topics")?.unwrap_or_else(HashMap::new))
+    }
+
+    pub fn get_groups(&self) -> Result<HashMap<String, Group>> {
+        self.get("groups")?.unwrap()
+    }
+
+    pub fn create_partition(&self, partition: Partition) -> Result<Partition> {
+        self.insert(format!("{}:partition:{}", partition.topic, partition.id), &partition);
+        Ok(partition)
+    }
+
+    pub fn get_partition(&self, topic: String, id: u32) -> Result<Option<Partition>> {
+        self.get(format!("{}:partition:{}", topic, id))
+    }
+
+    fn get<T: DeserializeOwned, K: AsRef<[u8]>>(&self, key: K) -> Result<Option<T>> {
+        Ok(self.db.transaction(|tx| {
+            match tx.get(key.as_ref())? {
+                Some(val) => Ok(Some(bincode::deserialize(&val).unwrap())),
+                None => Ok(None)
+            }
+        })?)
+    }
+
+    fn insert<T: Serialize, K: AsRef<[u8]>>(&self, key: K, value: &T) -> Result<()> {
+        Ok(self.db.transaction(move |tx| {
+            tx.insert(key.as_ref(), bincode::serialize(&value).unwrap())?;
+            Ok(())
+        })?)
+    }
+}

@@ -1,5 +1,5 @@
 use crate::broker::handler::Controller;
-use crate::broker::store::Store;
+use crate::broker::state::Store;
 use crate::error::JosefineError;
 use crate::raft::client::RaftClient;
 use crate::raft::rpc::{Proposal, Response};

@@ -59,10 +59,6 @@ impl JosefineRaft {
         }
     }
 
-    pub fn with_config(config: RaftConfig) -> Self {
-        Self::new(config)
-    }
-
     pub async fn run<T: 'static + fsm::Fsm>(
         self,
         fsm: T,

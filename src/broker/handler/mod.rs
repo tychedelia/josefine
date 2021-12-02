@@ -10,7 +10,7 @@ use crate::broker::handler::create_topics::CreateTopicsHandler;
 use crate::broker::handler::find_coordinator::FindCoordinatorHandler;
 use crate::broker::handler::list_groups::ListGroupsHandler;
 use crate::broker::handler::metadata::MetadataHandler;
-use crate::broker::store::Store;
+use crate::broker::state::Store;
 use crate::error::Result;
 use crate::raft::client::RaftClient;
 

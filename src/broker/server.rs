@@ -12,7 +12,7 @@ use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::oneshot;
 
 
-use crate::broker::store::Store;
+use crate::broker::state::Store;
 use crate::raft::client::RaftClient;
 
 use crate::broker::config::BrokerConfig;

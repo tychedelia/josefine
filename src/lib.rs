@@ -27,8 +27,8 @@ pub async fn josefine<P: AsRef<std::path::Path>>(
 
     let (client_tx, client_rx) = tokio::sync::mpsc::unbounded_channel();
     let client = RaftClient::new(client_tx);
-    let josefine_broker = JosefineBroker::with_config(config.broker);
-    let broker = crate::broker::store::Store::new(db);
+    let josefine_broker = JosefineBroker::new(config.broker);
+    let broker = broker::state::Store::new(db);
     let (task, b) = josefine_broker
         .run(
             client,
@@ -38,7 +38,7 @@ pub async fn josefine<P: AsRef<std::path::Path>>(
         .remote_handle();
     tokio::spawn(task);
 
-    let raft = JosefineRaft::with_config(config.raft);
+    let raft = JosefineRaft::new(config.raft);
     let (task, raft) = raft
         .run(
             crate::broker::fsm::JosefineFsm::new(broker),
