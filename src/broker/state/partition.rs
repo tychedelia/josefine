@@ -1,22 +1,15 @@
+use derive_more::Display;
+
+#[derive(Copy, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, Display)]
+pub struct PartitionIdx(pub i32);
+
 #[derive(Serialize, Deserialize, Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub struct Partition {
-    pub(crate) id: u32,
-    partition: u32,
-    pub(crate) topic: String,
-    isr: Vec<u32>,
-    assigned_replicas: Vec<u32>,
-    leader: u32,
-    controller_epoch: u32,
-    leader_epoch: u32,
+    pub idx: PartitionIdx,
+    pub topic: String,
+    pub isr: Vec<i32>,
+    pub assigned_replicas: Vec<i32>,
+    pub leader: i32,
+    pub controller_epoch: i32,
+    pub leader_epoch: i32,
 }
-
-//impl Partition {
-//    pub fn new() -> Partition {
-////        let log = Log::new();
-//        Partition {
-//            topic: String::new(),
-//            partition: 0,
-//            log: Log::new(),
-//        }
-//    }
-//}

@@ -1,6 +1,7 @@
 use crate::broker::handler::{Controller, Handler};
 use crate::kafka::util::ToStrBytes;
 use async_trait::async_trait;
+use kafka_protocol::messages;
 use kafka_protocol::messages::find_coordinator_response::Coordinator;
 use kafka_protocol::messages::{BrokerId, FindCoordinatorRequest, FindCoordinatorResponse};
 
@@ -15,7 +16,7 @@ impl Handler<FindCoordinatorRequest> for FindCoordinatorHandler {
         ctrl: &Controller,
     ) -> crate::error::Result<FindCoordinatorResponse> {
         let mut coordinator = Coordinator::default();
-        coordinator.node_id = BrokerId(ctrl.config.id);
+        coordinator.node_id = messages::BrokerId(ctrl.config.id.0);
         coordinator.host = ctrl.config.ip.to_string().to_str_bytes();
         coordinator.port = ctrl.config.port as i32;
 

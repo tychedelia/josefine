@@ -2,7 +2,7 @@ use crate::broker::handler::{Controller, Handler};
 use crate::kafka::util::ToStrBytes;
 use async_trait::async_trait;
 use bytes::Bytes;
-use kafka_protocol::messages::metadata_response::{MetadataResponseBroker, MetadataResponseTopic};
+use kafka_protocol::messages::metadata_response::{MetadataResponseBroker, MetadataResponsePartition, MetadataResponseTopic};
 use kafka_protocol::messages::{BrokerId, MetadataRequest, MetadataResponse, TopicName};
 use kafka_protocol::protocol::StrBytes;
 use string::TryFrom;
@@ -18,9 +18,8 @@ impl Handler<MetadataRequest> for MetadataHandler {
         ctrl: &Controller,
     ) -> crate::error::Result<MetadataResponse> {
         res.brokers.insert(
-            BrokerId(ctrl.config.id),
+            BrokerId(ctrl.config.id.0),
             MetadataResponseBroker {
-                // SAFETY: parsed ip address can be trivially converted to utf-8
                 host: ctrl.config.ip.to_string().to_str_bytes(),
                 port: ctrl.config.port as i32,
                 rack: None,
@@ -34,6 +33,23 @@ impl Handler<MetadataRequest> for MetadataHandler {
         for (name, topic) in topics.into_iter() {
             let t = MetadataResponseTopic {
                 topic_id: topic.id,
+                partitions: topic.partitions.iter()
+                    .map(|(k, v)| {
+                        let mut mp = MetadataResponsePartition::default();
+                        match ctrl.store.get_partition(&topic.name, *k).unwrap() {
+                            Some(p) => {
+                                mp.leader_id messages:: = p.leader;
+                                mp.partition_index = p.idx.0;
+                                mp.isr_nodes = p.isr.into_iter().map(BrokerId).collect();
+                                mp.replica_nodes = p.assigned_replicas.into_iter().map(BrokerId).collect();
+                            }
+                            None => {
+                                mp.error_code = 0;
+                            }
+                        }
+                        mp
+                    })
+                    .collect(),
                 ..Default::default()
             };
             let s = StrBytes::try_from(Bytes::from(name)).unwrap();

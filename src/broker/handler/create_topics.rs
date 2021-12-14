@@ -1,13 +1,26 @@
 use crate::broker::fsm::Transition;
+use crate::error::Result;
 use crate::broker::handler::{Controller, Handler};
 use crate::broker::state::topic::Topic;
 use async_trait::async_trait;
 use kafka_protocol::messages::create_topics_response::CreatableTopicResult;
 use kafka_protocol::messages::{CreateTopicsRequest, CreateTopicsResponse};
+use kafka_protocol::messages::create_topics_request::CreatableTopic;
 use uuid::Uuid;
 
 #[derive(Debug)]
 pub struct CreateTopicsHandler;
+
+impl CreateTopicsHandler {
+    async fn make_partitions(&self, topic: &CreatableTopic, ctrl: &Controller) -> Result<()> {
+        for i in 0..topic.num_partitions {
+            // TODO: randomize
+            let brokerId = i % 0;
+        }
+
+        unimplemented!()
+    }
+}
 
 #[async_trait]
 impl Handler<CreateTopicsRequest> for CreateTopicsHandler {
@@ -15,11 +28,13 @@ impl Handler<CreateTopicsRequest> for CreateTopicsHandler {
         req: CreateTopicsRequest,
         mut res: CreateTopicsResponse,
         ctrl: &Controller,
-    ) -> crate::error::Result<CreateTopicsResponse> {
-        for (name, _) in req.topics.into_iter() {
+    ) -> Result<CreateTopicsResponse> {
+        for (name, t) in req.topics.into_iter() {
             let topic = Topic {
                 id: Uuid::new_v4(),
                 name: (*name).to_string(),
+                internal: false,
+                ..Default::default()
             };
 
             if ctrl.store.topic_exists(&name)? {
@@ -42,6 +57,7 @@ impl Handler<CreateTopicsRequest> for CreateTopicsHandler {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
     use crate::broker::handler::create_topics::CreateTopicsHandler;
     use crate::broker::handler::test::new_controller;
     use crate::broker::handler::Handler;
@@ -70,6 +86,8 @@ mod tests {
                 let topic = Topic {
                     id: uuid::Uuid::new_v4(),
                     name: "Test".to_string(),
+                    internal: false,
+                    partitions: HashMap::new(),
                 };
                 cb.send(Ok(crate::raft::rpc::Response::new(bincode::serialize(
                     &topic,

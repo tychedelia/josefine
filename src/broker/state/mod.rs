@@ -1,15 +1,15 @@
 pub mod group;
 pub mod topic;
-mod partition;
+pub mod partition;
 
 use crate::broker::state::group::Group;
 use crate::broker::state::topic::Topic;
 use crate::error::Result;
 use sled::{Db, IVec};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use serde::{Deserialize, Serialize};
 use serde::de::DeserializeOwned;
-use crate::broker::state::partition::Partition;
+use crate::broker::state::partition::{Partition, PartitionIdx};
 
 #[derive(Clone, Debug)]
 pub struct Store {
@@ -45,11 +45,12 @@ impl Store {
     }
 
     pub fn create_partition(&self, partition: Partition) -> Result<Partition> {
-        self.insert(format!("{}:partition:{}", partition.topic, partition.id), &partition);
+        let key = format!("{}:partition:{}", partition.topic, partition.idx);
+        self.insert(&key, &partition);
         Ok(partition)
     }
 
-    pub fn get_partition(&self, topic: String, id: u32) -> Result<Option<Partition>> {
+    pub fn get_partition(&self, topic: &str, id: i32) -> Result<Option<Partition>> {
         self.get(format!("{}:partition:{}", topic, id))
     }
 
