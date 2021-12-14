@@ -1,6 +1,6 @@
 use derive_more::Display;
 
-#[derive(Copy, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, Display)]
+#[derive(Copy, Clone, Serialize, Deserialize, Ord, PartialOrd, PartialEq, Eq, Hash, Display, Debug)]
 pub struct PartitionIdx(pub i32);
 
 #[derive(Serialize, Deserialize, Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]

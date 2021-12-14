@@ -36,6 +36,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "array-init"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6945cc5422176fc5e602e590c2878d2c2acd9a4fe20a4baa7c28022521698ec6"
+
+[[package]]
 name = "arrayvec"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -152,6 +158,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "convert_case"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6245d59a3e82a7fc217c5828a6692dbc6dfb63a0c8c90495621f7b9d79704a0e"
+
+[[package]]
 name = "crc"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -216,6 +228,19 @@ checksum = "a19c6cedffdc8c03a3346d723eb20bd85a13362bb96dc2ac000842c6381ec7bf"
 dependencies = [
  "nix",
  "winapi",
+]
+
+[[package]]
+name = "derive_more"
+version = "0.99.17"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4fb810d30a7c1953f91334de7244731fc3f3c10d7fe163338a35b9f640960321"
+dependencies = [
+ "convert_case",
+ "proc-macro2",
+ "quote",
+ "rustc_version",
+ "syn",
 ]
 
 [[package]]
@@ -449,12 +474,14 @@ dependencies = [
  "clap",
  "config",
  "ctrlc",
+ "derive_more",
  "futures",
  "futures-util",
- "kafka_protocol",
+ "kafka-protocol",
  "memmap",
  "rand",
  "regex",
+ "ringbuffer",
  "serde 1.0.126",
  "serde_derive",
  "serde_json",
@@ -473,9 +500,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "kafka_protocol"
+name = "kafka-protocol"
 version = "0.1.0"
-source = "git+https://github.com/0x1991babe/kafka-protocol-rs?branch=main#7b645ff076c2a17bc3db5b91d69fa1932a3a4870"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ba1a6317e2dfdcbd09d9fd18d0e291cbd5817af4a8bb86d4b8e390e82122f5bc"
 dependencies = [
  "bytes",
  "crc",
@@ -869,10 +897,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "ringbuffer"
+version = "0.8.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "72dfeba9c94fdc308dcfe165efa6855c698f317484b736605ff859c5fa81d992"
+dependencies = [
+ "array-init",
+]
+
+[[package]]
 name = "rust-ini"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3e52c148ef37f8c375d49d5a73aa70713125b7f19095948a923f80afdeb22ec2"
+
+[[package]]
+name = "rustc_version"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bfa0f585226d2e68097d4f95d113b15b83a82e819ab25717ec0590d9584ef366"
+dependencies = [
+ "semver",
+]
 
 [[package]]
 name = "ryu"
@@ -885,6 +931,12 @@ name = "scopeguard"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d29ab0c6d3fc0ee92fe66e2d99f700eab17a8d57d1c1d3b748380fb20baa78cd"
+
+[[package]]
+name = "semver"
+version = "1.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "568a8e6258aa33c13358f81fd834adb854c6f7c9468520910a9b1e8fac068012"
 
 [[package]]
 name = "serde"
@@ -984,7 +1036,8 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 [[package]]
 name = "string"
 version = "0.3.0"
-source = "git+https://github.com/0x1991babe/string.git#c6c12522727bc1a4bfaf94ba308e15cc3b854b41"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a984fb878618df5d8df7a476085310472dfd6eee03c5e4b35feb689066b1c1e6"
 dependencies = [
  "bytes",
 ]

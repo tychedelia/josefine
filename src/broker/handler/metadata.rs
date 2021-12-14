@@ -38,7 +38,7 @@ impl Handler<MetadataRequest> for MetadataHandler {
                         let mut mp = MetadataResponsePartition::default();
                         match ctrl.store.get_partition(&topic.name, *k).unwrap() {
                             Some(p) => {
-                                mp.leader_id messages:: = p.leader;
+                                // mp.leader_id messages:: = p.leader;
                                 mp.partition_index = p.idx.0;
                                 mp.isr_nodes = p.isr.into_iter().map(BrokerId).collect();
                                 mp.replica_nodes = p.assigned_replicas.into_iter().map(BrokerId).collect();
