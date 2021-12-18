@@ -9,7 +9,7 @@ use state::Store;
 pub mod config;
 mod entry;
 pub mod fsm;
-mod handler;
+mod broker;
 mod index;
 mod log;
 mod segment;

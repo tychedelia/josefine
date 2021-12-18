@@ -16,7 +16,7 @@ use crate::broker::state::Store;
 use crate::raft::client::RaftClient;
 
 use crate::broker::config::BrokerConfig;
-use crate::broker::handler::Controller;
+use crate::broker::broker::Broker;
 
 pub struct Server {
     address: SocketAddr,
@@ -45,7 +45,7 @@ impl Server {
             tcp::receive_task(listener, in_tx, shutdown.0.subscribe()).remote_handle();
         tokio::spawn(task);
 
-        let ctrl = Controller::new(store, client, self.config);
+        let ctrl = Broker::new(store, client, self.config);
         let (task, handle_messages) =
             handle_messages(ctrl, out_tx, shutdown.0.subscribe()).remote_handle();
         tokio::spawn(task);
@@ -56,7 +56,7 @@ impl Server {
 }
 
 async fn handle_messages(
-    ctrl: Controller,
+    ctrl: Broker,
     mut out_tx: UnboundedReceiver<(RequestKind, oneshot::Sender<ResponseKind>)>,
     mut shutdown: tokio::sync::broadcast::Receiver<()>,
 ) -> Result<()> {

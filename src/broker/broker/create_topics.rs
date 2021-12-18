@@ -1,7 +1,7 @@
 use std::ops::Index;
 use crate::broker::fsm::Transition;
 use crate::error::Result;
-use crate::broker::handler::{Controller, Handler};
+use crate::broker::broker::{Broker, Handler};
 use crate::broker::state::topic::Topic;
 use async_trait::async_trait;
 use kafka_protocol::messages::create_topics_response::CreatableTopicResult;
@@ -14,12 +14,9 @@ use uuid::Uuid;
 use crate::broker::config::BrokerId;
 use crate::broker::state::partition::{Partition, PartitionIdx};
 
-#[derive(Debug)]
-pub struct CreateTopicsHandler;
-
-impl CreateTopicsHandler {
-    async fn make_partitions(name: &str, topic: &CreatableTopic, ctrl: &Controller) -> Result<Vec<Partition>> {
-        let mut brokers = ctrl.get_brokers();
+impl Broker {
+    async fn make_partitions(&self, name: &str, topic: &CreatableTopic) -> Result<Vec<Partition>> {
+        let mut brokers = self.get_brokers();
 
         if topic.replication_factor > brokers.len() as i16 {
             // TODO
@@ -50,7 +47,7 @@ impl CreateTopicsHandler {
         Ok(partitions)
     }
 
-    async fn create_topic(name: &str, t: CreatableTopic, ctrl: &Controller) -> Result<CreatableTopicResult> {
+    async fn create_topic(&self, name: &str, t: CreatableTopic) -> Result<CreatableTopicResult> {
         let topic = Topic {
             id: Uuid::new_v4(),
             name: (*name).to_string(),
@@ -63,16 +60,16 @@ impl CreateTopicsHandler {
         res.num_partitions = t.num_partitions;
         res.replication_factor = t.replication_factor;
 
-        &ctrl
+        self
             .client
             .propose(Transition::EnsureTopic(topic).serialize()?)
             .await?;
 
-        let ps = Self::make_partitions(name, &t, ctrl).await?;
+        let ps = self.make_partitions(name, &t).await?;
 
         // TODO we should really do topic + partitions within single tx
         for p in ps {
-            &ctrl.client.propose(Transition::EnsurePartition(p).serialize()?).await?;
+            &self.client.propose(Transition::EnsurePartition(p).serialize()?).await?;
         }
 
         Ok(res)
@@ -80,18 +77,18 @@ impl CreateTopicsHandler {
 }
 
 #[async_trait]
-impl Handler<CreateTopicsRequest> for CreateTopicsHandler {
+impl Handler<CreateTopicsRequest> for Broker {
     async fn handle(
+        &self,
         req: CreateTopicsRequest,
         mut res: CreateTopicsResponse,
-        ctrl: &Controller,
     ) -> Result<CreateTopicsResponse> {
         for (name, topic) in req.topics.into_iter() {
-            if ctrl.store.topic_exists(&name)? {
+            if self.store.topic_exists(&name)? {
                 // TODO
             }
 
-            let t = Self::create_topic(&name, topic, ctrl).await?;
+            let t = self.create_topic(&name, topic).await?;
             res.topics.insert(name, t);
         }
         Ok(res)
@@ -101,18 +98,18 @@ impl Handler<CreateTopicsRequest> for CreateTopicsHandler {
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
-    use crate::broker::handler::create_topics::CreateTopicsHandler;
-    use crate::broker::handler::test::new_controller;
-    use crate::broker::handler::Handler;
+    use crate::broker::broker::test::new_broker;
+    use crate::broker::broker::Broker;
     use crate::broker::state::topic::Topic;
     use crate::error::Result;
+    use crate::broker::broker::Handler;
     use kafka_protocol::messages::create_topics_request::CreatableTopic;
-    use kafka_protocol::messages::{CreateTopicsRequest, TopicName};
+    use kafka_protocol::messages::{CreateTopicsRequest, CreateTopicsResponse, TopicName};
     use kafka_protocol::protocol::StrBytes;
 
     #[tokio::test]
     async fn execute() -> Result<()> {
-        let (mut rx, ctrl) = new_controller();
+        let (mut rx, broker) = new_broker();
         let mut req = CreateTopicsRequest::default();
         let topic_name = TopicName(StrBytes::from_str("Test"));
         req.topics
@@ -120,7 +117,7 @@ mod tests {
         let (res, _) = tokio::join!(
             tokio::spawn(async move {
                 Result::Ok(
-                    CreateTopicsHandler::handle(req, CreateTopicsHandler::response(), &ctrl)
+                    broker.handle(req, CreateTopicsResponse::default())
                         .await?,
                 )
             }),

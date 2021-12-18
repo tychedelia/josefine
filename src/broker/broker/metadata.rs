@@ -1,4 +1,4 @@
-use crate::broker::handler::{Controller, Handler};
+use crate::broker::broker::{Broker, Handler};
 use crate::kafka::util::ToStrBytes;
 use async_trait::async_trait;
 use bytes::Bytes;
@@ -7,35 +7,32 @@ use kafka_protocol::messages::{BrokerId, MetadataRequest, MetadataResponse, Topi
 use kafka_protocol::protocol::StrBytes;
 use string::TryFrom;
 
-#[derive(Debug)]
-pub struct MetadataHandler;
-
 #[async_trait]
-impl Handler<MetadataRequest> for MetadataHandler {
+impl Handler<MetadataRequest> for Broker {
     async fn handle(
+        &self,
         _: MetadataRequest,
         mut res: MetadataResponse,
-        ctrl: &Controller,
     ) -> crate::error::Result<MetadataResponse> {
         res.brokers.insert(
-            BrokerId(ctrl.config.id.0),
+            BrokerId(self.config.id.0),
             MetadataResponseBroker {
-                host: ctrl.config.ip.to_string().to_str_bytes(),
-                port: ctrl.config.port as i32,
+                host: self.config.ip.to_string().to_str_bytes(),
+                port: self.config.port as i32,
                 ..Default::default()
             },
         );
         res.controller_id = BrokerId(1);
         res.cluster_id = Some(StrBytes::from_str("josefine"));
 
-        let topics = ctrl.store.get_topics()?;
+        let topics = self.store.get_topics()?;
         for (name, topic) in topics.into_iter() {
             let t = MetadataResponseTopic {
                 topic_id: topic.id,
                 partitions: topic.partitions.iter()
                     .map(|(k, v)| {
                         let mut mp = MetadataResponsePartition::default();
-                        match ctrl.store.get_partition(&topic.name, *k).unwrap() {
+                        match self.store.get_partition(&topic.name, *k).unwrap() {
                             Some(p) => {
                                 // mp.leader_id messages:: = p.leader;
                                 mp.partition_index = p.idx.0;
@@ -61,19 +58,17 @@ impl Handler<MetadataRequest> for MetadataHandler {
 
 #[cfg(test)]
 mod tests {
-    use kafka_protocol::messages::MetadataRequest;
+    use kafka_protocol::messages::{MetadataRequest, MetadataResponse};
 
-    use crate::broker::handler::metadata::MetadataHandler;
-    use crate::broker::handler::test::new_controller;
-    use crate::broker::handler::Handler;
+    use crate::broker::broker::test::new_broker;
+    use crate::broker::broker::{Broker, Handler};
 
     use crate::error::Result;
 
     #[tokio::test]
     async fn execute() -> Result<()> {
-        let (_rx, ctrl) = new_controller();
-        let req = MetadataRequest::default();
-        let _res = MetadataHandler::handle(req, MetadataHandler::response(), &ctrl).await?;
+        let (_rx, broker) = new_broker();
+        let _res = broker.handle(MetadataRequest::default(), MetadataResponse::default()).await?;
         Ok(())
     }
 }
