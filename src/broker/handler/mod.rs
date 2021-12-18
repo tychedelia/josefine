@@ -20,6 +20,7 @@ mod find_coordinator;
 mod list_groups;
 mod metadata;
 mod test;
+mod produce;
 
 #[async_trait]
 trait Handler<Req, Res = <Req as Request>::Response>: Debug
