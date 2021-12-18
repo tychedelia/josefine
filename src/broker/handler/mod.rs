@@ -4,7 +4,7 @@ use std::fmt::{Debug, Formatter};
 use async_trait::async_trait;
 use kafka_protocol::protocol::{Request};
 
-use crate::broker::config::BrokerConfig;
+use crate::broker::config::{BrokerConfig, BrokerId};
 use crate::broker::handler::api_versions::ApiVersionsHandler;
 use crate::broker::handler::create_topics::CreateTopicsHandler;
 use crate::broker::handler::find_coordinator::FindCoordinatorHandler;
@@ -59,6 +59,12 @@ impl Controller {
             client,
             config,
         }
+    }
+
+    fn get_brokers(&self) -> Vec<BrokerId> {
+        let mut ids: Vec<BrokerId> = self.config.peers.iter().map(|x| x.id).collect();
+        ids.push(self.config.id);
+        ids
     }
 
     #[tracing::instrument]

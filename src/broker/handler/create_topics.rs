@@ -1,3 +1,4 @@
+use std::ops::Index;
 use crate::broker::fsm::Transition;
 use crate::error::Result;
 use crate::broker::handler::{Controller, Handler};
@@ -6,19 +7,75 @@ use async_trait::async_trait;
 use kafka_protocol::messages::create_topics_response::CreatableTopicResult;
 use kafka_protocol::messages::{CreateTopicsRequest, CreateTopicsResponse};
 use kafka_protocol::messages::create_topics_request::CreatableTopic;
+use kafka_protocol::messages::leader_and_isr_response::LeaderAndIsrTopicError;
+use rand::seq::SliceRandom;
+use rand::thread_rng;
 use uuid::Uuid;
+use crate::broker::config::BrokerId;
+use crate::broker::state::partition::{Partition, PartitionIdx};
 
 #[derive(Debug)]
 pub struct CreateTopicsHandler;
 
 impl CreateTopicsHandler {
-    async fn make_partitions(&self, topic: &CreatableTopic, ctrl: &Controller) -> Result<()> {
-        for i in 0..topic.num_partitions {
-            // TODO: randomize
-            let brokerId = i % 0;
+    async fn make_partitions(name: &str, topic: &CreatableTopic, ctrl: &Controller) -> Result<Vec<Partition>> {
+        let mut brokers = ctrl.get_brokers();
+
+        if topic.replication_factor > brokers.len() as i16 {
+            // TODO
         }
 
-        unimplemented!()
+        let mut partitions = Vec::new();
+
+        for i in 0..topic.num_partitions {
+            brokers.shuffle(&mut thread_rng());
+            let leader = brokers.first().unwrap();
+
+            let replicas: Vec<i32> = brokers.iter()
+                .take(topic.replication_factor as usize)
+                .map(|x| x.0)
+                .collect();
+
+            let partition = Partition {
+                idx: PartitionIdx(i),
+                topic: name.to_string(),
+                isr: replicas.clone(),
+                assigned_replicas: replicas,
+                leader: leader.0,
+            };
+
+            partitions.push(partition);
+        }
+
+        Ok(partitions)
+    }
+
+    async fn create_topic(name: &str, t: CreatableTopic, ctrl: &Controller) -> Result<CreatableTopicResult> {
+        let topic = Topic {
+            id: Uuid::new_v4(),
+            name: (*name).to_string(),
+            internal: false,
+            ..Default::default()
+        };
+
+        let mut res = CreatableTopicResult::default();
+        res.topic_id = topic.id;
+        res.num_partitions = t.num_partitions;
+        res.replication_factor = t.replication_factor;
+
+        &ctrl
+            .client
+            .propose(Transition::EnsureTopic(topic).serialize()?)
+            .await?;
+
+        let ps = Self::make_partitions(name, &t, ctrl).await?;
+
+        // TODO we should really do topic + partitions within single tx
+        for p in ps {
+            &ctrl.client.propose(Transition::EnsurePartition(p).serialize()?).await?;
+        }
+
+        Ok(res)
     }
 }
 
@@ -29,27 +86,13 @@ impl Handler<CreateTopicsRequest> for CreateTopicsHandler {
         mut res: CreateTopicsResponse,
         ctrl: &Controller,
     ) -> Result<CreateTopicsResponse> {
-        for (name, t) in req.topics.into_iter() {
-            let topic = Topic {
-                id: Uuid::new_v4(),
-                name: (*name).to_string(),
-                internal: false,
-                ..Default::default()
-            };
-
+        for (name, topic) in req.topics.into_iter() {
             if ctrl.store.topic_exists(&name)? {
                 // TODO
             }
 
-            let _topic: Topic = bincode::deserialize(
-                &ctrl
-                    .client
-                    .propose(Transition::EnsureTopic(topic).serialize()?)
-                    .await?,
-            )?;
-            let res_topic = CreatableTopicResult::default();
-
-            res.topics.insert(name, res_topic);
+            let t = Self::create_topic(&name, topic, ctrl).await?;
+            res.topics.insert(name, t);
         }
         Ok(res)
     }

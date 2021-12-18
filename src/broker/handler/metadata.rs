@@ -22,8 +22,7 @@ impl Handler<MetadataRequest> for MetadataHandler {
             MetadataResponseBroker {
                 host: ctrl.config.ip.to_string().to_str_bytes(),
                 port: ctrl.config.port as i32,
-                rack: None,
-                unknown_tagged_fields: Default::default(),
+                ..Default::default()
             },
         );
         res.controller_id = BrokerId(1);

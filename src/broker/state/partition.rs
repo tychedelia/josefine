@@ -10,6 +10,4 @@ pub struct Partition {
     pub isr: Vec<i32>,
     pub assigned_replicas: Vec<i32>,
     pub leader: i32,
-    pub controller_epoch: i32,
-    pub leader_epoch: i32,
 }

@@ -7,7 +7,7 @@ pub struct BrokerId(pub i32);
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Broker {
-    id: BrokerId,
+    pub id: BrokerId,
     ip: IpAddr,
     port: u16,
 }
