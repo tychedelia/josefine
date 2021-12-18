@@ -2,7 +2,9 @@ use crate::broker::broker::{Broker, Handler};
 use crate::kafka::util::ToStrBytes;
 use async_trait::async_trait;
 use bytes::Bytes;
-use kafka_protocol::messages::metadata_response::{MetadataResponseBroker, MetadataResponsePartition, MetadataResponseTopic};
+use kafka_protocol::messages::metadata_response::{
+    MetadataResponseBroker, MetadataResponsePartition, MetadataResponseTopic,
+};
 use kafka_protocol::messages::{BrokerId, MetadataRequest, MetadataResponse, TopicName};
 use kafka_protocol::protocol::StrBytes;
 use string::TryFrom;
@@ -29,7 +31,9 @@ impl Handler<MetadataRequest> for Broker {
         for (name, topic) in topics.into_iter() {
             let t = MetadataResponseTopic {
                 topic_id: topic.id,
-                partitions: topic.partitions.iter()
+                partitions: topic
+                    .partitions
+                    .iter()
                     .map(|(k, _v)| {
                         let mut mp = MetadataResponsePartition::default();
                         match self.store.get_partition(&topic.name, *k).unwrap() {
@@ -37,7 +41,8 @@ impl Handler<MetadataRequest> for Broker {
                                 // mp.leader_id messages:: = p.leader;
                                 mp.partition_index = p.idx.0;
                                 mp.isr_nodes = p.isr.into_iter().map(BrokerId).collect();
-                                mp.replica_nodes = p.assigned_replicas.into_iter().map(BrokerId).collect();
+                                mp.replica_nodes =
+                                    p.assigned_replicas.into_iter().map(BrokerId).collect();
                             }
                             None => {
                                 mp.error_code = 0;
@@ -61,14 +66,16 @@ mod tests {
     use kafka_protocol::messages::{MetadataRequest, MetadataResponse};
 
     use crate::broker::broker::test::new_broker;
-    use crate::broker::broker::{Handler};
+    use crate::broker::broker::Handler;
 
     use crate::error::Result;
 
     #[tokio::test]
     async fn execute() -> Result<()> {
         let (_rx, broker) = new_broker();
-        let _res = broker.handle(MetadataRequest::default(), MetadataResponse::default()).await?;
+        let _res = broker
+            .handle(MetadataRequest::default(), MetadataResponse::default())
+            .await?;
         Ok(())
     }
 }

@@ -9,7 +9,6 @@ use crate::error::Result;
 use crate::raft::client::RaftClient;
 use futures::FutureExt;
 
-
 use crate::raft::JosefineRaft;
 
 #[macro_use]

@@ -1,12 +1,11 @@
-
-use crate::broker::fsm::Transition;
-use crate::error::Result;
 use crate::broker::broker::{Broker, Handler};
+use crate::broker::fsm::Transition;
 use crate::broker::state::topic::Topic;
+use crate::error::Result;
 use async_trait::async_trait;
+use kafka_protocol::messages::create_topics_request::CreatableTopic;
 use kafka_protocol::messages::create_topics_response::CreatableTopicResult;
 use kafka_protocol::messages::{CreateTopicsRequest, CreateTopicsResponse};
-use kafka_protocol::messages::create_topics_request::CreatableTopic;
 
 use rand::seq::SliceRandom;
 use rand::thread_rng;
@@ -28,7 +27,8 @@ impl Broker {
             brokers.shuffle(&mut thread_rng());
             let leader = brokers.first().unwrap();
 
-            let replicas: Vec<i32> = brokers.iter()
+            let replicas: Vec<i32> = brokers
+                .iter()
                 .take(topic.replication_factor as usize)
                 .map(|x| x.0)
                 .collect();
@@ -60,8 +60,7 @@ impl Broker {
         res.num_partitions = t.num_partitions;
         res.replication_factor = t.replication_factor;
 
-        self
-            .client
+        self.client
             .propose(Transition::EnsureTopic(topic).serialize()?)
             .await?;
 
@@ -69,7 +68,10 @@ impl Broker {
 
         // TODO we should really do topic + partitions within single tx
         for p in ps {
-            let _ = &self.client.propose(Transition::EnsurePartition(p).serialize()?).await?;
+            let _ = &self
+                .client
+                .propose(Transition::EnsurePartition(p).serialize()?)
+                .await?;
         }
 
         Ok(res)
@@ -97,12 +99,12 @@ impl Handler<CreateTopicsRequest> for Broker {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
     use crate::broker::broker::test::new_broker;
-    
+    use std::collections::HashMap;
+
+    use crate::broker::broker::Handler;
     use crate::broker::state::topic::Topic;
     use crate::error::Result;
-    use crate::broker::broker::Handler;
     use kafka_protocol::messages::create_topics_request::CreatableTopic;
     use kafka_protocol::messages::{CreateTopicsRequest, CreateTopicsResponse, TopicName};
     use kafka_protocol::protocol::StrBytes;
@@ -116,10 +118,7 @@ mod tests {
             .insert(topic_name.clone(), CreatableTopic::default());
         let (res, _) = tokio::join!(
             tokio::spawn(async move {
-                Result::Ok(
-                    broker.handle(req, CreateTopicsResponse::default())
-                        .await?,
-                )
+                Result::Ok(broker.handle(req, CreateTopicsResponse::default()).await?)
             }),
             tokio::spawn(async move {
                 let (_, cb) = rx.recv().await.unwrap();

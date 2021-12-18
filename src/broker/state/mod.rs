@@ -1,15 +1,15 @@
 pub mod group;
-pub mod topic;
 pub mod partition;
+pub mod topic;
 
 use crate::broker::state::group::Group;
+use crate::broker::state::partition::Partition;
 use crate::broker::state::topic::Topic;
 use crate::error::Result;
-use sled::{Db};
-use std::collections::{HashMap};
-use serde::{Serialize};
 use serde::de::DeserializeOwned;
-use crate::broker::state::partition::{Partition};
+use serde::Serialize;
+use sled::Db;
+use std::collections::HashMap;
 
 #[derive(Clone, Debug)]
 pub struct Store {
@@ -55,11 +55,9 @@ impl Store {
     }
 
     fn get<T: DeserializeOwned, K: AsRef<[u8]>>(&self, key: K) -> Result<Option<T>> {
-        Ok(self.db.transaction(|tx| {
-            match tx.get(key.as_ref())? {
-                Some(val) => Ok(Some(bincode::deserialize(&val).unwrap())),
-                None => Ok(None)
-            }
+        Ok(self.db.transaction(|tx| match tx.get(key.as_ref())? {
+            Some(val) => Ok(Some(bincode::deserialize(&val).unwrap())),
+            None => Ok(None),
         })?)
     }
 

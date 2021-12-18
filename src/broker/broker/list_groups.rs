@@ -18,7 +18,7 @@ mod tests {
     use kafka_protocol::messages::{ListGroupsRequest, ListGroupsResponse};
 
     use crate::broker::broker::test::new_broker;
-    use crate::broker::broker::{Handler};
+    use crate::broker::broker::Handler;
 
     use crate::error::Result;
 

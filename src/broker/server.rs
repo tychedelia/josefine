@@ -11,12 +11,11 @@ use kafka_protocol::messages::*;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::oneshot;
 
-
 use crate::broker::state::Store;
 use crate::raft::client::RaftClient;
 
-use crate::broker::config::BrokerConfig;
 use crate::broker::broker::Broker;
+use crate::broker::config::BrokerConfig;
 
 pub struct Server {
     address: SocketAddr,

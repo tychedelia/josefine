@@ -6,10 +6,10 @@ use server::Server;
 
 use state::Store;
 
+mod broker;
 pub mod config;
 mod entry;
 pub mod fsm;
-mod broker;
 mod index;
 mod log;
 mod segment;

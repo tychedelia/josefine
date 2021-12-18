@@ -2,7 +2,7 @@ use kafka_protocol::messages::{RequestKind, ResponseKind};
 use std::fmt::{Debug, Formatter};
 
 use async_trait::async_trait;
-use kafka_protocol::protocol::{Request};
+use kafka_protocol::protocol::Request;
 
 use crate::broker::config::{BrokerConfig, BrokerId};
 use crate::broker::state::Store;
@@ -14,8 +14,8 @@ mod create_topics;
 mod find_coordinator;
 mod list_groups;
 mod metadata;
-mod test;
 mod produce;
+mod test;
 
 #[async_trait]
 trait Handler<Req, Res = <Req as Request>::Response>: Debug
