@@ -30,7 +30,7 @@ impl Handler<MetadataRequest> for Broker {
             let t = MetadataResponseTopic {
                 topic_id: topic.id,
                 partitions: topic.partitions.iter()
-                    .map(|(k, v)| {
+                    .map(|(k, _v)| {
                         let mut mp = MetadataResponsePartition::default();
                         match self.store.get_partition(&topic.name, *k).unwrap() {
                             Some(p) => {
@@ -61,7 +61,7 @@ mod tests {
     use kafka_protocol::messages::{MetadataRequest, MetadataResponse};
 
     use crate::broker::broker::test::new_broker;
-    use crate::broker::broker::{Broker, Handler};
+    use crate::broker::broker::{Handler};
 
     use crate::error::Result;
 

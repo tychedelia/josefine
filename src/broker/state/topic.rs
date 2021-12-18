@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use kafka_protocol::messages::create_topics_request::CreatableTopic;
+
 use uuid::Uuid;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Default)]

@@ -1,4 +1,4 @@
-use std::ops::Index;
+
 use crate::broker::fsm::Transition;
 use crate::error::Result;
 use crate::broker::broker::{Broker, Handler};
@@ -7,11 +7,11 @@ use async_trait::async_trait;
 use kafka_protocol::messages::create_topics_response::CreatableTopicResult;
 use kafka_protocol::messages::{CreateTopicsRequest, CreateTopicsResponse};
 use kafka_protocol::messages::create_topics_request::CreatableTopic;
-use kafka_protocol::messages::leader_and_isr_response::LeaderAndIsrTopicError;
+
 use rand::seq::SliceRandom;
 use rand::thread_rng;
 use uuid::Uuid;
-use crate::broker::config::BrokerId;
+
 use crate::broker::state::partition::{Partition, PartitionIdx};
 
 impl Broker {
@@ -69,7 +69,7 @@ impl Broker {
 
         // TODO we should really do topic + partitions within single tx
         for p in ps {
-            &self.client.propose(Transition::EnsurePartition(p).serialize()?).await?;
+            let _ = &self.client.propose(Transition::EnsurePartition(p).serialize()?).await?;
         }
 
         Ok(res)
@@ -99,7 +99,7 @@ impl Handler<CreateTopicsRequest> for Broker {
 mod tests {
     use std::collections::HashMap;
     use crate::broker::broker::test::new_broker;
-    use crate::broker::broker::Broker;
+    
     use crate::broker::state::topic::Topic;
     use crate::error::Result;
     use crate::broker::broker::Handler;

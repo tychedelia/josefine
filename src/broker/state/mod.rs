@@ -5,11 +5,11 @@ pub mod partition;
 use crate::broker::state::group::Group;
 use crate::broker::state::topic::Topic;
 use crate::error::Result;
-use sled::{Db, IVec};
-use std::collections::{HashMap, HashSet};
-use serde::{Deserialize, Serialize};
+use sled::{Db};
+use std::collections::{HashMap};
+use serde::{Serialize};
 use serde::de::DeserializeOwned;
-use crate::broker::state::partition::{Partition, PartitionIdx};
+use crate::broker::state::partition::{Partition};
 
 #[derive(Clone, Debug)]
 pub struct Store {
