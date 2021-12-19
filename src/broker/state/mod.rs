@@ -40,6 +40,10 @@ impl Store {
         Ok(self.get("topics")?.unwrap_or_else(HashMap::new))
     }
 
+    pub fn get_topic(&self, name: &str) -> Result<Option<Topic>> {
+        Ok(self.get_topics()?.remove(name))
+    }
+
     pub fn get_groups(&self) -> Result<HashMap<String, Group>> {
         self.get("groups")?.unwrap()
     }

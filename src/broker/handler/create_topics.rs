@@ -1,4 +1,3 @@
-use crate::broker::broker::{Broker, Handler};
 use crate::broker::fsm::Transition;
 use crate::broker::state::topic::Topic;
 use crate::error::Result;
@@ -10,6 +9,8 @@ use kafka_protocol::messages::{CreateTopicsRequest, CreateTopicsResponse};
 use rand::seq::SliceRandom;
 use rand::thread_rng;
 use uuid::Uuid;
+use crate::broker::Broker;
+use crate::broker::handler::Handler;
 
 use crate::broker::state::partition::{Partition, PartitionIdx};
 
@@ -99,11 +100,10 @@ impl Handler<CreateTopicsRequest> for Broker {
 
 #[cfg(test)]
 mod tests {
-    use crate::broker::broker::test::new_broker;
+    use crate::broker::handler::test::new_broker;
     use std::collections::HashMap;
 
-    use crate::broker::broker::Handler;
-    use crate::broker::state::topic::Topic;
+    use crate::broker::handler::Handler;    use crate::broker::state::topic::Topic;
     use crate::error::Result;
     use kafka_protocol::messages::create_topics_request::CreatableTopic;
     use kafka_protocol::messages::{CreateTopicsRequest, CreateTopicsResponse, TopicName};

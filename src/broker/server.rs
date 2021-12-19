@@ -14,7 +14,7 @@ use tokio::sync::oneshot;
 use crate::broker::state::Store;
 use crate::raft::client::RaftClient;
 
-use crate::broker::broker::Broker;
+use crate::broker::Broker;
 use crate::broker::config::BrokerConfig;
 
 pub struct Server {
@@ -37,7 +37,7 @@ impl Server {
             tokio::sync::broadcast::Receiver<()>,
         ),
     ) -> Result<()> {
-        tracing::info!("starting broker");
+        tracing::info!("starting handler");
         let listener = TcpListener::bind(self.address).await?;
         let (in_tx, out_tx) = tokio::sync::mpsc::unbounded_channel();
         let (task, tcp_receiver) =

@@ -1,4 +1,4 @@
-use crate::broker::broker::{Broker, Handler};
+use crate::broker::Broker;
 use crate::kafka::util::ToStrBytes;
 use async_trait::async_trait;
 use bytes::Bytes;
@@ -8,6 +8,7 @@ use kafka_protocol::messages::metadata_response::{
 use kafka_protocol::messages::{BrokerId, MetadataRequest, MetadataResponse, TopicName};
 use kafka_protocol::protocol::StrBytes;
 use string::TryFrom;
+use crate::broker::handler::Handler;
 
 #[async_trait]
 impl Handler<MetadataRequest> for Broker {
@@ -65,8 +66,8 @@ impl Handler<MetadataRequest> for Broker {
 mod tests {
     use kafka_protocol::messages::{MetadataRequest, MetadataResponse};
 
-    use crate::broker::broker::test::new_broker;
-    use crate::broker::broker::Handler;
+    use crate::broker::handler::Handler;
+    use crate::broker::handler::test::new_broker;
 
     use crate::error::Result;
 

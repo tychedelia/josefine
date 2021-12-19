@@ -1,4 +1,4 @@
-use crate::broker::broker::Broker;
+use crate::broker::Broker;
 use crate::broker::state::Store;
 use crate::error::JosefineError;
 use crate::raft::client::RaftClient;

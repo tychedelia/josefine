@@ -1,8 +1,9 @@
-use crate::broker::broker::{Broker, Handler};
+use crate::broker::Broker;
 use async_trait::async_trait;
 use kafka_protocol::messages::api_versions_response::ApiVersion;
 use kafka_protocol::messages::*;
 use kafka_protocol::protocol::Message;
+use crate::broker::handler::Handler;
 
 #[async_trait]
 impl Handler<ApiVersionsRequest> for Broker {
@@ -148,9 +149,8 @@ impl Handler<ApiVersionsRequest> for Broker {
 mod tests {
     use kafka_protocol::messages::{ApiVersionsRequest, ApiVersionsResponse};
 
-    use crate::broker::broker::test::new_broker;
-    use crate::broker::broker::Handler;
-
+    use crate::broker::handler::test::new_broker;
+    use crate::broker::handler::Handler;
     use crate::error::Result;
 
     #[tokio::test]
