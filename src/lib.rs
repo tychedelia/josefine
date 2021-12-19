@@ -22,7 +22,7 @@ pub async fn josefine<P: AsRef<std::path::Path>>(
     ),
 ) -> Result<()> {
     let config = config::config(config_path);
-    let db = sled::open(&config.broker.file).unwrap();
+    let db = sled::open(&config.broker.state_file).unwrap();
 
     let (client_tx, client_rx) = tokio::sync::mpsc::unbounded_channel();
     let client = RaftClient::new(client_tx);

@@ -16,6 +16,7 @@ mod list_groups;
 mod metadata;
 mod produce;
 mod test;
+mod leader_and_isr;
 
 #[async_trait]
 pub(crate) trait Handler<Req, Res = <Req as Request>::Response>: Debug

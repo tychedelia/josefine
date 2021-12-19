@@ -1,4 +1,4 @@
-use crate::broker::Broker;
+use crate::broker::{Broker, Replicas};
 use crate::broker::state::Store;
 use crate::error::JosefineError;
 use crate::raft::client::RaftClient;
@@ -18,6 +18,7 @@ pub(crate) fn new_broker() -> (
             store: Store::new(sled::open(tempdir().unwrap()).unwrap()),
             client: RaftClient::new(client_tx),
             config: Default::default(),
+            replicas: Replicas::new(),
         },
     )
 }

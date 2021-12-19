@@ -5,8 +5,13 @@ use std::path::{Path, PathBuf};
 
 use std::sync::RwLock;
 
-use crate::broker::segment::Segment;
+use segment::Segment;
 use std::fs;
+
+mod entry;
+mod index;
+mod reader;
+mod segment;
 
 pub struct Log {
     path: PathBuf,

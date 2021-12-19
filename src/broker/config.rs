@@ -1,8 +1,9 @@
 use derive_more::Display;
 use std::net::{IpAddr, ToSocketAddrs};
 use std::path::PathBuf;
+use tempfile::tempdir;
 
-#[derive(Copy, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, Debug, Display)]
+#[derive(Copy, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, Debug, Display, Ord, PartialOrd)]
 pub struct BrokerId(pub i32);
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -18,7 +19,8 @@ pub struct BrokerConfig {
     pub id: BrokerId,
     pub ip: IpAddr,
     pub port: u16,
-    pub file: PathBuf,
+    pub data_dir: PathBuf,
+    pub state_file: PathBuf,
     pub peers: Vec<Broker>,
 }
 
@@ -28,7 +30,8 @@ impl Default for BrokerConfig {
             id: BrokerId(1),
             ip: resolve("localhost").unwrap(), //unwrap_or_else(|| IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0))),
             port: 8844,
-            file: tempfile::tempdir().unwrap().into_path(),
+            data_dir: tempfile::tempdir().unwrap().into_path(),
+            state_file: tempfile::tempdir().unwrap().into_path(),
             peers: vec![],
         }
     }

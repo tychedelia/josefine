@@ -5,8 +5,8 @@ use std::io::Read;
 use std::io::Write;
 use std::path::PathBuf;
 
-use crate::broker::entry::Entry;
-use crate::broker::index::Index;
+use crate::broker::log::entry::Entry;
+use crate::broker::log::index::Index;
 
 const MAX_SEGMENT_BYES: u64 = 1024 * 1024 * 1024;
 

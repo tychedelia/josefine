@@ -2,14 +2,19 @@ use crate::broker::fsm::Transition;
 use crate::broker::state::topic::Topic;
 use crate::error::Result;
 use async_trait::async_trait;
+use bytes::Bytes;
 use kafka_protocol::messages::create_topics_request::CreatableTopic;
 use kafka_protocol::messages::create_topics_response::CreatableTopicResult;
-use kafka_protocol::messages::{CreateTopicsRequest, CreateTopicsResponse};
+use kafka_protocol::messages::{CreateTopicsRequest, CreateTopicsResponse, LeaderAndIsrRequest, TopicName};
+use kafka_protocol::messages::leader_and_isr_request::LeaderAndIsrTopicState;
+use kafka_protocol::protocol::StrBytes;
 
 use rand::seq::SliceRandom;
 use rand::thread_rng;
+use string::TryFrom;
 use uuid::Uuid;
 use crate::broker::Broker;
+use crate::broker::config::BrokerId;
 use crate::broker::handler::Handler;
 
 use crate::broker::state::partition::{Partition, PartitionIdx};
@@ -35,11 +40,12 @@ impl Broker {
                 .collect();
 
             let partition = Partition {
+                id: Uuid::new_v4(),
                 idx: PartitionIdx(i),
                 topic: name.to_string(),
                 isr: replicas.clone(),
                 assigned_replicas: replicas,
-                leader: leader.0,
+                leader: BrokerId(leader.0),
             };
 
             partitions.push(partition);

@@ -4,8 +4,7 @@ use std::io::Write;
 use std::path::PathBuf;
 
 use memmap::MmapMut;
-
-use crate::broker::entry::Entry;
+use crate::broker::log::entry::Entry;
 
 const MAX_BYTES_INDEX: u64 = 10 * 1024 * 1024;
 
@@ -80,7 +79,7 @@ mod tests {
     use std::io::Seek;
     use std::io::SeekFrom;
 
-    use crate::broker::entry::Entry;
+    use crate::broker::log::entry::Entry;
 
     fn before() {
         let mut path = env::temp_dir();

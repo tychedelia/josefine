@@ -1,5 +1,8 @@
+use std::collections::HashMap;
 use std::fmt::{Debug, Formatter};
+use std::sync::{Arc, Mutex, RwLock};
 use kafka_protocol::messages::{RequestKind, ResponseKind};
+use uuid::Uuid;
 use crate::error::Result;
 use crate::raft::client::RaftClient;
 use crate::broker::handler::Handler;
@@ -7,17 +10,18 @@ use crate::broker::config::{BrokerConfig, BrokerId};
 use server::Server;
 
 use state::Store;
+use crate::broker::log::Log;
+use crate::broker::replica::Replica;
+use crate::broker::state::partition::PartitionIdx;
 
 mod handler;
 pub mod config;
-mod entry;
 pub mod fsm;
-mod index;
 mod log;
-mod segment;
-mod server;
 pub(crate) mod state;
 mod tcp;
+mod replica;
+mod server;
 
 pub struct JosefineBroker {
     config: BrokerConfig,
@@ -42,10 +46,31 @@ impl JosefineBroker {
     }
 }
 
+pub struct Replicas {
+    replicas: RwLock<HashMap<Uuid, Arc<Mutex<Replica>>>>
+}
+
+impl Replicas {
+    pub fn new() -> Self {
+        Self { replicas: Default::default() }
+    }
+
+    pub fn add(&self, id: Uuid, replica: Replica) {
+        let mut rs = self.replicas.write().unwrap();
+        rs.insert(id, Arc::new(Mutex::new(replica)));
+    }
+
+    pub fn get(&self, id: Uuid) -> Option<Arc<Mutex<Replica>>> {
+        let rs = self.replicas.read().unwrap();
+        rs.get(&id).map(Clone::clone)
+    }
+}
+
 pub struct Broker {
     store: Store,
     client: RaftClient,
     config: BrokerConfig,
+    replicas: Replicas,
 }
 
 impl Debug for Broker {
@@ -60,6 +85,7 @@ impl Broker {
             store,
             client,
             config,
+            replicas: Replicas::new(),
         }
     }
 
