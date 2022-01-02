@@ -3,6 +3,7 @@ use std::{
     convert::TryInto,
 };
 
+use crate::raft::chain::BlockId;
 use crate::raft::{LogIndex, NodeId};
 
 #[derive(Debug)]
@@ -38,24 +39,24 @@ impl ReplicationProgress {
             .insert(node_id, NodeProgress::Probe(Progress::new(node_id)));
     }
 
-    pub fn advance(&mut self, node_id: NodeId, index: LogIndex) {
+    pub fn advance(&mut self, node_id: NodeId, block_id: BlockId) {
         let node = self.remove(node_id).expect("the node does not exist");
-        let node = node.advance(index);
+        let node = node.advance(block_id);
         self.progress.insert(node_id, node);
     }
 
-    pub fn committed_index(&self) -> LogIndex {
+    pub fn committed_index(&self) -> BlockId {
         let mut indices = Vec::new();
         for progress in self.progress.values() {
             match progress {
-                NodeProgress::Probe(pr) => indices.push(pr.index),
-                NodeProgress::Replicate(pr) => indices.push(pr.index),
+                NodeProgress::Probe(pr) => indices.push(pr.head.clone()),
+                NodeProgress::Replicate(pr) => indices.push(pr.head.clone()),
                 _ => panic!(),
             }
         }
 
         indices.sort_by(|a, b| b.cmp(a));
-        indices[indices.len() / 2]
+        indices[indices.len() / 2].clone()
     }
 }
 
@@ -72,17 +73,17 @@ impl NodeProgress {
     }
 
     /// Advance the progress to the provided index.
-    pub fn advance(self, idx: LogIndex) -> Self {
+    pub fn advance(self, block_id: BlockId) -> Self {
         match self {
             NodeProgress::Probe(mut prog) => {
-                if prog.increment(idx) {
+                if prog.increment(block_id) {
                     Self::Replicate(Progress::from(prog))
                 } else {
                     Self::Probe(prog)
                 }
             }
             NodeProgress::Replicate(mut prog) => {
-                if prog.increment(idx) {
+                if prog.increment(block_id) {
                     Self::Replicate(prog)
                 } else {
                     Self::Probe(Progress::from(prog))
@@ -100,11 +101,11 @@ impl NodeProgress {
         }
     }
 
-    pub fn index(&self) -> LogIndex {
+    pub fn head(&self) -> BlockId {
         match self {
-            NodeProgress::Probe(prog) => prog.index,
-            NodeProgress::Replicate(prog) => prog.index,
-            NodeProgress::Snapshot(prog) => prog.index,
+            NodeProgress::Probe(prog) => prog.head.clone(),
+            NodeProgress::Replicate(prog) => prog.head.clone(),
+            NodeProgress::Snapshot(prog) => prog.head.clone(),
         }
     }
 }
@@ -120,8 +121,7 @@ pub struct Progress<T: ProgressState> {
     pub node_id: NodeId,
     pub state: T,
     pub active: bool,
-    pub index: LogIndex,
-    pub next: LogIndex,
+    pub head: BlockId,
 }
 
 impl<T: ProgressState> Progress<T> {
@@ -130,18 +130,13 @@ impl<T: ProgressState> Progress<T> {
         self.state.reset();
     }
 
-    pub fn increment(&mut self, index: LogIndex) -> bool {
-        let updated = if self.index < index {
-            self.index = index;
+    pub fn increment(&mut self, block_id: BlockId) -> bool {
+        if self.head < block_id {
+            self.head = block_id;
             true
         } else {
             false
-        };
-
-        if self.next < index + 1 {
-            self.next = index + 1;
         }
-        updated
     }
 }
 
@@ -162,8 +157,7 @@ impl Progress<Probe> {
             node_id,
             state: Probe { paused: false },
             active: false,
-            index: 0,
-            next: 1,
+            head: BlockId::new(0),
         }
     }
 
@@ -178,8 +172,7 @@ impl From<Progress<Replicate>> for Progress<Probe> {
             node_id: progress.node_id,
             state: Probe { paused: false },
             active: progress.active,
-            index: progress.index,
-            next: progress.next,
+            head: progress.head,
         }
     }
 }
@@ -233,8 +226,7 @@ impl From<Progress<Probe>> for Progress<Replicate> {
                 inflight: VecDeque::with_capacity(MAX_INFLIGHT.try_into().unwrap()),
             },
             active: progress.active,
-            index: progress.index,
-            next: progress.next,
+            head: progress.head,
         }
     }
 }
@@ -251,6 +243,7 @@ pub struct PendingReplication {
 
 #[cfg(test)]
 mod tests {
+    use crate::raft::chain::BlockId;
     use crate::raft::progress::{NodeProgress, ReplicationProgress};
 
     #[test]
@@ -270,9 +263,9 @@ mod tests {
     #[test]
     fn increments_to_higher() {
         let progress = NodeProgress::new(0);
-        let progress = progress.advance(666);
+        let progress = progress.advance(BlockId::new(666));
         assert!(progress.is_active());
-        assert_eq!(progress.index(), 666);
+        assert_eq!(progress.head(), BlockId::new(666));
     }
 
     #[test]

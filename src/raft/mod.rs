@@ -1,12 +1,39 @@
-//! This implementation of the [Raft](raft.github.io) consensus algorithm forms the basis for safely
-//! replicating state in the distributed commit log. Raft is used to elect a leader that coordinates
-//! replication across the cluster and ensures that logs are written to a quorom of followers before
-//! applying that log to the committed index.
+//! # Josefine Raft
 //!
-//! This implementation is developed as an agnostic library that could be used for other
-//! applications, and does not reference concerns specfic to the distributed log implementation.
-//! Raft is itself a commit log and tracks its state in a manner that is somewhat similar to the
-//! Kafka reference implementation for Josefine.
+//! This implementation of the [Raft](raft.github.io) consensus algorithm uses a modified form
+//! called [Chained Raft](https://decentralizedthoughts.github.io/2021-07-17-simplifying-raft-with-chaining/),
+//! which models distributed state as an immutable directed acyclic graph rather than the
+//! commit log described in the original Raft paper.
+//!
+//! The primary benefit of using a DAG rather than log is that it does not require complicated
+//! behavior on leader election to guarantee the the log of all the replicas are up to date,
+//! potentially rewriting existing entries at a given index with new entries from the a higher
+//! turn provided by a new leader. By using an immutable graph of "blocks" on a chain, appending
+//! never requires updating existing state, but only appending new nodes to the graph. In this way,
+//! rather than being overwritten in a mutable log, existing uncommitted entries are left as
+//! vestiges on the data structure.
+//!
+//! ```text
+//!                              stale
+//!                               |
+//! [G] -> [A] -> [B] -> [C]  -> [D]            head
+//!                       |    \                 |
+//!                     commit  \ [E] -> [F] -> [G]
+//!
+//! ```
+//!
+//! Rather than indexing into the log, each cluster member tracks a "pointer" to the current head
+//! of the chain and the guaranteed stable commit. Because individual blocks do not need to be
+//! rewritten, the term of a block is tracked only for determining the last appended term.
+//!
+//! ## Storage
+//!
+//! Although presented at a high level as a graph or "chain", with "pointers" to each node,
+//! this is a higher level abstraction of the distributed state and does not represent how state
+//! is represented in the underlying storage engine.
+//!
+//! Because we are implementing for a Kafka-like system, we can make a number of assumptions
+//! about storage that may not apply to other workloads using raft.
 
 use std::fmt;
 use std::fmt::{Debug, Formatter};
@@ -21,18 +48,18 @@ use tokio::sync::oneshot;
 use rpc::Response;
 
 use crate::error::Result;
+use crate::raft::chain::{Block, BlockId, Chain};
 use crate::raft::config::RaftConfig;
 use crate::raft::error::RaftError;
 use crate::raft::follower::Follower;
 use crate::raft::fsm::Instruction;
 use crate::raft::leader::Leader;
-use crate::raft::log::Log;
 use crate::raft::rpc::{Address, Message};
 use crate::raft::server::{Server, ServerRunOpts};
-use crate::raft::store::MemoryStore;
 use crate::raft::{candidate::Candidate, rpc::Proposal};
 
 mod candidate;
+mod chain;
 pub mod client;
 pub mod config;
 mod election;
@@ -40,11 +67,9 @@ pub mod error;
 mod follower;
 pub mod fsm;
 mod leader;
-mod log;
 mod progress;
 pub mod rpc;
 mod server;
-mod store;
 mod tcp;
 mod test;
 
@@ -124,8 +149,7 @@ pub enum Command {
         candidate_id: NodeId,
         /// Term of the last log entry.
         last_term: Term,
-        /// Index of the last log entry.
-        last_index: LogIndex,
+        head: BlockId,
     },
     /// Respond to a vote from another node.
     VoteResponse {
@@ -143,11 +167,7 @@ pub enum Command {
         /// The id of the node sending entries.
         leader_id: NodeId,
         /// The entries to append to our commit log.
-        entries: Vec<Entry>,
-        /// The last log index preceeding new entries.
-        prev_log_index: LogIndex,
-        /// The log term preceeding new entries.
-        prev_log_term: Term,
+        blocks: Vec<Block>,
     },
     AppendResponse {
         /// The id of the responding node.
@@ -155,7 +175,7 @@ pub enum Command {
         /// The term of the responding node.
         term: Term,
         /// The responding node's current index.
-        index: LogIndex,
+        head: BlockId,
         /// Whether the entries were successfully applied.
         success: bool,
     },
@@ -164,13 +184,13 @@ pub enum Command {
         /// The term of the node sending a heartbeat.
         term: Term,
         /// The commited index
-        commit_index: LogIndex,
+        commit: BlockId,
         /// The id of the node sending a heartbeat.
         leader_id: NodeId,
     },
     HeartbeatResponse {
         /// The leader's commit index
-        commit_index: LogIndex,
+        commit: BlockId,
         /// Whether this node needs replication of committed entries
         has_committed: bool,
     },
@@ -242,10 +262,6 @@ pub struct State {
     pub current_term: u64,
     /// Who the node has voted for in the current election.
     pub voted_for: Option<NodeId>,
-    /// The current commit index of the replicated log.
-    pub commit_index: LogIndex,
-    /// Higher index known to be applied.
-    pub last_applied: LogIndex,
     /// The time the election was started.
     pub election_time: Option<Instant>,
     /// The timeout for the current election.
@@ -268,8 +284,11 @@ impl Debug for State {
             }
             _ => Duration::from_secs(0),
         };
-        write!(f, "State {{ current_term: {}, voted_for: {:?}, commit_index: {}, last_applied: {}, timeout: {:?} }}",
-               self.current_term, self.voted_for, self.commit_index, self.last_applied, timeout)
+        write!(
+            f,
+            "State {{ current_term: {}, voted_for: {:?}, timeout: {:?} }}",
+            self.current_term, self.voted_for, timeout
+        )
     }
 }
 
@@ -280,8 +299,6 @@ impl Default for State {
         State {
             current_term: 0,
             voted_for: None,
-            commit_index: 0,
-            last_applied: 0,
             election_time: None,
             election_timeout: None,
             min_election_timeout: 500,
@@ -302,8 +319,7 @@ pub struct Raft<T: Role + Debug> {
     pub state: State,
     /// An instance containing role specific state and behavior.
     pub role: T,
-    /// The persistent state for this raft instance.
-    pub log: Log<MemoryStore>,
+    pub chain: Chain,
     /// Channel to send messages to other nodes.
     pub rpc_tx: UnboundedSender<Message>,
     /// Channel to send entries to fsm driver.

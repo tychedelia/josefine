@@ -1,3 +1,4 @@
+use kafka_protocol::messages::{RequestHeader, RequestKind};
 use sled::transaction::TransactionError;
 
 pub type Result<T> = std::result::Result<T, JosefineError>;
@@ -79,6 +80,12 @@ impl From<Box<bincode::ErrorKind>> for JosefineError {
 
 impl From<TransactionError<JosefineError>> for JosefineError {
     fn from(_: TransactionError<JosefineError>) -> Self {
+        todo!()
+    }
+}
+
+impl From<tokio::sync::mpsc::error::TrySendError<(RequestHeader, RequestKind)>> for JosefineError {
+    fn from(_: tokio::sync::mpsc::error::TrySendError<(RequestHeader, RequestKind)>) -> Self {
         todo!()
     }
 }

@@ -2,26 +2,25 @@ use crate::broker::fsm::Transition;
 use crate::broker::state::topic::Topic;
 use crate::error::Result;
 use async_trait::async_trait;
-use bytes::Bytes;
+
 use kafka_protocol::messages::create_topics_request::CreatableTopic;
 use kafka_protocol::messages::create_topics_response::CreatableTopicResult;
-use kafka_protocol::messages::{CreateTopicsRequest, CreateTopicsResponse, LeaderAndIsrRequest, TopicName};
-use kafka_protocol::messages::leader_and_isr_request::LeaderAndIsrTopicState;
-use kafka_protocol::protocol::StrBytes;
 
-use rand::seq::SliceRandom;
-use rand::thread_rng;
-use string::TryFrom;
-use uuid::Uuid;
-use crate::broker::Broker;
+use kafka_protocol::messages::{CreateTopicsRequest, CreateTopicsResponse};
+
 use crate::broker::config::BrokerId;
 use crate::broker::handler::Handler;
+use crate::broker::Broker;
+use rand::seq::SliceRandom;
+use rand::thread_rng;
+
+use uuid::Uuid;
 
 use crate::broker::state::partition::{Partition, PartitionIdx};
 
 impl Broker {
     async fn make_partitions(&self, name: &str, topic: &CreatableTopic) -> Result<Vec<Partition>> {
-        let mut brokers = self.get_brokers();
+        let mut brokers = self.get_broker_ids();
 
         if topic.replication_factor > brokers.len() as i16 {
             // TODO
@@ -81,6 +80,15 @@ impl Broker {
                 .await?;
         }
 
+        // Start isr
+        for b in self.get_brokers() {
+            if b.id == self.config.id {
+            } else {
+                // let c = PeerClient::connect(SocketAddr::new(b.ip, b.port)?).await;
+                // c.write();
+            }
+        }
+
         Ok(res)
     }
 }
@@ -109,7 +117,8 @@ mod tests {
     use crate::broker::handler::test::new_broker;
     use std::collections::HashMap;
 
-    use crate::broker::handler::Handler;    use crate::broker::state::topic::Topic;
+    use crate::broker::handler::Handler;
+    use crate::broker::state::topic::Topic;
     use crate::error::Result;
     use kafka_protocol::messages::create_topics_request::CreatableTopic;
     use kafka_protocol::messages::{CreateTopicsRequest, CreateTopicsResponse, TopicName};

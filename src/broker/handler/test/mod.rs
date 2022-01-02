@@ -1,5 +1,5 @@
-use crate::broker::{Broker, Replicas};
 use crate::broker::state::Store;
+use crate::broker::{Broker, Replicas};
 use crate::error::JosefineError;
 use crate::raft::client::RaftClient;
 use crate::raft::rpc::{Proposal, Response};

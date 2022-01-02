@@ -2,6 +2,7 @@ use std::net::ToSocketAddrs;
 use std::net::{IpAddr, Ipv4Addr};
 use std::path::PathBuf;
 use std::time::Duration;
+use tempfile::tempdir;
 
 use crate::raft::Node;
 use crate::raft::NodeId;
@@ -113,7 +114,7 @@ impl Default for RaftConfig {
         };
 
         RaftConfig {
-            data_directory: PathBuf::from("/tmp/josefine"),
+            data_directory: tempdir().unwrap().into_path(),
             run_for: None,
             id,
             ip,

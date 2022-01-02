@@ -3,8 +3,8 @@ use std::fs::OpenOptions;
 use std::io::Write;
 use std::path::PathBuf;
 
-use memmap::MmapMut;
 use crate::broker::log::entry::Entry;
+use memmap::MmapMut;
 
 const MAX_BYTES_INDEX: u64 = 10 * 1024 * 1024;
 

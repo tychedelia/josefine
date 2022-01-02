@@ -1,27 +1,26 @@
+use crate::broker::config::{BrokerConfig, BrokerId};
+use crate::broker::handler::Handler;
+use crate::error::Result;
+use crate::raft::client::RaftClient;
+use kafka_protocol::messages::{RequestKind, ResponseKind};
+use server::Server;
 use std::collections::HashMap;
 use std::fmt::{Debug, Formatter};
 use std::sync::{Arc, Mutex, RwLock};
-use kafka_protocol::messages::{RequestKind, ResponseKind};
 use uuid::Uuid;
-use crate::error::Result;
-use crate::raft::client::RaftClient;
-use crate::broker::handler::Handler;
-use crate::broker::config::{BrokerConfig, BrokerId};
-use server::Server;
+
+use crate::broker::replica::Replica;
 
 use state::Store;
-use crate::broker::log::Log;
-use crate::broker::replica::Replica;
-use crate::broker::state::partition::PartitionIdx;
 
-mod handler;
 pub mod config;
 pub mod fsm;
+mod handler;
 mod log;
-pub(crate) mod state;
-mod tcp;
 mod replica;
 mod server;
+pub(crate) mod state;
+mod tcp;
 
 pub struct JosefineBroker {
     config: BrokerConfig,
@@ -47,12 +46,14 @@ impl JosefineBroker {
 }
 
 pub struct Replicas {
-    replicas: RwLock<HashMap<Uuid, Arc<Mutex<Replica>>>>
+    replicas: RwLock<HashMap<Uuid, Arc<Mutex<Replica>>>>,
 }
 
 impl Replicas {
     pub fn new() -> Self {
-        Self { replicas: Default::default() }
+        Self {
+            replicas: Default::default(),
+        }
     }
 
     pub fn add(&self, id: Uuid, replica: Replica) {
@@ -89,10 +90,20 @@ impl Broker {
         }
     }
 
-    fn get_brokers(&self) -> Vec<BrokerId> {
+    fn get_broker_ids(&self) -> Vec<BrokerId> {
         let mut ids: Vec<BrokerId> = self.config.peers.iter().map(|x| x.id).collect();
         ids.push(self.config.id);
         ids
+    }
+
+    fn get_brokers(&self) -> Vec<crate::broker::config::Broker> {
+        let mut brokers = self.config.peers.clone();
+        brokers.push(crate::broker::config::Broker {
+            id: self.config.id,
+            ip: self.config.ip,
+            port: self.config.port,
+        });
+        brokers
     }
 
     #[tracing::instrument]

@@ -5,13 +5,13 @@ use rand::Rng;
 
 use crate::error::Result;
 use crate::raft::candidate::Candidate;
+use crate::raft::chain::{BlockId, Chain};
 use crate::raft::election::Election;
 use crate::raft::error::RaftError;
 use crate::raft::fsm::Instruction;
-use crate::raft::log::Log;
 use crate::raft::rpc::{Address, Message};
 use crate::raft::Command::VoteResponse;
-use crate::raft::{Apply, LogIndex, RaftHandle, RaftRole, Term};
+use crate::raft::{Apply, RaftHandle, RaftRole, Term};
 use crate::raft::{ClientRequestId, RaftConfig};
 use crate::raft::{Command, NodeId, Raft, Role, State};
 use std::collections::HashSet;
@@ -47,11 +47,9 @@ impl Apply for Raft<Follower> {
                 self.apply_self()
             }
             Command::AppendEntries {
-                entries,
+                blocks,
                 leader_id,
                 term,
-                prev_log_index,
-                prev_log_term,
             } => {
                 // If we haven't voted and the rpc term is greater, set term to that term.
                 if self.state.voted_for.is_none() && term >= self.state.current_term {
@@ -73,27 +71,10 @@ impl Apply for Raft<Follower> {
                     );
                 }
 
-                // If we don't have a log at prev index and term, respond false
-                if prev_log_index != 0 && !self.log.check_term(prev_log_index, prev_log_term) {
-                    self.rpc_tx.send(Message::new(
-                        Address::Peer(self.id),
-                        Address::Peer(leader_id),
-                        Command::AppendResponse {
-                            node_id: self.id,
-                            term: self.state.current_term,
-                            index: self.state.last_applied,
-                            success: false,
-                        },
-                    ))?;
-                    return self.apply_self();
-                }
-
                 // If there are entries...
-                if !entries.is_empty() {
-                    for entry in entries {
-                        let index = entry.index;
-                        self.log.append(entry)?; // append the entry
-                        self.state.last_applied = index; // update our last applied
+                if !blocks.is_empty() {
+                    for block in blocks {
+                        self.chain.extend(block); // append the entry
                     }
 
                     // confirm append
@@ -104,7 +85,7 @@ impl Apply for Raft<Follower> {
                             Command::AppendResponse {
                                 node_id: self.id,
                                 term: self.state.current_term,
-                                index: self.state.last_applied,
+                                head: self.chain.get_head(),
                                 success: true,
                             },
                         ))
@@ -116,7 +97,7 @@ impl Apply for Raft<Follower> {
             Command::Heartbeat {
                 leader_id,
                 term,
-                commit_index,
+                commit,
             } => {
                 self.set_election_timeout();
                 self.term(term);
@@ -124,20 +105,19 @@ impl Apply for Raft<Follower> {
                 self.state.voted_for = Some(leader_id);
 
                 // apply entries to state machine if leader has advanced commit index
-                let has_committed = self.log.contains(commit_index, term)?;
-                if has_committed && commit_index > self.state.commit_index {
-                    let prev = self.state.commit_index;
-                    self.state.commit_index = self.log.commit(commit_index)?;
-                    let entries = self.log.get_range(prev + 1, commit_index)?;
-                    for entry in entries {
-                        self.fsm_tx.send(Instruction::Apply { entry })?;
-                    }
+                let has_committed = self.chain.has(&commit);
+                if has_committed {
+                    let prev = self.chain.get_commit();
+                    self.chain.commit(&commit);
+                    self.chain.range(prev..commit).for_each(|block| {
+                        self.fsm_tx.send(Instruction::Apply { block }).unwrap();
+                    });
                 }
 
                 self.send(
                     Address::Peer(leader_id),
                     Command::HeartbeatResponse {
-                        commit_index: self.state.commit_index,
+                        commit: self.chain.get_commit(),
                         has_committed,
                     },
                 )?;
@@ -145,11 +125,11 @@ impl Apply for Raft<Follower> {
             }
             Command::VoteRequest {
                 candidate_id,
-                last_index,
                 last_term,
+                head,
                 ..
             } => {
-                if self.can_vote(last_term, last_index) {
+                if self.can_vote(last_term, head) {
                     self.send(
                         Address::Peer(candidate_id),
                         VoteResponse {
@@ -222,6 +202,7 @@ impl Raft<Follower> {
         fsm_tx: UnboundedSender<Instruction>,
     ) -> Result<Raft<Follower>> {
         config.validate()?;
+        let chain = Chain::new(&config.data_directory)?;
         let mut raft = Raft {
             id: config.id,
             config,
@@ -230,7 +211,7 @@ impl Raft<Follower> {
                 leader_id: None,
                 proxied_reqs: HashSet::new(),
             },
-            log: Log::new(),
+            chain,
             rpc_tx,
             fsm_tx,
         };
@@ -243,10 +224,10 @@ impl Raft<Follower> {
         self.set_election_timeout();
     }
 
-    fn can_vote(&self, last_term: Term, last_index: LogIndex) -> bool {
+    fn can_vote(&self, last_term: Term, head: BlockId) -> bool {
         !(self.state.voted_for.is_some()
             || self.state.current_term > last_term
-            || self.state.commit_index > last_index)
+            || self.chain.get_commit() > head)
     }
 
     fn get_randomized_timeout(&self) -> Duration {
@@ -277,7 +258,7 @@ impl From<Raft<Follower>> for Raft<Candidate> {
             state: val.state,
             role: Candidate { election },
             config: val.config,
-            log: val.log,
+            chain: val.chain,
             rpc_tx: val.rpc_tx,
             fsm_tx: val.fsm_tx,
         }

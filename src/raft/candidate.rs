@@ -30,7 +30,7 @@ impl Raft<Candidate> {
                 term,
                 candidate_id: from,
                 last_term: term,
-                last_index: self.state.last_applied,
+                head: self.chain.get_head(),
             })?;
         }
 
@@ -115,7 +115,7 @@ impl Apply for Raft<Candidate> {
                 }
             }
             Command::AppendEntries {
-                entries: _, term, ..
+                blocks: _, term, ..
             } => {
                 // While waiting for votes, a candidate may receive an
                 // AppendEntries RPC from another server claiming to be
@@ -159,7 +159,7 @@ impl From<Raft<Candidate>> for Raft<Follower> {
                 proxied_reqs: HashSet::new(),
             },
             config: val.config,
-            log: val.log,
+            chain: val.chain,
             rpc_tx: val.rpc_tx,
             fsm_tx: val.fsm_tx,
         }
@@ -180,7 +180,7 @@ impl From<Raft<Candidate>> for Raft<Leader> {
                 heartbeat_timeout: val.config.heartbeat_timeout,
             },
             config: val.config,
-            log: val.log,
+            chain: val.chain,
             rpc_tx: val.rpc_tx,
             fsm_tx: val.fsm_tx,
         };

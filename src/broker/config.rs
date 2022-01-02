@@ -1,16 +1,17 @@
 use derive_more::Display;
 use std::net::{IpAddr, ToSocketAddrs};
 use std::path::PathBuf;
-use tempfile::tempdir;
 
-#[derive(Copy, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, Debug, Display, Ord, PartialOrd)]
+#[derive(
+    Copy, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, Debug, Display, Ord, PartialOrd,
+)]
 pub struct BrokerId(pub i32);
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Broker {
     pub id: BrokerId,
-    ip: IpAddr,
-    port: u16,
+    pub(crate) ip: IpAddr,
+    pub(crate) port: u16,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

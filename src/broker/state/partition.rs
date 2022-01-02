@@ -1,6 +1,6 @@
+use crate::broker::config::BrokerId;
 use derive_more::Display;
 use uuid::Uuid;
-use crate::broker::config::BrokerId;
 
 #[derive(
     Copy, Clone, Serialize, Deserialize, Ord, PartialOrd, PartialEq, Eq, Hash, Display, Debug,

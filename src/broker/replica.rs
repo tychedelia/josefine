@@ -1,7 +1,7 @@
-use std::path::Path;
 use crate::broker::config::BrokerId;
 use crate::broker::log::Log;
 use crate::broker::state::partition::Partition;
+use std::path::Path;
 
 pub struct Replica {
     broker_id: BrokerId,
@@ -19,4 +19,3 @@ impl Replica {
         }
     }
 }
-

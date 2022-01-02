@@ -1,22 +1,18 @@
-use kafka_protocol::messages::{RequestKind, ResponseKind};
-use std::fmt::{Debug, Formatter};
+use std::fmt::Debug;
 
 use async_trait::async_trait;
 use kafka_protocol::protocol::Request;
 
-use crate::broker::config::{BrokerConfig, BrokerId};
-use crate::broker::state::Store;
 use crate::error::Result;
-use crate::raft::client::RaftClient;
 
 mod api_versions;
 mod create_topics;
 mod find_coordinator;
+mod leader_and_isr;
 mod list_groups;
 mod metadata;
 mod produce;
 mod test;
-mod leader_and_isr;
 
 #[async_trait]
 pub(crate) trait Handler<Req, Res = <Req as Request>::Response>: Debug

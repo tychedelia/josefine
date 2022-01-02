@@ -14,8 +14,8 @@ use tokio::sync::oneshot;
 use crate::broker::state::Store;
 use crate::raft::client::RaftClient;
 
-use crate::broker::Broker;
 use crate::broker::config::BrokerConfig;
+use crate::broker::Broker;
 
 pub struct Server {
     address: SocketAddr,

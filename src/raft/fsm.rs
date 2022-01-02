@@ -3,9 +3,10 @@ use std::fmt;
 use tokio::sync::mpsc;
 
 use crate::error::Result;
+use crate::raft::chain::{Block, BlockId};
 use crate::raft::{
     rpc::{self, Address, Message, Response},
-    ClientRequestId, Command, Entry, EntryType, LogIndex,
+    ClientRequestId, Command,
 };
 use std::collections::HashMap;
 
@@ -16,12 +17,12 @@ pub trait Fsm: Send + Sync + fmt::Debug {
 #[derive(Debug)]
 pub enum Instruction {
     Apply {
-        entry: Entry,
+        block: Block,
     },
     Notify {
         id: Vec<u8>,
         client_address: Address,
-        index: LogIndex,
+        block_id: BlockId,
     },
 }
 
@@ -29,7 +30,7 @@ pub struct Driver<T: Fsm> {
     fsm_rx: mpsc::UnboundedReceiver<Instruction>,
     rpc_tx: mpsc::UnboundedSender<rpc::Message>,
     fsm: T,
-    notifications: HashMap<LogIndex, (Address, ClientRequestId)>,
+    notifications: HashMap<BlockId, (Address, ClientRequestId)>,
 }
 
 impl<T: Fsm> Driver<T> {
@@ -53,10 +54,10 @@ impl<T: Fsm> Driver<T> {
 
                 Some(instruction) = self.fsm_rx.recv() => {
                     match instruction {
-                        Instruction::Apply { entry } => {
-                            let index = entry.index;
-                            let res = self.exec(entry);
-                            if let Some((to, id)) = self.notifications.remove(&index) {
+                        Instruction::Apply { block } => {
+                            let id = block.id.clone();
+                            let res = self.exec(block);
+                            if let Some((to, id)) = self.notifications.remove(&id) {
                                 self.rpc_tx.send(Message {
                                     to,
                                     from: Address::Local,
@@ -67,8 +68,8 @@ impl<T: Fsm> Driver<T> {
                                 })?;
                             }
                         }
-                        Instruction::Notify { index, id, client_address } => {
-                            self.notifications.insert(index, (client_address, id));
+                        Instruction::Notify { block_id, id, client_address } => {
+                            self.notifications.insert(block_id, (client_address, id));
                         }
                     };
                 }
@@ -78,12 +79,8 @@ impl<T: Fsm> Driver<T> {
         Ok(self.fsm)
     }
 
-    pub fn exec(&mut self, entry: Entry) -> Result<Vec<u8>> {
-        if let EntryType::Entry { data } = entry.entry_type {
-            return self.fsm.transition(data);
-        }
-
-        Ok(vec![])
+    pub fn exec(&mut self, block: Block) -> Result<Vec<u8>> {
+        self.fsm.transition(block.data)
     }
 }
 
@@ -135,12 +132,10 @@ mod test {
 
         let (shutdown_tx, shutdown_rx) = tokio::sync::broadcast::channel(1);
         tx.send(Instruction::Apply {
-            entry: Entry {
-                entry_type: crate::raft::EntryType::Entry {
-                    data: "B".as_bytes().to_owned(),
-                },
-                term: 0,
-                index: 0,
+            block: Block {
+                id: BlockId::new(0),
+                next: BlockId::new(0),
+                data: "B".as_bytes().to_owned(),
             },
         })?;
 

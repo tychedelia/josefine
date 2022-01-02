@@ -1,10 +1,10 @@
+use crate::broker::handler::Handler;
+use crate::broker::Broker;
 use crate::kafka::util::ToStrBytes;
 use async_trait::async_trait;
 use kafka_protocol::messages;
 use kafka_protocol::messages::find_coordinator_response::Coordinator;
 use kafka_protocol::messages::{FindCoordinatorRequest, FindCoordinatorResponse};
-use crate::broker::Broker;
-use crate::broker::handler::Handler;
 
 #[async_trait]
 impl Handler<FindCoordinatorRequest> for Broker {

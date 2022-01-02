@@ -7,10 +7,10 @@ use crate::error::Result;
 use crate::raft::follower::Follower;
 use crate::raft::progress::ReplicationProgress;
 use crate::raft::progress::{NodeProgress, MAX_INFLIGHT};
-use crate::raft::Entry;
-use crate::raft::EntryType;
-use crate::raft::{Command, LogIndex, Raft};
 
+use crate::raft::{Command, Raft};
+
+use crate::raft::chain::{BlockId, UnappendedBlock};
 use crate::raft::fsm::Instruction;
 use crate::raft::rpc::Address;
 use crate::raft::rpc::Message;
@@ -43,33 +43,33 @@ impl Raft<Leader> {
     pub(crate) fn heartbeat(&self) -> Result<()> {
         self.send_all(Command::Heartbeat {
             term: self.state.current_term,
-            commit_index: self.state.commit_index,
+            commit: self.chain.get_commit(),
             leader_id: self.id,
         })?;
         Ok(())
     }
 
-    pub(crate) fn on_transition(mut self) -> Result<Raft<Leader>> {
-        let term = self.state.current_term;
-        let next_index = self.log.next_index();
-        let entry = Entry {
-            entry_type: EntryType::Control,
-            term,
-            index: next_index,
-        };
-        self.state.last_applied = self.log.append(entry)?;
-
-        let node_id = self.id;
-        let index = self.state.last_applied;
-        self.send(
-            Address::Local,
-            Command::AppendResponse {
-                node_id,
-                term,
-                index,
-                success: true,
-            },
-        )?;
+    pub(crate) fn on_transition(self) -> Result<Raft<Leader>> {
+        // let term = self.state.current_term;
+        // let next_index = self.log.next_index();
+        // let entry = Entry {
+        //     entry_type: EntryType::Control,
+        //     term,
+        //     index: next_index,
+        // };
+        // self.state.last_applied = self.log.append(entry)?;
+        //
+        // let node_id = self.id;
+        // let index = self.state.last_applied;
+        // self.send(
+        //     Address::Local,
+        //     Command::AppendResponse {
+        //         node_id,
+        //         term,
+        //         index,
+        //         success: true,
+        //     },
+        // )?;
 
         Ok(self)
     }
@@ -82,19 +82,18 @@ impl Raft<Leader> {
         self.role.heartbeat_time = Instant::now();
     }
 
-    fn commit(&mut self) -> Result<LogIndex> {
+    #[tracing::instrument]
+    fn commit(&mut self) -> Result<BlockId> {
         let quorum_idx = self.role.progress.committed_index();
-        if quorum_idx > self.state.commit_index
-            && self.log.check_term(quorum_idx, self.state.current_term)
+        tracing::trace!(?quorum_idx, "commit");
+        if quorum_idx > self.chain.get_commit()
+        // && self.chain.check_term(quorum_idx, self.state.current_term)
         {
-            let prev = self.state.commit_index;
-            self.state.commit_index = self.log.commit(quorum_idx)?;
-            self.log
-                .get_range(prev, self.state.commit_index)?
-                .into_iter()
-                .for_each(|entry| {
-                    self.fsm_tx.send(Instruction::Apply { entry }).unwrap();
-                });
+            let prev = self.chain.get_commit();
+            let new = self.chain.commit(&quorum_idx)?;
+            self.chain.range(prev..=new).for_each(|block| {
+                self.fsm_tx.send(Instruction::Apply { block }).unwrap();
+            });
         }
 
         Ok(quorum_idx)
@@ -104,8 +103,8 @@ impl Raft<Leader> {
         #[derive(Serialize)]
         struct RaftDebugState {
             leader_id: NodeId,
+            commit: BlockId,
             term: Term,
-            index: LogIndex,
         }
 
         let tmp = std::env::temp_dir();
@@ -114,7 +113,7 @@ impl Raft<Leader> {
 
         let debug_state = RaftDebugState {
             leader_id: self.id,
-            index: self.state.commit_index,
+            commit: self.chain.get_commit(),
             term: self.state.current_term,
         };
         state_file
@@ -131,18 +130,12 @@ impl Raft<Leader> {
 
                 match &mut progress {
                     NodeProgress::Probe(progress) => {
-                        let prev = self.log.get(progress.index)?;
-                        let (prev_log_index, prev_log_term) = if let Some(prev) = prev {
-                            (prev.index, prev.term)
-                        } else {
-                            (0, 0)
-                        };
-
-                        let entries = if let Some(entry) = self.log.get(progress.next)? {
-                            vec![entry]
-                        } else {
-                            vec![]
-                        };
+                        let blocks =
+                            if let Some(block) = self.chain.range(progress.head.clone()..).next() {
+                                vec![block]
+                            } else {
+                                vec![]
+                            };
 
                         self.rpc_tx.send(Message::new(
                             Address::Peer(self.id),
@@ -150,32 +143,23 @@ impl Raft<Leader> {
                             Command::AppendEntries {
                                 term: self.state.current_term,
                                 leader_id: self.id,
-                                entries,
-                                prev_log_index,
-                                prev_log_term,
+                                blocks,
                             },
                         ))?;
                     }
                     NodeProgress::Replicate(progress) => {
-                        let term = self.state.current_term;
-                        let start = progress.next;
-                        let end = progress.next + MAX_INFLIGHT;
-                        let entries = self.log.get_range(start, end)?;
-                        // this is safe b/c replicate ensures we've set at least one entry
-                        let prev = self
-                            .log
-                            .get(progress.index)?
-                            .expect("previous entry did not exist!");
-
+                        let blocks = self
+                            .chain
+                            .range(progress.head.clone()..)
+                            .take(MAX_INFLIGHT as usize)
+                            .collect();
                         self.rpc_tx.send(Message::new(
                             Address::Peer(self.id),
                             Address::Peer(node.id),
                             Command::AppendEntries {
-                                term,
+                                term: self.state.current_term,
                                 leader_id: self.id,
-                                entries,
-                                prev_log_index: prev.index,
-                                prev_log_term: prev.term,
+                                blocks,
                             },
                         ))?;
                     }
@@ -206,16 +190,16 @@ impl Apply for Raft<Leader> {
                 Ok(RaftHandle::Leader(self))
             }
             Command::HeartbeatResponse {
-                commit_index,
+                commit,
                 has_committed,
             } => {
-                if !has_committed && commit_index > 0 {
+                if !has_committed && commit > BlockId::new(0) {
                     self.replicate()?;
                 }
                 Ok(RaftHandle::Leader(self))
             }
-            Command::AppendResponse { node_id, index, .. } => {
-                self.role.progress.advance(node_id, index);
+            Command::AppendResponse { node_id, head, .. } => {
+                self.role.progress.advance(node_id, head);
                 self.commit()?;
                 Ok(RaftHandle::Leader(self))
             }
@@ -234,31 +218,23 @@ impl Apply for Raft<Leader> {
                 client_address,
             } => {
                 let term = self.state.current_term;
-                let next_index = self.log.next_index();
-                let entry = Entry {
-                    entry_type: EntryType::Entry {
-                        data: proposal.get(),
-                    },
-                    term,
-                    index: next_index,
-                };
-                let index = self.log.append(entry)?;
-                assert_eq!(next_index, index);
+                let block = UnappendedBlock::new(proposal.get());
+                let block_id = self.chain.append(block)?;
 
-                self.state.last_applied = index;
                 let node_id = self.id;
 
                 self.fsm_tx.send(Instruction::Notify {
                     id,
-                    index,
+                    block_id,
                     client_address,
                 })?;
 
+                let head = self.chain.get_head();
                 self.apply(Command::AppendResponse {
                     node_id,
                     term,
-                    index,
                     success: true,
+                    head,
                 })
             }
             _ => Ok(RaftHandle::Leader(self)),
@@ -276,7 +252,7 @@ impl From<Raft<Leader>> for Raft<Follower> {
                 proxied_reqs: HashSet::new(),
             },
             config: val.config,
-            log: val.log,
+            chain: val.chain,
             rpc_tx: val.rpc_tx,
             fsm_tx: val.fsm_tx,
         }
@@ -289,10 +265,11 @@ mod tests {
     use crate::raft::test::new_follower;
     use crate::{
         raft::{fsm::Instruction, rpc::Proposal},
-        raft::{Apply, Command, EntryType, RaftHandle},
+        raft::{Apply, Command, RaftHandle},
     };
 
     #[test]
+    #[tracing_test::traced_test]
     fn apply_entry_single_node() {
         let ((_rpc_rx, mut fsm_rx), node) = new_follower();
         let node = node.apply(Command::Timeout).unwrap();
@@ -309,17 +286,18 @@ mod tests {
             .unwrap();
         let node = node.apply(Command::Tick).unwrap();
         if let RaftHandle::Leader(leader) = node {
-            let entry = leader.log.get(1).unwrap().unwrap();
-            if let EntryType::Entry { data } = entry.entry_type {
-                assert_eq!(data, vec![magic_number]);
-            }
+            let block = leader.chain.range(..).take(2).last().unwrap();
+            assert_eq!(block.data, vec![magic_number]);
             let _ = fsm_rx.blocking_recv().unwrap();
+            let genesis = fsm_rx.blocking_recv().unwrap();
+            if let Instruction::Apply { block } = genesis {
+                assert!(block.data.is_empty());
+            } else {
+                panic!()
+            }
             let instruction = fsm_rx.blocking_recv().unwrap();
-
-            if let Instruction::Apply { entry } = instruction {
-                if let EntryType::Entry { data } = entry.entry_type {
-                    assert_eq!(data, vec![magic_number]);
-                }
+            if let Instruction::Apply { block } = instruction {
+                assert_eq!(block.data, vec![magic_number]);
             } else {
                 panic!()
             }

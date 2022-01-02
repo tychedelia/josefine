@@ -1,9 +1,9 @@
+use crate::broker::handler::Handler;
 use crate::broker::Broker;
 use async_trait::async_trait;
 use kafka_protocol::messages::api_versions_response::ApiVersion;
 use kafka_protocol::messages::*;
 use kafka_protocol::protocol::Message;
-use crate::broker::handler::Handler;
 
 #[async_trait]
 impl Handler<ApiVersionsRequest> for Broker {

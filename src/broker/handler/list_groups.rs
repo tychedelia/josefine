@@ -1,7 +1,7 @@
+use crate::broker::handler::Handler;
+use crate::broker::Broker;
 use async_trait::async_trait;
 use kafka_protocol::messages::{ListGroupsRequest, ListGroupsResponse};
-use crate::broker::Broker;
-use crate::broker::handler::Handler;
 
 #[async_trait]
 impl Handler<ListGroupsRequest> for Broker {
