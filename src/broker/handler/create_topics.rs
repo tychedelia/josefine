@@ -81,13 +81,13 @@ impl Broker {
         }
 
         // Start isr
-        for b in self.get_brokers() {
-            if b.id == self.config.id {
-            } else {
-                // let c = PeerClient::connect(SocketAddr::new(b.ip, b.port)?).await;
-                // c.write();
-            }
-        }
+        // for b in self.get_brokers() {
+        //     if b.id == self.config.id {
+        //     } else {
+        //         // let c = PeerClient::connect(SocketAddr::new(b.ip, b.port)?).await;
+        //         // c.write();
+        //     }
+        // }
 
         Ok(res)
     }
