@@ -55,6 +55,10 @@ impl<T: Fsm> Driver<T> {
                 Some(instruction) = self.fsm_rx.recv() => {
                     match instruction {
                         Instruction::Apply { block } => {
+                            if block.id == BlockId::new(0) {
+                                continue
+                            }
+
                             let id = block.id.clone();
                             let res = self.exec(block);
                             if let Some((to, id)) = self.notifications.remove(&id) {
