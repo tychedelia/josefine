@@ -289,12 +289,8 @@ mod tests {
             let block = leader.chain.range(..).take(2).last().unwrap();
             assert_eq!(block.data, vec![magic_number]);
             let _ = fsm_rx.blocking_recv().unwrap();
-            let genesis = fsm_rx.blocking_recv().unwrap();
-            if let Instruction::Apply { block } = genesis {
-                assert!(block.data.is_empty());
-            } else {
-                panic!()
-            }
+            // todo 2 vs 3
+            let instruction = fsm_rx.blocking_recv().unwrap();
             let instruction = fsm_rx.blocking_recv().unwrap();
             if let Instruction::Apply { block } = instruction {
                 assert_eq!(block.data, vec![magic_number]);

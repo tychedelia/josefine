@@ -137,8 +137,8 @@ mod test {
         let (shutdown_tx, shutdown_rx) = tokio::sync::broadcast::channel(1);
         tx.send(Instruction::Apply {
             block: Block {
-                id: BlockId::new(0),
-                next: BlockId::new(0),
+                id: BlockId::new(2),
+                next: BlockId::new(1),
                 data: "B".as_bytes().to_owned(),
             },
         })?;
