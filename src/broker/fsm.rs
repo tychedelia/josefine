@@ -1,5 +1,5 @@
 use crate::broker::state::partition::Partition;
-use crate::error::Result;
+use anyhow::Result;
 use crate::raft::fsm::Fsm;
 
 use crate::broker::state::topic::Topic;

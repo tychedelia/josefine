@@ -1,6 +1,4 @@
-use crate::error::{JosefineError, Result};
-use crate::raft::error::RaftError;
-use crate::raft::rpc::{Address, Message, Proposal, Response};
+use crate::raft::rpc::{Address, Message, Proposal, Response, ResponseError};
 use crate::raft::tcp;
 use crate::raft::{
     config::RaftConfig,
@@ -17,6 +15,7 @@ use tokio::{
     sync::{mpsc::unbounded_channel, oneshot},
 };
 use uuid::Uuid;
+use anyhow::Result;
 
 /// step duration
 const TICK: Duration = Duration::from_millis(100);
@@ -28,7 +27,7 @@ pub struct Server {
 pub struct ServerRunOpts<T: 'static + fsm::Fsm> {
     pub duration: Option<Duration>,
     pub fsm: T,
-    pub client_rx: UnboundedReceiver<(Proposal, oneshot::Sender<Result<Response>>)>,
+    pub client_rx: UnboundedReceiver<(Proposal, oneshot::Sender<std::result::Result<Response, ResponseError>>)>,
     pub shutdown: (
         tokio::sync::broadcast::Sender<()>,
         tokio::sync::broadcast::Receiver<()>,
@@ -107,10 +106,10 @@ async fn event_loop(
     tcp_tx: UnboundedSender<Message>,
     mut rpc_rx: UnboundedReceiver<Message>,
     mut tcp_rx: UnboundedReceiver<Message>,
-    mut client_rx: UnboundedReceiver<(Proposal, oneshot::Sender<Result<Response>>)>,
+    mut client_rx: UnboundedReceiver<(Proposal, oneshot::Sender<std::result::Result<Response, ResponseError>>)>,
 ) -> Result<RaftHandle> {
     let mut step_interval = tokio::time::interval(TICK);
-    let mut requests = HashMap::<Vec<u8>, oneshot::Sender<Result<Response>>>::new();
+    let mut requests = HashMap::<Vec<u8>, oneshot::Sender<std::result::Result<Response, ResponseError>>>::new();
 
     loop {
         tokio::select! {
@@ -123,8 +122,8 @@ async fn event_loop(
             // outgoing messages from raft
             Some(msg) = rpc_rx.recv() => {
                 match msg {
-                    Message { to: Address::Peer(_), .. } => tcp_tx.send(msg).map_err(RaftError::from)?,
-                    Message { to: Address::Peers, ..  } => tcp_tx.send(msg).map_err(RaftError::from)?,
+                    Message { to: Address::Peer(_), .. } => tcp_tx.send(msg)?,
+                    Message { to: Address::Peers, ..  } => tcp_tx.send(msg)?,
                     Message { to: Address::Local, .. } => raft = raft.apply(msg.command)?,
                     Message { to: Address::Client, command: Command::ClientResponse { id, res }, .. } => {
                         match requests.remove(&id) {
@@ -134,7 +133,7 @@ async fn event_loop(
                             }
                         };
                     },
-                    _ => return Err(JosefineError::Internal { error_msg: format!("Unexpected message {:?}", msg) }),
+                    _ => return Err(anyhow::anyhow!("unexpected message {:?}", msg)),
                 }
             },
             // incoming messages from clients
@@ -151,7 +150,7 @@ async fn event_loop(
 
 #[cfg(test)]
 mod tests {
-    use crate::error::Result;
+    use anyhow::Result;
     use crate::raft::RaftConfig;
     use crate::raft::RaftHandle;
 

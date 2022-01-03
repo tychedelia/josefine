@@ -1,14 +1,14 @@
 use crate::broker::state::Store;
 use crate::broker::{Broker, Replicas};
-use crate::error::JosefineError;
 use crate::raft::client::RaftClient;
-use crate::raft::rpc::{Proposal, Response};
+use crate::raft::rpc::{Proposal, Response, ResponseError};
 use tempfile::tempdir;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::oneshot::Sender;
+use anyhow::Result;
 
 pub(crate) fn new_broker() -> (
-    UnboundedReceiver<(Proposal, Sender<Result<Response, JosefineError>>)>,
+    UnboundedReceiver<(Proposal, Sender<std::result::Result<Response, ResponseError>>)>,
     Broker,
 ) {
     let (client_tx, client_rx) = tokio::sync::mpsc::unbounded_channel();

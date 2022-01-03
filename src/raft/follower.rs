@@ -3,11 +3,10 @@ use std::time::Instant;
 
 use rand::Rng;
 
-use crate::error::Result;
+use anyhow::Result;
 use crate::raft::candidate::Candidate;
 use crate::raft::chain::{BlockId, Chain};
 use crate::raft::election::Election;
-use crate::raft::error::RaftError;
 use crate::raft::fsm::Instruction;
 use crate::raft::rpc::{Address, Message};
 use crate::raft::Command::VoteResponse;
@@ -88,8 +87,7 @@ impl Apply for Raft<Follower> {
                                 head: self.chain.get_head(),
                                 success: true,
                             },
-                        ))
-                        .map_err(RaftError::from)?;
+                        ))?;
                 }
 
                 self.apply_self()

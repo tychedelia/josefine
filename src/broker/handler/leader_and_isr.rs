@@ -11,7 +11,7 @@ impl Handler<LeaderAndIsrRequest> for Broker {
         &self,
         req: LeaderAndIsrRequest,
         res: LeaderAndIsrResponse,
-    ) -> crate::error::Result<LeaderAndIsrResponse> {
+    ) -> anyhow::Result<LeaderAndIsrResponse> {
         for ts in req.topic_states {
             for ps in ts.partition_states {
                 let partition = self

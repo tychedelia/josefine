@@ -9,7 +9,7 @@ impl Handler<ListGroupsRequest> for Broker {
         &self,
         _req: ListGroupsRequest,
         res: ListGroupsResponse,
-    ) -> crate::error::Result<ListGroupsResponse> {
+    ) -> anyhow::Result<ListGroupsResponse> {
         Ok(res)
     }
 }
@@ -20,7 +20,7 @@ mod tests {
 
     use crate::broker::handler::test::new_broker;
     use crate::broker::handler::Handler;
-    use crate::error::Result;
+    use anyhow::Result;
 
     #[tokio::test]
     async fn execute() -> Result<()> {

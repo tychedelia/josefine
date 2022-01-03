@@ -16,7 +16,7 @@ impl Handler<MetadataRequest> for Broker {
         &self,
         _: MetadataRequest,
         mut res: MetadataResponse,
-    ) -> crate::error::Result<MetadataResponse> {
+    ) -> anyhow::Result<MetadataResponse> {
         res.brokers.insert(
             BrokerId(self.config.id.0),
             MetadataResponseBroker {
@@ -69,7 +69,7 @@ mod tests {
     use crate::broker::handler::test::new_broker;
     use crate::broker::handler::Handler;
 
-    use crate::error::Result;
+    use anyhow::Result;
 
     #[tokio::test]
     async fn execute() -> Result<()> {

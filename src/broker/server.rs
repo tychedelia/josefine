@@ -1,6 +1,6 @@
 use std::net::SocketAddr;
 
-use crate::error::Result;
+use anyhow::Result;
 use futures::FutureExt;
 use tokio::net::TcpListener;
 

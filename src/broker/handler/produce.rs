@@ -13,7 +13,7 @@ impl Handler<ProduceRequest> for Broker {
         &self,
         req: ProduceRequest,
         res: <ProduceRequest as Request>::Response,
-    ) -> crate::error::Result<<ProduceRequest as Request>::Response> {
+    ) -> anyhow::Result<<ProduceRequest as Request>::Response> {
         for (t, td) in req.topic_data.iter() {
             let _topic = self.store.get_topic(t)?.expect("TODO: topic doesn't exist");
             for pd in td.partition_data.iter() {
@@ -40,7 +40,7 @@ impl Handler<ProduceRequest> for Broker {
 mod tests {
     use super::*;
     use crate::broker::handler::test::new_broker;
-    use crate::error::Result;
+    use anyhow::Result;
     use kafka_protocol::messages::ProduceResponse;
 
     #[tokio::test]

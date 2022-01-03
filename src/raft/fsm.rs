@@ -2,13 +2,14 @@ use std::fmt;
 
 use tokio::sync::mpsc;
 
-use crate::error::Result;
+use anyhow::Result;
 use crate::raft::chain::{Block, BlockId};
 use crate::raft::{
     rpc::{self, Address, Message, Response},
     ClientRequestId, Command,
 };
 use std::collections::HashMap;
+use crate::raft::rpc::ResponseError;
 
 pub trait Fsm: Send + Sync + fmt::Debug {
     fn transition(&mut self, data: Vec<u8>) -> Result<Vec<u8>>;
@@ -67,7 +68,7 @@ impl<T: Fsm> Driver<T> {
                                     from: Address::Local,
                                     command: Command::ClientResponse {
                                         id,
-                                        res: res.map(Response::new),
+                                        res: res.map(Response::new).map_err(|e| ResponseError {}),
                                     }
                                 })?;
                             }

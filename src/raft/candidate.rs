@@ -1,6 +1,6 @@
 use std::time::Instant;
 
-use crate::error::Result;
+use anyhow::Result;
 
 use crate::raft::election::{Election, ElectionStatus};
 use crate::raft::follower::Follower;

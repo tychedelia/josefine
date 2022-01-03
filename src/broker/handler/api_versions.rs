@@ -11,7 +11,7 @@ impl Handler<ApiVersionsRequest> for Broker {
         &self,
         _req: ApiVersionsRequest,
         mut res: ApiVersionsResponse,
-    ) -> crate::error::Result<ApiVersionsResponse> {
+    ) -> anyhow::Result<ApiVersionsResponse> {
         res.api_keys.insert(
             ApiKey::ProduceKey as i16,
             ApiVersion {
@@ -151,7 +151,7 @@ mod tests {
 
     use crate::broker::handler::test::new_broker;
     use crate::broker::handler::Handler;
-    use crate::error::Result;
+    use anyhow::Result;
 
     #[tokio::test]
     async fn execute() -> Result<()> {

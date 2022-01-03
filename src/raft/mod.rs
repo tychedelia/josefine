@@ -47,14 +47,13 @@ use tokio::sync::oneshot;
 
 use rpc::Response;
 
-use crate::error::Result;
+use anyhow::Result;
 use crate::raft::chain::{Block, BlockId, Chain};
 use crate::raft::config::RaftConfig;
-use crate::raft::error::RaftError;
 use crate::raft::follower::Follower;
 use crate::raft::fsm::Instruction;
 use crate::raft::leader::Leader;
-use crate::raft::rpc::{Address, Message};
+use crate::raft::rpc::{Address, Message, ResponseError};
 use crate::raft::server::{Server, ServerRunOpts};
 use crate::raft::{candidate::Candidate, rpc::Proposal};
 
@@ -63,7 +62,6 @@ mod chain;
 pub mod client;
 pub mod config;
 mod election;
-pub mod error;
 mod follower;
 pub mod fsm;
 mod leader;
@@ -87,7 +85,7 @@ impl JosefineRaft {
     pub async fn run<T: 'static + fsm::Fsm>(
         self,
         fsm: T,
-        client_rx: UnboundedReceiver<(Proposal, oneshot::Sender<Result<Response>>)>,
+        client_rx: UnboundedReceiver<(Proposal, oneshot::Sender<std::result::Result<Response, ResponseError>>)>,
         shutdown: (
             tokio::sync::broadcast::Sender<()>,
             tokio::sync::broadcast::Receiver<()>,
@@ -107,7 +105,7 @@ impl JosefineRaft {
         self,
         duration: Duration,
         fsm: T,
-        client_rx: UnboundedReceiver<(Proposal, oneshot::Sender<Result<Response>>)>,
+        client_rx: UnboundedReceiver<(Proposal, oneshot::Sender<std::result::Result<Response, ResponseError>>)>,
         shutdown: (
             tokio::sync::broadcast::Sender<()>,
             tokio::sync::broadcast::Receiver<()>,
@@ -208,7 +206,7 @@ pub enum Command {
     // this is a bit weird, since this isn't ever applied to a raft node, but received and proxied by the server event loop
     ClientResponse {
         id: ClientRequestId,
-        res: Result<Response>,
+        res: std::result::Result<Response, ResponseError>,
     },
 }
 
@@ -363,13 +361,13 @@ impl<T: Role> Raft<T> {
 
     pub fn send(&self, to: Address, cmd: Command) -> Result<()> {
         let msg = Message::new(Address::Peer(self.id), to, cmd);
-        self.rpc_tx.send(msg).map_err(RaftError::from)?;
+        self.rpc_tx.send(msg)?;
         Ok(())
     }
 
     pub fn send_all(&self, cmd: Command) -> Result<()> {
         let msg = Message::new(Address::Peer(self.id), Address::Peers, cmd);
-        self.rpc_tx.send(msg).map_err(RaftError::from)?;
+        self.rpc_tx.send(msg)?;
         Ok(())
     }
 }

@@ -1,4 +1,3 @@
-use josefine::error::Result;
 use josefine::raft::config::RaftConfig;
 use josefine::raft::{JosefineRaft, Node, RaftHandle};
 use std::collections::HashMap;

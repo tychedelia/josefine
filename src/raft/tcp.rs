@@ -1,5 +1,4 @@
-use crate::error::Result;
-use crate::raft::error::RaftError;
+use anyhow::Result;
 use crate::raft::rpc::{Address, Message};
 use crate::raft::{Node, NodeId};
 use futures::SinkExt;
@@ -44,7 +43,7 @@ async fn stream_messages(stream: TcpStream, in_tx: UnboundedSender<Message>) -> 
     );
 
     while let Some(message) = stream.try_next().await? {
-        in_tx.send(message).map_err(RaftError::from)?;
+        in_tx.send(message)?;
     }
     Ok(())
 }
@@ -80,7 +79,7 @@ pub async fn send_task(
                 Some(tx) => match tx.try_send(message.clone()) {
                     Ok(()) => {}
                     Err(mpsc::error::TrySendError::Full(_)) => {}
-                    Err(error) => return Err(RaftError::from(error).into()),
+                    Err(error) => return Err(anyhow::anyhow!("could not send message {}", error)),
                 },
                 None => {}
             }
@@ -183,7 +182,7 @@ mod tests {
 
         let out_msg = Message::new(Address::Peer(1), Address::Peer(2), Command::Tick);
         let out_msg2 = Message::new(Address::Peer(1), Address::Peer(2), Command::Tick);
-        tx.send(out_msg).map_err(RaftError::from)?;
+        tx.send(out_msg)?;
 
         let mut stream = stream::ListenerStream(listener);
         let (stream, _addr) = stream.next().await.unwrap()?;

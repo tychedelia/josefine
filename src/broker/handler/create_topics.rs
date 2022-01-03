@@ -1,6 +1,6 @@
 use crate::broker::fsm::Transition;
 use crate::broker::state::topic::Topic;
-use crate::error::Result;
+use anyhow::Result;
 use async_trait::async_trait;
 
 use kafka_protocol::messages::create_topics_request::CreatableTopic;
@@ -119,7 +119,7 @@ mod tests {
 
     use crate::broker::handler::Handler;
     use crate::broker::state::topic::Topic;
-    use crate::error::Result;
+    use anyhow::Result;
     use kafka_protocol::messages::create_topics_request::CreatableTopic;
     use kafka_protocol::messages::{CreateTopicsRequest, CreateTopicsResponse, TopicName};
     use kafka_protocol::protocol::StrBytes;
@@ -133,7 +133,7 @@ mod tests {
             .insert(topic_name.clone(), CreatableTopic::default());
         let (res, _) = tokio::join!(
             tokio::spawn(async move {
-                Result::Ok(broker.handle(req, CreateTopicsResponse::default()).await?)
+                Ok::<_, anyhow::Error>(broker.handle(req, CreateTopicsResponse::default()).await?)
             }),
             tokio::spawn(async move {
                 let (_, cb) = rx.recv().await.unwrap();
@@ -146,7 +146,7 @@ mod tests {
                 cb.send(Ok(crate::raft::rpc::Response::new(bincode::serialize(
                     &topic,
                 )?)));
-                Result::Ok(())
+                Ok::<_, anyhow::Error>(())
             }),
         );
 

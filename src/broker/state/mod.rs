@@ -5,7 +5,7 @@ pub mod topic;
 use crate::broker::state::group::Group;
 use crate::broker::state::partition::Partition;
 use crate::broker::state::topic::Topic;
-use crate::error::Result;
+use anyhow::Result;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use sled::Db;
@@ -45,7 +45,7 @@ impl Store {
     }
 
     pub fn get_groups(&self) -> Result<HashMap<String, Group>> {
-        self.get("groups")?.unwrap()
+        Ok(self.get("groups")?.unwrap_or_else(HashMap::new))
     }
 
     pub fn create_partition(&self, partition: Partition) -> Result<Partition> {
@@ -59,16 +59,14 @@ impl Store {
     }
 
     fn get<T: DeserializeOwned, K: AsRef<[u8]>>(&self, key: K) -> Result<Option<T>> {
-        Ok(self.db.transaction(|tx| match tx.get(key.as_ref())? {
-            Some(val) => Ok(Some(bincode::deserialize(&val).unwrap())),
-            None => Ok(None),
-        })?)
+        self.db.get(key.as_ref())?
+            .map(|x| bincode::deserialize(&x)
+                .map_err(|e| anyhow::anyhow!("could not deserialize {}", e)))
+            .transpose()
     }
 
     fn insert<T: Serialize, K: AsRef<[u8]>>(&self, key: K, value: &T) -> Result<()> {
-        Ok(self.db.transaction(move |tx| {
-            tx.insert(key.as_ref(), bincode::serialize(&value).unwrap())?;
-            Ok(())
-        })?)
+        self.db.insert(key.as_ref(), bincode::serialize(&value)?)?;
+        Ok(())
     }
 }

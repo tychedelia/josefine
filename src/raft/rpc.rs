@@ -1,3 +1,4 @@
+use std::fmt::{Display, Formatter};
 use crate::raft::{Command, NodeId};
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
@@ -40,6 +41,19 @@ impl Proposal {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Response(Vec<u8>);
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ResponseError {
+}
+
+impl Display for ResponseError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "ResponseError")
+    }
+}
+
+impl std::error::Error for ResponseError {
+}
 
 impl Response {
     pub fn new(data: Vec<u8>) -> Self {

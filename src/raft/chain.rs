@@ -1,4 +1,3 @@
-use crate::error::{JosefineError, Result};
 
 use sled::Db;
 use std::convert::TryInto;
@@ -9,6 +8,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use bytes::Bytes;
 
 use serde::{Deserialize, Deserializer, Serializer};
+use anyhow::Result;
 
 #[derive(Debug)]
 struct IdGenerator {
@@ -147,9 +147,7 @@ impl Chain {
 
     pub fn extend(&mut self, block: Block) -> Result<()> {
         if !self.has(&block.next) {
-            return Err(JosefineError::Internal {
-                error_msg: "".to_string(),
-            });
+            return Err(anyhow::anyhow!("block {:?} not found in chain", &block.next));
         }
 
         self.db

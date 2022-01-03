@@ -3,7 +3,7 @@ use std::fmt::Debug;
 use async_trait::async_trait;
 use kafka_protocol::protocol::Request;
 
-use crate::error::Result;
+use anyhow::Result;
 
 mod api_versions;
 mod create_topics;

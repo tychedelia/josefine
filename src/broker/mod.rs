@@ -1,6 +1,6 @@
 use crate::broker::config::{BrokerConfig, BrokerId};
 use crate::broker::handler::Handler;
-use crate::error::Result;
+use anyhow::Result;
 use crate::raft::client::RaftClient;
 use kafka_protocol::messages::{RequestKind, ResponseKind};
 use server::Server;

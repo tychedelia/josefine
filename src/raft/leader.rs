@@ -2,7 +2,7 @@ use std::io::Write;
 use std::time::Duration;
 use std::time::Instant;
 
-use crate::error::Result;
+use anyhow::Result;
 
 use crate::raft::follower::Follower;
 use crate::raft::progress::ReplicationProgress;

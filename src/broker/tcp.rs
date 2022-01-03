@@ -1,7 +1,7 @@
-use crate::error::{JosefineError, Result};
 use crate::kafka::codec::KafkaServerCodec;
 use futures::SinkExt;
 use kafka_protocol::messages::{RequestKind, ResponseHeader, ResponseKind};
+use anyhow::Result;
 
 use tokio::sync::oneshot;
 
@@ -46,20 +46,11 @@ async fn stream_messages(
     while let Some((header, message)) =
         stream_in
             .try_next()
-            .await
-            .map_err(|_err| JosefineError::MessageError {
-                error_msg: "broke".to_string(),
-            })?
+            .await?
     {
         let (cb_tx, cb_rx) = oneshot::channel();
-        in_tx
-            .send((message, cb_tx))
-            .map_err(|e| JosefineError::MessageError {
-                error_msg: format!("{:?}", e),
-            })?;
-        let res = cb_rx.await.map_err(|e| JosefineError::MessageError {
-            error_msg: format!("{:?}", e),
-        })?;
+        in_tx.send((message, cb_tx))?;
+        let res = cb_rx.await?;
         let version = header.request_api_version;
         let correlation_id = header.correlation_id;
         let header = ResponseHeader {
@@ -68,10 +59,7 @@ async fn stream_messages(
         };
         stream_out
             .send((version, header, res))
-            .await
-            .map_err(|e| JosefineError::MessageError {
-                error_msg: format!("{:?}", e),
-            })?;
+            .await?;
     }
     Ok(())
 }

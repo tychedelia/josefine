@@ -10,7 +10,7 @@ pub(crate) struct TestFsm {
 }
 
 impl Fsm for TestFsm {
-    fn transition(&mut self, input: Vec<u8>) -> crate::error::Result<Vec<u8>> {
+    fn transition(&mut self, input: Vec<u8>) -> anyhow::Result<Vec<u8>> {
         let data = input.first().unwrap();
         self.state = *data;
         Ok(input)
