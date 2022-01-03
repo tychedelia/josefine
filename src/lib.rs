@@ -7,11 +7,23 @@ use crate::broker::JosefineBroker;
 use anyhow::Result;
 use crate::raft::client::RaftClient;
 use futures::FutureExt;
+use crate::config::JosefineConfig;
 
 use crate::raft::JosefineRaft;
 
 #[macro_use]
 extern crate serde_derive;
+
+pub async fn josefine_with_config(
+    config: JosefineConfig,
+    shutdown: (
+        tokio::sync::broadcast::Sender<()>,
+        tokio::sync::broadcast::Receiver<()>,
+    ),
+) -> Result<()> {
+    run(config, shutdown).await?;
+    Ok(())
+}
 
 pub async fn josefine<P: AsRef<std::path::Path>>(
     config_path: P,
@@ -21,6 +33,14 @@ pub async fn josefine<P: AsRef<std::path::Path>>(
     ),
 ) -> Result<()> {
     let config = config::config(config_path);
+    run(config, shutdown).await?;
+    Ok(())
+}
+
+pub async fn run(config: JosefineConfig,     shutdown: (
+    tokio::sync::broadcast::Sender<()>,
+    tokio::sync::broadcast::Receiver<()>,
+),) -> Result<()> {
     let db = sled::open(&config.broker.state_file).unwrap();
 
     let (client_tx, client_rx) = tokio::sync::mpsc::unbounded_channel();

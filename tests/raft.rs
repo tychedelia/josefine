@@ -39,7 +39,7 @@ impl IntegrationFsm {
 }
 
 impl josefine::raft::fsm::Fsm for IntegrationFsm {
-    fn transition(&mut self, mut input: Vec<u8>) -> Result<Vec<u8>> {
+    fn transition(&mut self, mut input: Vec<u8>) -> anyhow::Result<Vec<u8>> {
         self.state.append(&mut input);
         Ok(vec![])
     }
@@ -49,7 +49,7 @@ impl josefine::raft::fsm::Fsm for IntegrationFsm {
 fn it_elects() {
     let cluster = new_cluster(vec![1, 2, 3]);
 
-    let join_handles: Vec<JoinHandle<Result<RaftHandle>>> = cluster
+    let join_handles: Vec<JoinHandle<anyhow::Result<RaftHandle>>> = cluster
         .into_iter()
         .map(|node| {
             std::thread::spawn(|| {
