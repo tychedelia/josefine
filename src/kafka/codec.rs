@@ -127,6 +127,7 @@ fn decode(bytes: &mut BytesMut, api_key: ApiKey, version: i16) -> Result<Request
     }
 }
 
+#[derive(Debug)]
 pub struct KafkaClientCodec {
     correlation_id: AtomicI32,
     requests: Arc<Mutex<HashMap<i32, RequestHeader>>>,
@@ -147,7 +148,7 @@ impl KafkaClientCodec {
 }
 
 impl codec::Decoder for KafkaClientCodec {
-    type Item = (ResponseHeader, RequestKind);
+    type Item = (ResponseHeader, ResponseKind);
     type Error = ErrorKind;
 
     fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
@@ -158,11 +159,25 @@ impl codec::Decoder for KafkaClientCodec {
                 .remove(&header.correlation_id)
                 .ok_or(DecodeError)?;
             let api_key = ApiKey::try_from(request_header.request_api_key)?;
-            let request = decode(&mut bytes, api_key, request_header.request_api_version)?;
-            Ok(Some((header, request)))
+            let response = decode_response(&mut bytes, api_key, request_header.request_api_version)?;
+            Ok(Some((header, response)))
         } else {
             Ok(None)
         }
+    }
+}
+
+fn decode_response(bytes: &mut BytesMut, api_key: ApiKey, version: i16) -> Result<ResponseKind, ErrorKind> {
+    match api_key {
+        ApiKey::ApiVersionsKey => {
+            let res = ApiVersionsResponse::decode(bytes, CreateTopicsResponse::header_version(version))?;
+            Ok(ResponseKind::ApiVersionsResponse(res))
+        }
+        ApiKey::LeaderAndIsrKey => {
+            let res = LeaderAndIsrResponse::decode(bytes, LeaderAndIsrResponse::header_version(version))?;
+            Ok(ResponseKind::LeaderAndIsrResponse(res))
+        }
+        _ => Err(ErrorKind::UnsupportedOperation),
     }
 }
 
@@ -188,10 +203,22 @@ impl codec::Encoder<(RequestHeader, RequestKind)> for KafkaClientCodec {
 }
 
 fn encode_request(
-    _bytes: &mut BytesMut,
-    _header: RequestHeader,
-    _request: RequestKind,
-    _api_version: i16,
-) {
-    panic!()
+    bytes: &mut BytesMut,
+    header: RequestHeader,
+    request: RequestKind,
+    version: i16,
+) -> Result<(), ErrorKind> {
+    match request {
+        RequestKind::ApiVersionsRequest(req) => {
+            header.encode(bytes, LeaderAndIsrRequest::header_version(version))?;
+            req.encode(bytes, version)?;
+        }
+        RequestKind::LeaderAndIsrRequest(req) => {
+            header.encode(bytes, LeaderAndIsrRequest::header_version(version))?;
+            req.encode(bytes, version)?;
+        }
+        _ => return Err(DecodeError)
+    };
+
+    Ok(())
 }

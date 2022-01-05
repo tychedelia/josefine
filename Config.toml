@@ -1,5 +1,6 @@
+[raft]
 id = 1
-ip = "127.0.0.1"
-port = 4432
-nodes = [
-]
+#data_directory = "/tmp/josefine.raft"
+
+[broker]
+#state_file = "/tmp/josefine.state"

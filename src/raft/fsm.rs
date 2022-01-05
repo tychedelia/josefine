@@ -21,7 +21,7 @@ pub enum Instruction {
         block: Block,
     },
     Notify {
-        id: Vec<u8>,
+        id: ClientRequestId,
         client_address: Address,
         block_id: BlockId,
     },

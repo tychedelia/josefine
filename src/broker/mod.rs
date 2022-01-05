@@ -108,7 +108,7 @@ impl Broker {
 
     #[tracing::instrument]
     pub async fn handle_request(&self, req: RequestKind) -> Result<ResponseKind> {
-        tracing::info!("handle_request");
+        tracing::info!("handle request");
         let res = match req {
             RequestKind::ApiVersionsRequest(req) => {
                 let res = self.do_handle(req).await?;

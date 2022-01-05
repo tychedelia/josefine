@@ -5,7 +5,6 @@ use crate::raft::rpc::{Proposal, Response, ResponseError};
 use tempfile::tempdir;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::oneshot::Sender;
-use anyhow::Result;
 
 pub(crate) fn new_broker() -> (
     UnboundedReceiver<(Proposal, Sender<std::result::Result<Response, ResponseError>>)>,

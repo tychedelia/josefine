@@ -91,7 +91,7 @@ impl Raft<Leader> {
         {
             let prev = self.chain.get_commit();
             let new = self.chain.commit(&quorum_idx)?;
-            self.chain.range(prev..=new).for_each(|block| {
+            self.chain.range(prev..=new).skip(1).for_each(|block| {
                 self.fsm_tx.send(Instruction::Apply { block }).unwrap();
             });
         }
@@ -131,7 +131,7 @@ impl Raft<Leader> {
                 match &mut progress {
                     NodeProgress::Probe(progress) => {
                         let blocks =
-                            if let Some(block) = self.chain.range(progress.head.clone()..).next() {
+                            if let Some(block) = self.chain.range(progress.head.clone()..).skip(1).next() {
                                 vec![block]
                             } else {
                                 vec![]
@@ -151,6 +151,7 @@ impl Raft<Leader> {
                         let blocks = self
                             .chain
                             .range(progress.head.clone()..)
+                            .skip(1)
                             .take(MAX_INFLIGHT as usize)
                             .collect();
                         self.rpc_tx.send(Message::new(
@@ -261,6 +262,7 @@ impl From<Raft<Leader>> for Raft<Follower> {
 
 #[cfg(test)]
 mod tests {
+    use uuid::Uuid;
     use crate::raft::rpc::Address;
     use crate::raft::test::new_follower;
     use crate::{
@@ -279,7 +281,7 @@ mod tests {
 
         let node = node
             .apply(Command::ClientRequest {
-                id: vec![1],
+                id: Uuid::new_v4(),
                 client_address: Address::Client,
                 proposal: Proposal::new(vec![magic_number]),
             })

@@ -5,6 +5,7 @@ use futures::SinkExt;
 use std::collections::HashMap;
 
 use tokio::net::{TcpListener, TcpStream};
+use tokio::sync::broadcast::Sender;
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::{Receiver, UnboundedReceiver, UnboundedSender};
 use tokio::time::Duration;
@@ -49,7 +50,7 @@ async fn stream_messages(stream: TcpStream, in_tx: UnboundedSender<Message>) -> 
 }
 
 pub async fn send_task(
-    _shutdown: tokio::sync::broadcast::Receiver<()>,
+    mut shutdown: Sender<()>,
     id: NodeId,
     nodes: Vec<Node>,
     out_rx: UnboundedReceiver<Message>,
@@ -59,32 +60,41 @@ pub async fn send_task(
     for node in nodes.iter() {
         let (tx, rx) = mpsc::channel::<Message>(1000);
         node_txs.insert(node.id, tx);
-        tokio::spawn(connect_and_send(*node, rx));
+        tokio::spawn(connect_and_send(*node, rx, shutdown.subscribe()));
     }
 
     let mut s = stream::UnboundedReceiverStream(out_rx);
-    while let Some(mut message) = s.next().await {
-        if message.from == Address::Local {
-            message.from = Address::Peer(id)
-        }
-        let to = match &message.to {
-            Address::Peers => node_txs.keys().cloned().collect(),
-            Address::Peer(peer) => vec![*peer],
-            _addr => {
-                continue;
+    let mut shutdown = shutdown.subscribe();
+    loop {
+        tokio::select! {
+            _ = shutdown.recv() => break,
+
+            message = s.next() => {
+                if let Some(mut message) = message {
+                    if message.from == Address::Local {
+                        message.from = Address::Peer(id)
+                    }
+                    let to = match &message.to {
+                        Address::Peers => node_txs.keys().cloned().collect(),
+                        Address::Peer(peer) => vec![*peer],
+                        _addr => {
+                            continue;
+                        }
+                    };
+                    for id in to {
+                        match node_txs.get_mut(&id) {
+                            Some(tx) => match tx.try_send(message.clone()) {
+                                Ok(()) => {}
+                                Err(mpsc::error::TrySendError::Full(_)) => {}
+                                Err(error) => return Err(anyhow::anyhow!("could not send message {}", error)),
+                            },
+                            None => {}
+                        }
+                    }
+                }
             }
-        };
-        for id in to {
-            match node_txs.get_mut(&id) {
-                Some(tx) => match tx.try_send(message.clone()) {
-                    Ok(()) => {}
-                    Err(mpsc::error::TrySendError::Full(_)) => {}
-                    Err(error) => return Err(anyhow::anyhow!("could not send message {}", error)),
-                },
-                None => {}
-            }
         }
-    }
+    };
     Ok(())
 }
 
@@ -92,18 +102,29 @@ pub async fn send_task(
 ///
 /// * `node` - The node which messages will be sent to.
 /// * `out_rx` - The channel messages to send are written to.
-async fn connect_and_send(node: Node, mut out_rx: Receiver<Message>) -> Result<()> {
+async fn connect_and_send(node: Node, mut out_rx: Receiver<Message>, mut shutdown: tokio::sync::broadcast::Receiver<()>,) -> Result<()> {
+    let mut backoff = 1;
     loop {
-        match TcpStream::connect(node.addr).await {
-            Ok(socket) => match send_messages(socket, &mut out_rx).await {
-                Ok(()) => break Ok(()),
-                Err(_err) => {}
-            },
-            Err(_err) => {}
+        tokio::select! {
+            _ = shutdown.recv() => break,
+
+            connect = TcpStream::connect(node.addr) => {
+                match connect {
+                    Ok(socket) => {
+                        tracing::info!(?node, "connected to node");
+                        send_messages(socket, &mut out_rx).await?;
+                    },
+                    Err(e) => {
+                        tracing::error!(?node, %e, "error connecting to node");
+                        tokio::time::sleep(Duration::from_secs(backoff)).await;
+                        backoff = backoff.checked_mul(2).unwrap_or(backoff);
+                    }
+                }
+            }
         }
-        // TODO: use back-off
-        tokio::time::sleep(Duration::from_millis(1000)).await;
     }
+
+    Ok(())
 }
 
 /// Write messages to socket in a loop.
@@ -171,7 +192,7 @@ mod tests {
         let (tx, rx) = mpsc::unbounded_channel();
         let (shutdown_tx, _shutdown_rx) = tokio::sync::broadcast::channel(1);
         tokio::spawn(send_task(
-            shutdown_tx.subscribe(),
+            shutdown_tx,
             1,
             vec![Node {
                 id: 2,

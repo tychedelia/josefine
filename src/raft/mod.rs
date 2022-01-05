@@ -48,6 +48,7 @@ use tokio::sync::oneshot;
 use rpc::Response;
 
 use anyhow::Result;
+use uuid::Uuid;
 use crate::raft::chain::{Block, BlockId, Chain};
 use crate::raft::config::RaftConfig;
 use crate::raft::follower::Follower;
@@ -130,7 +131,7 @@ pub type Term = u64;
 /// Each entry has an index in the log, which with the term, describes the unique position of an entry in the log.
 pub type LogIndex = u64;
 
-pub type ClientRequestId = Vec<u8>;
+pub type ClientRequestId = Uuid;
 
 /// Commands that can be applied to the state machine.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

@@ -22,7 +22,7 @@ where
 {
     #[tracing::instrument]
     async fn do_handle(&self, req: Req) -> Result<Res> {
-        tracing::debug!("executing request");
+        tracing::debug!("handle request");
         self.handle(req, Self::response()).await
     }
 

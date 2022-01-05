@@ -37,10 +37,12 @@ pub async fn josefine<P: AsRef<std::path::Path>>(
     Ok(())
 }
 
+#[tracing::instrument]
 pub async fn run(config: JosefineConfig,     shutdown: (
     tokio::sync::broadcast::Sender<()>,
     tokio::sync::broadcast::Receiver<()>,
 ),) -> Result<()> {
+    tracing::info!("starting");
     let db = sled::open(&config.broker.state_file).unwrap();
 
     let (client_tx, client_rx) = tokio::sync::mpsc::unbounded_channel();
@@ -65,6 +67,15 @@ pub async fn run(config: JosefineConfig,     shutdown: (
         )
         .remote_handle();
     tokio::spawn(task);
-    let (_, _) = tokio::try_join!(b, raft)?;
+
+    let (task, shutdown_notifier) = async move {
+        let mut rx = shutdown.0.subscribe();
+        let _ = rx.recv().await?;
+        tracing::info!("received shutdown signal");
+        Ok(())
+    }.remote_handle();
+    tokio::spawn(task);
+
+    let (_, _, _) = tokio::try_join!(b, raft, shutdown_notifier)?;
     Ok(())
 }

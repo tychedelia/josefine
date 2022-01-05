@@ -1,5 +1,5 @@
 use crate::raft::rpc::{Address, Message, Proposal, Response, ResponseError};
-use crate::raft::tcp;
+use crate::raft::{ClientRequestId, tcp};
 use crate::raft::{
     config::RaftConfig,
     fsm::{self},
@@ -63,7 +63,7 @@ impl Server {
         // tcp send
         let (tcp_out_tx, tcp_out_rx) = mpsc::unbounded_channel::<Message>();
         let (task, tcp_sender) = tcp::send_task(
-            shutdown_tx.subscribe(),
+            shutdown_tx.clone(),
             self.config.id,
             self.config.clone().nodes,
             tcp_out_rx,
@@ -109,7 +109,7 @@ async fn event_loop(
     mut client_rx: UnboundedReceiver<(Proposal, oneshot::Sender<std::result::Result<Response, ResponseError>>)>,
 ) -> Result<RaftHandle> {
     let mut step_interval = tokio::time::interval(TICK);
-    let mut requests = HashMap::<Vec<u8>, oneshot::Sender<std::result::Result<Response, ResponseError>>>::new();
+    let mut requests = HashMap::<ClientRequestId, oneshot::Sender<std::result::Result<Response, ResponseError>>>::new();
 
     loop {
         tokio::select! {
@@ -138,7 +138,7 @@ async fn event_loop(
             },
             // incoming messages from clients
             Some((proposal, res)) = client_rx.recv() => {
-                let id = Uuid::new_v4().as_bytes().to_vec();
+                let id = Uuid::new_v4();
                 requests.insert(id.clone(), res);
                 raft = raft.apply(Command::ClientRequest { id, proposal, client_address: Address::Client })?;
             },

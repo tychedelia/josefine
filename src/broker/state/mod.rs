@@ -10,10 +10,17 @@ use serde::de::DeserializeOwned;
 use serde::Serialize;
 use sled::Db;
 use std::collections::HashMap;
+use std::fmt::{Debug, Formatter};
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct Store {
     db: Db,
+}
+
+impl Debug for Store {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Store {{}}")
+    }
 }
 
 impl Store {

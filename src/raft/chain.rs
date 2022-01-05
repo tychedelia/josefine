@@ -1,7 +1,7 @@
 
 use sled::Db;
 use std::convert::TryInto;
-use std::fmt::Debug;
+use std::fmt::{Debug, Formatter};
 use std::ops::RangeBounds;
 use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -27,8 +27,14 @@ impl IdGenerator {
     }
 }
 
-#[derive(Clone, PartialEq, Deserialize, Serialize, Debug, PartialOrd, Ord, Hash, Eq)]
+#[derive(Clone, PartialEq, Deserialize, Serialize, PartialOrd, Ord, Hash, Eq)]
 pub struct BlockId(#[serde(deserialize_with = "bytes_from_vec", serialize_with = "foo")] pub Bytes);
+
+impl Debug for BlockId {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "BlockId({})", u64::from_be_bytes(self.0.as_ref().try_into().unwrap()))
+    }
+}
 
 fn foo<S>(block_id: &Bytes, serializer: S) -> std::result::Result<S::Ok, S::Error>
 where
@@ -80,12 +86,17 @@ impl Block {
     }
 }
 
-#[derive(Debug)]
 pub struct Chain {
     db: Db,
     id_gen: IdGenerator,
     commit: BlockId,
     head: BlockId,
+}
+
+impl Debug for Chain {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Chain {{ id_gen: {:?}, commit: {:?}, head: {:?} }}", self.id_gen, self.commit, self.head)
+    }
 }
 
 impl Chain {
@@ -161,6 +172,7 @@ impl Chain {
     pub fn commit(&mut self, block_id: &BlockId) -> Result<BlockId> {
         tracing::trace!(?block_id, "commit");
         if self.db.contains_key(block_id).unwrap() {
+            self.db.insert("commit", block_id.0.as_ref())?;
             self.commit = block_id.clone();
         } else {
             panic!("");

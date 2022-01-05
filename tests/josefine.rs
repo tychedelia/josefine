@@ -1,10 +1,13 @@
 use std::collections::HashMap;
 use std::net::SocketAddr;
+use kafka_protocol::messages::{ApiKey, ApiVersionsRequest, RequestHeader, RequestKind};
+use kafka_protocol::protocol::StrBytes;
 use tokio::io::AsyncWriteExt;
 use tokio::time::Duration;
 use josefine::broker::config::{Broker, BrokerId};
 use josefine::config::JosefineConfig;
 use josefine::josefine_with_config;
+use josefine::kafka::KafkaClient;
 use josefine::raft::config::RaftConfig;
 use josefine::raft::Node;
 
@@ -26,6 +29,13 @@ impl NodeManager {
         config.broker.id = BrokerId(config.broker.id.0 + offset as i32);
         config.broker.port = config.broker.port + offset;
         self.nodes.insert(offset, config);
+    }
+
+    fn get_addrs(&self) -> Vec<SocketAddr> {
+        self.nodes.iter().map(|x| {
+            SocketAddr::new(x.1.broker.ip, x.1.broker.port)
+        })
+            .collect()
     }
 
     pub async fn run(mut self, shutdown:(
@@ -52,9 +62,11 @@ impl NodeManager {
 
         let mut tasks = Vec::new();
         for (_, config)  in self.nodes.into_iter() {
-            let (tx, rx) = (shutdown.0.clone(), shutdown.0.subscribe());
+            let tx = shutdown.0.clone();
+            let rx = tx.subscribe();
+            let (tx, rx) = (tx, rx);
             let task = tokio::spawn(async move {
-                tokio::time::timeout(Duration::from_secs(1), josefine_with_config(config, (tx, rx))).await?;
+                tokio::time::timeout(Duration::from_secs(60), josefine_with_config(config, (tx, rx))).await?;
                 Result::<_, anyhow::Error>::Ok(())
             });
 
@@ -76,11 +88,19 @@ impl NodeManager {
 async fn single_node() -> anyhow::Result<()> {
     let mut nodes = NodeManager::new();
     nodes.new_node(0);
+    let addrs = nodes.get_addrs();
     let shutdown = tokio::sync::broadcast::channel(1);
-    let tx = shutdown.0.clone();
-    let nodes = tokio::spawn(async move { nodes.run(shutdown).await });
-    let shutdown = tokio::spawn(async move { tx.send(()) });
-    tokio::try_join!(nodes, shutdown)?;
+    let rx = shutdown.0.subscribe();
+    tokio::spawn(async move { nodes.run(shutdown).await });
+    tokio::time::sleep(Duration::from_secs(1)).await;
+    let mut client = KafkaClient::new(addrs[0]).await?.connect(rx).await?;
+    let mut header = RequestHeader::default();
+    header.request_api_version = 6;
+    header.request_api_key = ApiKey::ApiVersionsKey as i16;
+    let mut req = ApiVersionsRequest::default();
+    req.client_software_name = StrBytes::from_str("test");
+    req.client_software_version = StrBytes::from_str("1.0.0");
+    client.send(header, RequestKind::ApiVersionsRequest(req)).await?;
     Ok(())
 }
 
@@ -95,6 +115,7 @@ async fn multi_node() -> anyhow::Result<()> {
     let tx = shutdown.0.clone();
     let nodes = tokio::spawn(async move { nodes.run(shutdown).await });
     let shutdown = tokio::spawn(async move { tx.send(()) });
+
     tokio::try_join!(nodes, shutdown)?;
     Ok(())
 }
