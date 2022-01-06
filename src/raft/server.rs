@@ -95,7 +95,7 @@ impl Server {
             shutdown_tx.send(())?;
         }
 
-        let (_, _, _, raft) = tokio::try_join!(tcp_receiver, tcp_sender, driver, event_loop)?;
+        let (raft, _, _, _) = tokio::try_join!(event_loop, tcp_receiver, tcp_sender, driver)?;
         Ok(raft)
     }
 }

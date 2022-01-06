@@ -67,7 +67,10 @@ pub async fn send_task(
     let mut shutdown = shutdown.subscribe();
     loop {
         tokio::select! {
-            _ = shutdown.recv() => break,
+            _ = shutdown.recv() => {
+                tokio::time::sleep(Duration::from_millis(100)).await;
+                break
+            },
 
             message = s.next() => {
                 if let Some(mut message) = message {

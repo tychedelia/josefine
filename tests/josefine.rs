@@ -108,14 +108,21 @@ async fn single_node() -> anyhow::Result<()> {
 #[tracing_test::traced_test]
 async fn multi_node() -> anyhow::Result<()> {
     let mut nodes = NodeManager::new();
-    nodes.new_node(0);
     nodes.new_node(1);
     nodes.new_node(2);
+    nodes.new_node(3);
+    let addrs = nodes.get_addrs();
     let shutdown = tokio::sync::broadcast::channel(1);
-    let tx = shutdown.0.clone();
-    let nodes = tokio::spawn(async move { nodes.run(shutdown).await });
-    let shutdown = tokio::spawn(async move { tx.send(()) });
-
-    tokio::try_join!(nodes, shutdown)?;
+    let rx = shutdown.0.subscribe();
+    tokio::spawn(async move { nodes.run(shutdown).await });
+    tokio::time::sleep(Duration::from_secs(5)).await;
+    let mut client = KafkaClient::new(addrs[0]).await?.connect(rx).await?;
+    let mut header = RequestHeader::default();
+    header.request_api_version = 6;
+    header.request_api_key = ApiKey::ApiVersionsKey as i16;
+    let mut req = ApiVersionsRequest::default();
+    req.client_software_name = StrBytes::from_str("test");
+    req.client_software_version = StrBytes::from_str("1.0.0");
+    client.send(header, RequestKind::ApiVersionsRequest(req)).await?;
     Ok(())
 }

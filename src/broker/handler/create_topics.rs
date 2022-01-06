@@ -84,20 +84,23 @@ impl Broker {
 
         // Start isr
         for b in self.get_brokers() {
+            let mut header = RequestHeader::default();
+            header.request_api_version = 5;
+            header.request_api_key = ApiKey::LeaderAndIsrKey as i16;
+            let mut req = LeaderAndIsrRequest::default();
+            req.controller_id = kafka_protocol::messages::BrokerId(b.id.0);
             if b.id == self.config.id {
+                self.do_handle(req).await?;
+            } else {
+                let req = RequestKind::LeaderAndIsrRequest(req);
                 let client = KafkaClient::new(SocketAddr::new(b.ip, b.port)).await?;
                 let (_, shutdown_rx) = tokio::sync::broadcast::channel(1);
                 let client = client.connect(shutdown_rx).await?;
-                let mut header = RequestHeader::default();
-                header.request_api_version = 5;
-                header.request_api_key = ApiKey::LeaderAndIsrKey as i16;
-                let mut req = LeaderAndIsrRequest::default();
-                req.controller_id = kafka_protocol::messages::BrokerId(b.id.0);
-                let req = RequestKind::LeaderAndIsrRequest(req);
-                // if let kafka_protocol::messages::ResponseKind::LeaderAndIsrResponse(res) = client.send(header, req).await? {
-                // } else {
-                //     panic!();
-                // }
+                //
+                if let kafka_protocol::messages::ResponseKind::LeaderAndIsrResponse(res) = client.send(header, req).await? {
+                } else {
+                    panic!();
+                }
             }
         }
 
