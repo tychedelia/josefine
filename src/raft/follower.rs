@@ -3,7 +3,6 @@ use std::time::Instant;
 
 use rand::Rng;
 
-use anyhow::Result;
 use crate::raft::candidate::Candidate;
 use crate::raft::chain::{BlockId, Chain};
 use crate::raft::election::Election;
@@ -13,6 +12,7 @@ use crate::raft::Command::VoteResponse;
 use crate::raft::{Apply, RaftHandle, RaftRole, Term};
 use crate::raft::{ClientRequestId, RaftConfig};
 use crate::raft::{Command, NodeId, Raft, Role, State};
+use anyhow::Result;
 use std::collections::HashSet;
 use tokio::sync::mpsc::UnboundedSender;
 
@@ -73,21 +73,20 @@ impl Apply for Raft<Follower> {
                 // If there are entries...
                 if !blocks.is_empty() {
                     for block in blocks {
-                        self.chain.extend(block); // append the entry
+                        self.chain.extend(block)?; // append the entry
                     }
 
                     // confirm append
-                    self.rpc_tx
-                        .send(Message::new(
-                            Address::Peer(self.id),
-                            Address::Peer(leader_id),
-                            Command::AppendResponse {
-                                node_id: self.id,
-                                term: self.state.current_term,
-                                head: self.chain.get_head(),
-                                success: true,
-                            },
-                        ))?;
+                    self.rpc_tx.send(Message::new(
+                        Address::Peer(self.id),
+                        Address::Peer(leader_id),
+                        Command::AppendResponse {
+                            node_id: self.id,
+                            term: self.state.current_term,
+                            head: self.chain.get_head(),
+                            success: true,
+                        },
+                    ))?;
                 }
 
                 self.apply_self()
@@ -106,7 +105,7 @@ impl Apply for Raft<Follower> {
                 let has_committed = self.chain.has(&commit);
                 if has_committed {
                     let prev = self.chain.get_commit();
-                    self.chain.commit(&commit);
+                    self.chain.commit(&commit)?;
                     self.chain.range(prev..commit).for_each(|block| {
                         self.fsm_tx.send(Instruction::Apply { block }).unwrap();
                     });
@@ -177,13 +176,7 @@ impl Apply for Raft<Follower> {
                 }
             }
             Command::ClientResponse { id, res } => {
-                self.send(
-                    Address::Client,
-                    Command::ClientResponse {
-                        id,
-                        res,
-                    },
-                )?;
+                self.send(Address::Client, Command::ClientResponse { id, res })?;
                 self.role.proxied_reqs.remove(&id);
                 self.apply_self()
             }

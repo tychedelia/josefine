@@ -1,10 +1,11 @@
 use crate::raft::rpc::{Address, Message, Proposal, Response, ResponseError};
-use crate::raft::{ClientRequestId, tcp};
 use crate::raft::{
     config::RaftConfig,
     fsm::{self},
 };
+use crate::raft::{tcp, ClientRequestId};
 use crate::raft::{Apply, Command, RaftHandle};
+use anyhow::Result;
 use futures::FutureExt;
 use std::{collections::HashMap, net::SocketAddr};
 use tokio::sync::mpsc;
@@ -15,7 +16,6 @@ use tokio::{
     sync::{mpsc::unbounded_channel, oneshot},
 };
 use uuid::Uuid;
-use anyhow::Result;
 
 /// step duration
 const TICK: Duration = Duration::from_millis(100);
@@ -27,7 +27,10 @@ pub struct Server {
 pub struct ServerRunOpts<T: 'static + fsm::Fsm> {
     pub duration: Option<Duration>,
     pub fsm: T,
-    pub client_rx: UnboundedReceiver<(Proposal, oneshot::Sender<std::result::Result<Response, ResponseError>>)>,
+    pub client_rx: UnboundedReceiver<(
+        Proposal,
+        oneshot::Sender<std::result::Result<Response, ResponseError>>,
+    )>,
     pub shutdown: (
         tokio::sync::broadcast::Sender<()>,
         tokio::sync::broadcast::Receiver<()>,
@@ -106,10 +109,16 @@ async fn event_loop(
     tcp_tx: UnboundedSender<Message>,
     mut rpc_rx: UnboundedReceiver<Message>,
     mut tcp_rx: UnboundedReceiver<Message>,
-    mut client_rx: UnboundedReceiver<(Proposal, oneshot::Sender<std::result::Result<Response, ResponseError>>)>,
+    mut client_rx: UnboundedReceiver<(
+        Proposal,
+        oneshot::Sender<std::result::Result<Response, ResponseError>>,
+    )>,
 ) -> Result<RaftHandle> {
     let mut step_interval = tokio::time::interval(TICK);
-    let mut requests = HashMap::<ClientRequestId, oneshot::Sender<std::result::Result<Response, ResponseError>>>::new();
+    let mut requests = HashMap::<
+        ClientRequestId,
+        oneshot::Sender<std::result::Result<Response, ResponseError>>,
+    >::new();
 
     loop {
         tokio::select! {
@@ -150,9 +159,9 @@ async fn event_loop(
 
 #[cfg(test)]
 mod tests {
-    use anyhow::Result;
     use crate::raft::RaftConfig;
     use crate::raft::RaftHandle;
+    use anyhow::Result;
 
     use std::time::Duration;
     use tokio::sync::mpsc::{self, unbounded_channel};

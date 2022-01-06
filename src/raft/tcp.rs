@@ -1,6 +1,6 @@
-use anyhow::Result;
 use crate::raft::rpc::{Address, Message};
 use crate::raft::{Node, NodeId};
+use anyhow::Result;
 use futures::SinkExt;
 use std::collections::HashMap;
 
@@ -97,7 +97,7 @@ pub async fn send_task(
                 }
             }
         }
-    };
+    }
     Ok(())
 }
 
@@ -105,7 +105,11 @@ pub async fn send_task(
 ///
 /// * `node` - The node which messages will be sent to.
 /// * `out_rx` - The channel messages to send are written to.
-async fn connect_and_send(node: Node, mut out_rx: Receiver<Message>, mut shutdown: tokio::sync::broadcast::Receiver<()>,) -> Result<()> {
+async fn connect_and_send(
+    node: Node,
+    mut out_rx: Receiver<Message>,
+    mut shutdown: tokio::sync::broadcast::Receiver<()>,
+) -> Result<()> {
     let mut backoff = 1;
     loop {
         tokio::select! {

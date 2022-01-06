@@ -262,13 +262,13 @@ impl From<Raft<Leader>> for Raft<Follower> {
 
 #[cfg(test)]
 mod tests {
-    use uuid::Uuid;
     use crate::raft::rpc::Address;
     use crate::raft::test::new_follower;
     use crate::{
         raft::{fsm::Instruction, rpc::Proposal},
         raft::{Apply, Command, RaftHandle},
     };
+    use uuid::Uuid;
 
     #[test]
     #[tracing_test::traced_test]

@@ -1,7 +1,7 @@
 use crate::broker::config::{BrokerConfig, BrokerId};
 use crate::broker::handler::Handler;
-use anyhow::Result;
 use crate::raft::client::RaftClient;
+use anyhow::Result;
 use kafka_protocol::messages::{RequestKind, ResponseKind};
 use server::Server;
 use std::collections::HashMap;

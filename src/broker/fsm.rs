@@ -1,6 +1,6 @@
 use crate::broker::state::partition::Partition;
-use anyhow::Result;
 use crate::raft::fsm::Fsm;
+use anyhow::Result;
 
 use crate::broker::state::topic::Topic;
 use crate::broker::state::Store;

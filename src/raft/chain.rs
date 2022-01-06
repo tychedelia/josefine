@@ -1,4 +1,3 @@
-
 use sled::Db;
 use std::convert::TryInto;
 use std::fmt::{Debug, Formatter};
@@ -7,8 +6,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use bytes::Bytes;
 
-use serde::{Deserialize, Deserializer, Serializer};
 use anyhow::Result;
+use serde::{Deserialize, Deserializer, Serializer};
 
 #[derive(Debug)]
 struct IdGenerator {
@@ -32,7 +31,11 @@ pub struct BlockId(#[serde(deserialize_with = "bytes_from_vec", serialize_with =
 
 impl Debug for BlockId {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "BlockId({})", u64::from_be_bytes(self.0.as_ref().try_into().unwrap()))
+        write!(
+            f,
+            "BlockId({})",
+            u64::from_be_bytes(self.0.as_ref().try_into().unwrap())
+        )
     }
 }
 
@@ -95,7 +98,11 @@ pub struct Chain {
 
 impl Debug for Chain {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Chain {{ id_gen: {:?}, commit: {:?}, head: {:?} }}", self.id_gen, self.commit, self.head)
+        write!(
+            f,
+            "Chain {{ id_gen: {:?}, commit: {:?}, head: {:?} }}",
+            self.id_gen, self.commit, self.head
+        )
     }
 }
 
@@ -116,7 +123,7 @@ impl Chain {
         };
 
         if commit == 0 {
-            chain.init();
+            chain.init()?;
         }
 
         Ok(chain)
@@ -147,7 +154,7 @@ impl Chain {
         let block = Block {
             id: BlockId::new(id),
             next: BlockId::new(id),
-            data: vec![]
+            data: vec![],
         };
         self.db
             .insert(&block.id, bincode::serialize(&block).unwrap().to_vec())
@@ -158,7 +165,10 @@ impl Chain {
 
     pub fn extend(&mut self, block: Block) -> Result<()> {
         if !self.has(&block.next) {
-            return Err(anyhow::anyhow!("block {:?} not found in chain", &block.next));
+            return Err(anyhow::anyhow!(
+                "block {:?} not found in chain",
+                &block.next
+            ));
         }
 
         self.db
@@ -204,10 +214,10 @@ mod tests {
     #[test]
     fn range() {
         let db = sled::open(tempdir().unwrap().path()).unwrap();
-        db.insert(0u64.to_be_bytes(), "");
-        db.insert(1u64.to_be_bytes(), "");
-        db.insert(2u64.to_be_bytes(), "");
-        db.insert(3u64.to_be_bytes(), "");
+        db.insert(0u64.to_be_bytes(), "").unwrap();
+        db.insert(1u64.to_be_bytes(), "").unwrap();
+        db.insert(2u64.to_be_bytes(), "").unwrap();
+        db.insert(3u64.to_be_bytes(), "").unwrap();
 
         let mut count = 0;
         for x in db.range(0u64.to_be_bytes()..4u64.to_be_bytes()) {

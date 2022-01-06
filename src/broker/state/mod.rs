@@ -35,7 +35,7 @@ impl Store {
             topics.insert(topic.name.clone(), topic.clone());
         }
 
-        self.insert("topics", &topics);
+        self.insert("topics", &topics)?;
         Ok(topic)
     }
 
@@ -57,7 +57,7 @@ impl Store {
 
     pub fn create_partition(&self, partition: Partition) -> Result<Partition> {
         let key = format!("{}:partition:{}", partition.topic, partition.idx);
-        self.insert(&key, &partition);
+        self.insert(&key, &partition)?;
         Ok(partition)
     }
 
@@ -66,9 +66,11 @@ impl Store {
     }
 
     fn get<T: DeserializeOwned, K: AsRef<[u8]>>(&self, key: K) -> Result<Option<T>> {
-        self.db.get(key.as_ref())?
-            .map(|x| bincode::deserialize(&x)
-                .map_err(|e| anyhow::anyhow!("could not deserialize {}", e)))
+        self.db
+            .get(key.as_ref())?
+            .map(|x| {
+                bincode::deserialize(&x).map_err(|e| anyhow::anyhow!("could not deserialize {}", e))
+            })
             .transpose()
     }
 

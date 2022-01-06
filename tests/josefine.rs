@@ -1,24 +1,24 @@
-use std::collections::HashMap;
-use std::net::SocketAddr;
 use kafka_protocol::messages::{ApiKey, ApiVersionsRequest, RequestHeader, RequestKind};
 use kafka_protocol::protocol::StrBytes;
+use std::collections::HashMap;
+use std::net::SocketAddr;
 
-use tokio::time::Duration;
 use josefine::broker::config::{Broker, BrokerId};
 use josefine::config::JosefineConfig;
 use josefine::josefine_with_config;
 use josefine::kafka::KafkaClient;
+use tokio::time::Duration;
 
 use josefine::raft::Node;
 
 struct NodeManager {
-    nodes: HashMap<u16, JosefineConfig>
+    nodes: HashMap<u16, JosefineConfig>,
 }
 
 impl NodeManager {
     fn new() -> Self {
         NodeManager {
-            nodes: Default::default()
+            nodes: Default::default(),
         }
     }
 
@@ -32,41 +32,63 @@ impl NodeManager {
     }
 
     fn get_addrs(&self) -> Vec<SocketAddr> {
-        self.nodes.iter().map(|x| {
-            SocketAddr::new(x.1.broker.ip, x.1.broker.port)
-        })
+        self.nodes
+            .iter()
+            .map(|x| SocketAddr::new(x.1.broker.ip, x.1.broker.port))
             .collect()
     }
 
-    pub async fn run(mut self, shutdown:(
-        tokio::sync::broadcast::Sender<()>,
-        tokio::sync::broadcast::Receiver<()>,
-    )) -> anyhow::Result<()> {
-        let brokers: Vec<Broker> = self.nodes.iter().map(|x| Broker {
-            id: x.1.broker.id,
-            ip: x.1.broker.ip,
-            port: x.1.broker.port,
-        })
+    pub async fn run(
+        mut self,
+        shutdown: (
+            tokio::sync::broadcast::Sender<()>,
+            tokio::sync::broadcast::Receiver<()>,
+        ),
+    ) -> anyhow::Result<()> {
+        let brokers: Vec<Broker> = self
+            .nodes
+            .iter()
+            .map(|x| Broker {
+                id: x.1.broker.id,
+                ip: x.1.broker.ip,
+                port: x.1.broker.port,
+            })
             .collect();
 
-        let raft_nodes: Vec<Node> = self.nodes.iter()
-            .map(|x| Node { id: x.1.raft.id, addr: SocketAddr::new(x.1.raft.ip, x.1.raft.port) })
+        let raft_nodes: Vec<Node> = self
+            .nodes
+            .iter()
+            .map(|x| Node {
+                id: x.1.raft.id,
+                addr: SocketAddr::new(x.1.raft.ip, x.1.raft.port),
+            })
             .collect();
 
         // build out config
-        self.nodes.iter_mut()
-            .for_each(|x| {
-                x.1.broker.peers = brokers.iter().filter(|y | x.1.broker.id != y.id).map(Clone::clone).collect();
-                x.1.raft.nodes = raft_nodes.iter().filter(|y| x.1.raft.id != y.id).map(Clone::clone).collect();
-            });
+        self.nodes.iter_mut().for_each(|x| {
+            x.1.broker.peers = brokers
+                .iter()
+                .filter(|y| x.1.broker.id != y.id)
+                .map(Clone::clone)
+                .collect();
+            x.1.raft.nodes = raft_nodes
+                .iter()
+                .filter(|y| x.1.raft.id != y.id)
+                .map(Clone::clone)
+                .collect();
+        });
 
         let mut tasks = Vec::new();
-        for (_, config)  in self.nodes.into_iter() {
+        for (_, config) in self.nodes.into_iter() {
             let tx = shutdown.0.clone();
             let rx = tx.subscribe();
             let (tx, rx) = (tx, rx);
             let task = tokio::spawn(async move {
-                tokio::time::timeout(Duration::from_secs(60), josefine_with_config(config, (tx, rx))).await?;
+                tokio::time::timeout(
+                    Duration::from_secs(60),
+                    josefine_with_config(config, (tx, rx)),
+                )
+                .await?;
                 Result::<_, anyhow::Error>::Ok(())
             });
 
@@ -100,7 +122,9 @@ async fn single_node() -> anyhow::Result<()> {
     let mut req = ApiVersionsRequest::default();
     req.client_software_name = StrBytes::from_str("test");
     req.client_software_version = StrBytes::from_str("1.0.0");
-    client.send(header, RequestKind::ApiVersionsRequest(req)).await?;
+    client
+        .send(header, RequestKind::ApiVersionsRequest(req))
+        .await?;
     Ok(())
 }
 
@@ -123,6 +147,8 @@ async fn multi_node() -> anyhow::Result<()> {
     let mut req = ApiVersionsRequest::default();
     req.client_software_name = StrBytes::from_str("test");
     req.client_software_version = StrBytes::from_str("1.0.0");
-    client.send(header, RequestKind::ApiVersionsRequest(req)).await?;
+    client
+        .send(header, RequestKind::ApiVersionsRequest(req))
+        .await?;
     Ok(())
 }

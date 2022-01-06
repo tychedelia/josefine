@@ -4,10 +4,10 @@ pub mod kafka;
 pub mod raft;
 
 use crate::broker::JosefineBroker;
-use anyhow::Result;
-use crate::raft::client::RaftClient;
-use futures::FutureExt;
 use crate::config::JosefineConfig;
+use crate::raft::client::RaftClient;
+use anyhow::Result;
+use futures::FutureExt;
 
 use crate::raft::JosefineRaft;
 
@@ -38,10 +38,13 @@ pub async fn josefine<P: AsRef<std::path::Path>>(
 }
 
 #[tracing::instrument]
-pub async fn run(config: JosefineConfig,     shutdown: (
-    tokio::sync::broadcast::Sender<()>,
-    tokio::sync::broadcast::Receiver<()>,
-),) -> Result<()> {
+pub async fn run(
+    config: JosefineConfig,
+    shutdown: (
+        tokio::sync::broadcast::Sender<()>,
+        tokio::sync::broadcast::Receiver<()>,
+    ),
+) -> Result<()> {
     tracing::info!("starting");
     let db = sled::open(&config.broker.state_file).unwrap();
 
@@ -73,7 +76,8 @@ pub async fn run(config: JosefineConfig,     shutdown: (
         let _ = rx.recv().await?;
         tracing::info!("received shutdown signal");
         Ok(())
-    }.remote_handle();
+    }
+    .remote_handle();
     tokio::spawn(task);
 
     let (_, _, _) = tokio::try_join!(b, raft, shutdown_notifier)?;

@@ -159,7 +159,8 @@ impl codec::Decoder for KafkaClientCodec {
                 .remove(&header.correlation_id)
                 .ok_or(DecodeError)?;
             let api_key = ApiKey::try_from(request_header.request_api_key)?;
-            let response = decode_response(&mut bytes, api_key, request_header.request_api_version)?;
+            let response =
+                decode_response(&mut bytes, api_key, request_header.request_api_version)?;
             Ok(Some((header, response)))
         } else {
             Ok(None)
@@ -167,14 +168,20 @@ impl codec::Decoder for KafkaClientCodec {
     }
 }
 
-fn decode_response(bytes: &mut BytesMut, api_key: ApiKey, version: i16) -> Result<ResponseKind, ErrorKind> {
+fn decode_response(
+    bytes: &mut BytesMut,
+    api_key: ApiKey,
+    version: i16,
+) -> Result<ResponseKind, ErrorKind> {
     match api_key {
         ApiKey::ApiVersionsKey => {
-            let res = ApiVersionsResponse::decode(bytes, CreateTopicsResponse::header_version(version))?;
+            let res =
+                ApiVersionsResponse::decode(bytes, CreateTopicsResponse::header_version(version))?;
             Ok(ResponseKind::ApiVersionsResponse(res))
         }
         ApiKey::LeaderAndIsrKey => {
-            let res = LeaderAndIsrResponse::decode(bytes, LeaderAndIsrResponse::header_version(version))?;
+            let res =
+                LeaderAndIsrResponse::decode(bytes, LeaderAndIsrResponse::header_version(version))?;
             Ok(ResponseKind::LeaderAndIsrResponse(res))
         }
         _ => Err(ErrorKind::UnsupportedOperation),
@@ -195,7 +202,7 @@ impl codec::Encoder<(RequestHeader, RequestKind)> for KafkaClientCodec {
         let api_version = header.request_api_version;
         let mut requests = self.requests.lock().unwrap();
         requests.insert(header.correlation_id, header.clone());
-        encode_request(&mut bytes, header, request, api_version);
+        encode_request(&mut bytes, header, request, api_version)?;
         self.length_codec
             .encode(bytes.get_bytes(bytes.len()), dst)?;
         Ok(())
@@ -217,7 +224,7 @@ fn encode_request(
             header.encode(bytes, LeaderAndIsrRequest::header_version(version))?;
             req.encode(bytes, version)?;
         }
-        _ => return Err(DecodeError)
+        _ => return Err(DecodeError),
     };
 
     Ok(())

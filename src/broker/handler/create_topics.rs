@@ -1,13 +1,16 @@
-use std::net::SocketAddr;
 use crate::broker::fsm::Transition;
 use crate::broker::state::topic::Topic;
 use anyhow::Result;
 use async_trait::async_trait;
+use std::net::SocketAddr;
 
 use kafka_protocol::messages::create_topics_request::CreatableTopic;
 use kafka_protocol::messages::create_topics_response::CreatableTopicResult;
 
-use kafka_protocol::messages::{ApiKey, CreateTopicsRequest, CreateTopicsResponse, LeaderAndIsrRequest, RequestHeader, RequestKind};
+use kafka_protocol::messages::{
+    ApiKey, CreateTopicsRequest, CreateTopicsResponse, LeaderAndIsrRequest, RequestHeader,
+    RequestKind,
+};
 
 use crate::broker::config::BrokerId;
 use crate::broker::handler::Handler;
@@ -97,7 +100,9 @@ impl Broker {
                 let (_, shutdown_rx) = tokio::sync::broadcast::channel(1);
                 let client = client.connect(shutdown_rx).await?;
                 //
-                if let kafka_protocol::messages::ResponseKind::LeaderAndIsrResponse(_res) = client.send(header, req).await? {
+                if let kafka_protocol::messages::ResponseKind::LeaderAndIsrResponse(_res) =
+                    client.send(header, req).await?
+                {
                 } else {
                     panic!();
                 }
@@ -147,9 +152,7 @@ mod tests {
         req.topics
             .insert(topic_name.clone(), CreatableTopic::default());
         let (res, _) = tokio::join!(
-            tokio::spawn(async move {
-                broker.handle(req, CreateTopicsResponse::default()).await
-            }),
+            tokio::spawn(async move { broker.handle(req, CreateTopicsResponse::default()).await }),
             tokio::spawn(async move {
                 let (_, cb) = rx.recv().await.unwrap();
                 let topic = Topic {
@@ -160,7 +163,7 @@ mod tests {
                 };
                 cb.send(Ok(crate::raft::rpc::Response::new(bincode::serialize(
                     &topic,
-                )?)));
+                )?))).unwrap();
                 Ok::<_, anyhow::Error>(())
             }),
         );

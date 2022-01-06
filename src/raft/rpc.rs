@@ -1,5 +1,5 @@
-use std::fmt::{Debug, Display, Formatter};
 use crate::raft::{Command, NodeId};
+use std::fmt::{Debug, Display, Formatter};
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub enum Address {
@@ -43,8 +43,7 @@ impl Proposal {
 pub struct Response(Vec<u8>);
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct ResponseError {
-}
+pub struct ResponseError {}
 
 impl Display for ResponseError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -52,8 +51,7 @@ impl Display for ResponseError {
     }
 }
 
-impl std::error::Error for ResponseError {
-}
+impl std::error::Error for ResponseError {}
 
 impl Response {
     pub fn new(data: Vec<u8>) -> Self {

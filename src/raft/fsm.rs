@@ -2,14 +2,14 @@ use std::fmt;
 
 use tokio::sync::mpsc;
 
-use anyhow::Result;
 use crate::raft::chain::{Block, BlockId};
+use crate::raft::rpc::ResponseError;
 use crate::raft::{
     rpc::{self, Address, Message, Response},
     ClientRequestId, Command,
 };
+use anyhow::Result;
 use std::collections::HashMap;
-use crate::raft::rpc::ResponseError;
 
 pub trait Fsm: Send + Sync + fmt::Debug {
     fn transition(&mut self, data: Vec<u8>) -> Result<Vec<u8>>;

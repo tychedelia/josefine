@@ -1,7 +1,7 @@
 use crate::kafka::codec::KafkaServerCodec;
+use anyhow::Result;
 use futures::SinkExt;
 use kafka_protocol::messages::{RequestKind, ResponseHeader, ResponseKind};
-use anyhow::Result;
 
 use tokio::sync::oneshot;
 
@@ -43,11 +43,7 @@ async fn stream_messages(
     let (r, w) = stream.split();
     let mut stream_in = FramedRead::new(r, KafkaServerCodec::new());
     let mut stream_out = FramedWrite::new(w, KafkaServerCodec::new());
-    while let Some((header, message)) =
-        stream_in
-            .try_next()
-            .await?
-    {
+    while let Some((header, message)) = stream_in.try_next().await? {
         let (cb_tx, cb_rx) = oneshot::channel();
         in_tx.send((message, cb_tx))?;
         let res = cb_rx.await?;
@@ -57,10 +53,7 @@ async fn stream_messages(
             correlation_id,
             ..Default::default()
         };
-        stream_out
-            .send((version, header, res))
-            .await?;
+        stream_out.send((version, header, res)).await?;
     }
     Ok(())
 }
-

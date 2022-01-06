@@ -47,8 +47,6 @@ use tokio::sync::oneshot;
 
 use rpc::Response;
 
-use anyhow::Result;
-use uuid::Uuid;
 use crate::raft::chain::{Block, BlockId, Chain};
 use crate::raft::config::RaftConfig;
 use crate::raft::follower::Follower;
@@ -57,6 +55,8 @@ use crate::raft::leader::Leader;
 use crate::raft::rpc::{Address, Message, ResponseError};
 use crate::raft::server::{Server, ServerRunOpts};
 use crate::raft::{candidate::Candidate, rpc::Proposal};
+use anyhow::Result;
+use uuid::Uuid;
 
 mod candidate;
 mod chain;
@@ -86,7 +86,10 @@ impl JosefineRaft {
     pub async fn run<T: 'static + fsm::Fsm>(
         self,
         fsm: T,
-        client_rx: UnboundedReceiver<(Proposal, oneshot::Sender<std::result::Result<Response, ResponseError>>)>,
+        client_rx: UnboundedReceiver<(
+            Proposal,
+            oneshot::Sender<std::result::Result<Response, ResponseError>>,
+        )>,
         shutdown: (
             tokio::sync::broadcast::Sender<()>,
             tokio::sync::broadcast::Receiver<()>,
@@ -106,7 +109,10 @@ impl JosefineRaft {
         self,
         duration: Duration,
         fsm: T,
-        client_rx: UnboundedReceiver<(Proposal, oneshot::Sender<std::result::Result<Response, ResponseError>>)>,
+        client_rx: UnboundedReceiver<(
+            Proposal,
+            oneshot::Sender<std::result::Result<Response, ResponseError>>,
+        )>,
         shutdown: (
             tokio::sync::broadcast::Sender<()>,
             tokio::sync::broadcast::Receiver<()>,

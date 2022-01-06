@@ -7,7 +7,10 @@ use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::oneshot::Sender;
 
 pub(crate) fn new_broker() -> (
-    UnboundedReceiver<(Proposal, Sender<std::result::Result<Response, ResponseError>>)>,
+    UnboundedReceiver<(
+        Proposal,
+        Sender<std::result::Result<Response, ResponseError>>,
+    )>,
     Broker,
 ) {
     let (client_tx, client_rx) = tokio::sync::mpsc::unbounded_channel();
