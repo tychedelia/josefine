@@ -131,7 +131,7 @@ impl Raft<Leader> {
                 match &mut progress {
                     NodeProgress::Probe(progress) => {
                         let blocks =
-                            if let Some(block) = self.chain.range(progress.head.clone()..).skip(1).next() {
+                            if let Some(block) = self.chain.range(progress.head.clone()..).nth(1) {
                                 vec![block]
                             } else {
                                 vec![]

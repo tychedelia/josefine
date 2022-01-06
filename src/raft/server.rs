@@ -139,7 +139,7 @@ async fn event_loop(
             // incoming messages from clients
             Some((proposal, res)) = client_rx.recv() => {
                 let id = Uuid::new_v4();
-                requests.insert(id.clone(), res);
+                requests.insert(id, res);
                 raft = raft.apply(Command::ClientRequest { id, proposal, client_address: Address::Client })?;
             },
         }

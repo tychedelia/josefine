@@ -50,7 +50,7 @@ async fn stream_messages(stream: TcpStream, in_tx: UnboundedSender<Message>) -> 
 }
 
 pub async fn send_task(
-    mut shutdown: Sender<()>,
+    shutdown: Sender<()>,
     id: NodeId,
     nodes: Vec<Node>,
     out_rx: UnboundedReceiver<Message>,

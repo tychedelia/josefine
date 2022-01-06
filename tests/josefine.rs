@@ -2,13 +2,13 @@ use std::collections::HashMap;
 use std::net::SocketAddr;
 use kafka_protocol::messages::{ApiKey, ApiVersionsRequest, RequestHeader, RequestKind};
 use kafka_protocol::protocol::StrBytes;
-use tokio::io::AsyncWriteExt;
+
 use tokio::time::Duration;
 use josefine::broker::config::{Broker, BrokerId};
 use josefine::config::JosefineConfig;
 use josefine::josefine_with_config;
 use josefine::kafka::KafkaClient;
-use josefine::raft::config::RaftConfig;
+
 use josefine::raft::Node;
 
 struct NodeManager {
@@ -24,10 +24,10 @@ impl NodeManager {
 
     fn new_node(&mut self, offset: u16) {
         let mut config: JosefineConfig = Default::default();
-        config.raft.id = config.raft.id + offset as u32;
-        config.raft.port = config.raft.port + offset;
+        config.raft.id += offset as u32;
+        config.raft.port += offset;
         config.broker.id = BrokerId(config.broker.id.0 + offset as i32);
-        config.broker.port = config.broker.port + offset;
+        config.broker.port += offset;
         self.nodes.insert(offset, config);
     }
 
@@ -93,7 +93,7 @@ async fn single_node() -> anyhow::Result<()> {
     let rx = shutdown.0.subscribe();
     tokio::spawn(async move { nodes.run(shutdown).await });
     tokio::time::sleep(Duration::from_secs(1)).await;
-    let mut client = KafkaClient::new(addrs[0]).await?.connect(rx).await?;
+    let client = KafkaClient::new(addrs[0]).await?.connect(rx).await?;
     let mut header = RequestHeader::default();
     header.request_api_version = 6;
     header.request_api_key = ApiKey::ApiVersionsKey as i16;
@@ -116,7 +116,7 @@ async fn multi_node() -> anyhow::Result<()> {
     let rx = shutdown.0.subscribe();
     tokio::spawn(async move { nodes.run(shutdown).await });
     tokio::time::sleep(Duration::from_secs(5)).await;
-    let mut client = KafkaClient::new(addrs[0]).await?.connect(rx).await?;
+    let client = KafkaClient::new(addrs[0]).await?.connect(rx).await?;
     let mut header = RequestHeader::default();
     header.request_api_version = 6;
     header.request_api_key = ApiKey::ApiVersionsKey as i16;

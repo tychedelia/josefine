@@ -97,7 +97,7 @@ impl Broker {
                 let (_, shutdown_rx) = tokio::sync::broadcast::channel(1);
                 let client = client.connect(shutdown_rx).await?;
                 //
-                if let kafka_protocol::messages::ResponseKind::LeaderAndIsrResponse(res) = client.send(header, req).await? {
+                if let kafka_protocol::messages::ResponseKind::LeaderAndIsrResponse(_res) = client.send(header, req).await? {
                 } else {
                     panic!();
                 }
@@ -148,7 +148,7 @@ mod tests {
             .insert(topic_name.clone(), CreatableTopic::default());
         let (res, _) = tokio::join!(
             tokio::spawn(async move {
-                Ok::<_, anyhow::Error>(broker.handle(req, CreateTopicsResponse::default()).await?)
+                broker.handle(req, CreateTopicsResponse::default()).await
             }),
             tokio::spawn(async move {
                 let (_, cb) = rx.recv().await.unwrap();

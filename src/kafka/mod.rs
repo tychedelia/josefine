@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 use std::net::SocketAddr;
 use kafka_protocol::messages::{RequestHeader, RequestKind, ResponseHeader, ResponseKind};
-use tokio::io::AsyncWriteExt;
-use tokio::net::{TcpSocket, TcpStream, ToSocketAddrs};
-use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
+
+use tokio::net::{TcpStream};
+use tokio::sync::mpsc::{UnboundedSender};
 use tokio::sync::oneshot;
-use tokio::task::JoinHandle;
+
 
 pub mod codec;
 pub mod error;

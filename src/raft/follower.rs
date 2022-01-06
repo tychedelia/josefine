@@ -163,7 +163,7 @@ impl Apply for Raft<Follower> {
                     self.send(
                         Address::Peer(leader_id),
                         Command::ClientRequest {
-                            id: id.clone(),
+                            id,
                             proposal,
                             // rewrite address to our own so we can close out the request ourself
                             client_address: Address::Peer(self.id),
@@ -180,7 +180,7 @@ impl Apply for Raft<Follower> {
                 self.send(
                     Address::Client,
                     Command::ClientResponse {
-                        id: id.clone(),
+                        id,
                         res,
                     },
                 )?;

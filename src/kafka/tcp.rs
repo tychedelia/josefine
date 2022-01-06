@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-use futures::{AsyncReadExt, SinkExt};
-use futures::channel::mpsc::UnboundedSender;
+use futures::{SinkExt};
+
 use kafka_protocol::messages::{RequestHeader, RequestKind, ResponseKind};
 use tokio::net::TcpStream;
 use tokio::sync::mpsc::UnboundedReceiver;
@@ -11,7 +11,7 @@ use tokio_util::codec::{FramedRead, FramedWrite};
 use crate::kafka::codec::KafkaClientCodec;
 
 pub async fn send_messages(
-    mut stream: TcpStream,
+    stream: TcpStream,
     mut rx: UnboundedReceiver<(RequestHeader, RequestKind, oneshot::Sender<ResponseKind>)>,
     mut shutdown: tokio::sync::broadcast::Receiver<()>,
 ) -> anyhow::Result<()> {
