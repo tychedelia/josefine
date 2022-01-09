@@ -97,7 +97,6 @@ impl JosefineRaft {
     ) -> Result<RaftHandle> {
         self.server
             .run(ServerRunOpts {
-                duration: None,
                 fsm,
                 client_rx,
                 shutdown,
@@ -107,7 +106,7 @@ impl JosefineRaft {
 
     pub async fn run_for<T: 'static + fsm::Fsm>(
         self,
-        duration: Duration,
+        _duration: Duration,
         fsm: T,
         client_rx: UnboundedReceiver<(
             Proposal,
@@ -120,7 +119,6 @@ impl JosefineRaft {
     ) -> Result<RaftHandle> {
         self.server
             .run(ServerRunOpts {
-                duration: Some(duration),
                 fsm,
                 client_rx,
                 shutdown,
@@ -424,6 +422,27 @@ impl RaftHandle {
     pub fn is_leader(&self) -> bool {
         matches!(self, Self::Leader(_))
     }
+
+    pub fn get_follower(self) -> Option<Raft<Follower>> {
+        match self {
+            RaftHandle::Follower(r) => Some(r),
+            _ => None,
+        }
+    }
+
+    pub fn get_candidate(self) -> Option<Raft<Candidate>> {
+        match self {
+            RaftHandle::Candidate(r) => Some(r),
+            _ => None,
+        }
+    }
+
+    pub fn get_leader(self) -> Option<Raft<Leader>> {
+        match self {
+            RaftHandle::Leader(r) => Some(r),
+            _ => None,
+        }
+    }
 }
 
 impl Apply for RaftHandle {
@@ -444,4 +463,85 @@ pub trait Apply {
     /// server containing this state machine to shut down gracefully.
 
     fn apply(self, cmd: Command) -> Result<RaftHandle>;
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::raft::chain::Chain;
+    use crate::raft::rpc::Address;
+    use crate::raft::{Command, Raft, RaftRole, Role, Term};
+    use std::time::{Instant};
+    use tempfile::tempdir;
+
+    #[derive(Debug)]
+    struct RaftT {
+        inner: u8,
+    }
+
+    impl Role for RaftT {
+        fn term(&mut self, term: Term) {
+            self.inner = term as u8;
+        }
+
+        fn role(&self) -> RaftRole {
+            unimplemented!()
+        }
+    }
+
+    #[test]
+    fn need_election() {
+        let (fsm_tx, _fsm_rx) = tokio::sync::mpsc::unbounded_channel();
+        let (rpc_tx, _rpc_rx) = tokio::sync::mpsc::unbounded_channel();
+        let mut raft = Raft {
+            id: 0,
+            config: Default::default(),
+            state: Default::default(),
+            role: RaftT { inner: 0 },
+            chain: Chain::new(tempdir().unwrap()).unwrap(),
+            rpc_tx,
+            fsm_tx,
+        };
+        raft.state.election_time = Some(Instant::now());
+        raft.state.election_timeout = Some(raft.config.election_timeout);
+        std::thread::sleep(raft.config.election_timeout);
+        assert!(raft.needs_election());
+    }
+
+    #[tokio::test]
+    async fn send_all() -> anyhow::Result<()> {
+        let (fsm_tx, _fsm_rx) = tokio::sync::mpsc::unbounded_channel();
+        let (rpc_tx, mut rpc_rx) = tokio::sync::mpsc::unbounded_channel();
+        let raft = Raft {
+            id: 0,
+            config: Default::default(),
+            state: Default::default(),
+            role: RaftT { inner: 0 },
+            chain: Chain::new(tempdir()?)?,
+            rpc_tx,
+            fsm_tx,
+        };
+        raft.send_all(Command::Noop)?;
+        let msg = rpc_rx.recv().await.unwrap();
+        assert_eq!(msg.from, Address::Peer(raft.id));
+        assert_eq!(msg.to, Address::Peers);
+        assert_eq!(msg.command, Command::Noop);
+        Ok(())
+    }
+
+    #[test]
+    fn term() {
+        let (fsm_tx, _fsm_rx) = tokio::sync::mpsc::unbounded_channel();
+        let (rpc_tx, _rpc_rx) = tokio::sync::mpsc::unbounded_channel();
+        let mut raft = Raft {
+            id: 0,
+            config: Default::default(),
+            state: Default::default(),
+            role: RaftT { inner: 0 },
+            chain: Chain::new(tempdir().unwrap()).unwrap(),
+            rpc_tx,
+            fsm_tx,
+        };
+        raft.term(11);
+        assert_eq!(raft.role.inner, 11);
+    }
 }

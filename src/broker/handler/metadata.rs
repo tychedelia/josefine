@@ -37,7 +37,7 @@ impl Handler<MetadataRequest> for Broker {
                     .iter()
                     .map(|(k, _v)| {
                         let mut mp = MetadataResponsePartition::default();
-                        match self.store.get_partition(&topic.name, *k).unwrap() {
+                        match self.store.get_partition(&topic.name, *k)? {
                             Some(p) => {
                                 // mp.leader_id messages:: = p.leader;
                                 mp.partition_index = p.idx.0;
@@ -49,9 +49,9 @@ impl Handler<MetadataRequest> for Broker {
                                 mp.error_code = 0;
                             }
                         }
-                        mp
+                        Ok(mp)
                     })
-                    .collect(),
+                    .collect::<anyhow::Result<Vec<MetadataResponsePartition>>>()?,
                 ..Default::default()
             };
             let s = StrBytes::try_from(Bytes::from(name)).unwrap();

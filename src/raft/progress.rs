@@ -232,14 +232,7 @@ impl From<Progress<Probe>> for Progress<Replicate> {
 }
 
 #[derive(Debug)]
-pub struct PendingReplication {
-    /// The earliest index in the pending buffer.
-    index: usize,
-    /// The number of items in the pending buffer.
-    count: usize,
-    size: usize,
-    pending: Vec<Option<LogIndex>>,
-}
+pub struct PendingReplication {}
 
 #[cfg(test)]
 mod tests {
@@ -266,6 +259,12 @@ mod tests {
         let progress = progress.advance(BlockId::new(666));
         assert!(progress.is_active());
         assert_eq!(progress.head(), BlockId::new(666));
+    }
+
+    #[test]
+    fn get_next_id() {
+        let progress = NodeProgress::new(0);
+        let _progress = progress.advance(BlockId::new(666));
     }
 
     #[test]

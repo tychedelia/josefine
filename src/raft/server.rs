@@ -25,7 +25,6 @@ pub struct Server {
 }
 
 pub struct ServerRunOpts<T: 'static + fsm::Fsm> {
-    pub duration: Option<Duration>,
     pub fsm: T,
     pub client_rx: UnboundedReceiver<(
         Proposal,
@@ -47,7 +46,6 @@ impl Server {
         run_opts: ServerRunOpts<T>,
     ) -> Result<RaftHandle> {
         let ServerRunOpts {
-            duration,
             fsm,
             client_rx,
             shutdown,
@@ -92,11 +90,6 @@ impl Server {
         )
         .remote_handle();
         tokio::spawn(task);
-
-        if let Some(duration) = duration {
-            tokio::time::sleep(duration).await;
-            shutdown_tx.send(())?;
-        }
 
         let (raft, _, _, _) = tokio::try_join!(event_loop, tcp_receiver, tcp_sender, driver)?;
         Ok(raft)

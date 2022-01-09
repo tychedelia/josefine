@@ -1,4 +1,7 @@
-use kafka_protocol::messages::{ApiKey, ApiVersionsRequest, RequestHeader, RequestKind};
+use kafka_protocol::messages::create_topics_request::CreatableTopic;
+use kafka_protocol::messages::{
+    ApiKey, ApiVersionsRequest, CreateTopicsRequest, RequestHeader, RequestKind, TopicName,
+};
 use kafka_protocol::protocol::StrBytes;
 use std::collections::HashMap;
 use std::net::SocketAddr;
@@ -125,6 +128,40 @@ async fn single_node() -> anyhow::Result<()> {
     client
         .send(header, RequestKind::ApiVersionsRequest(req))
         .await?;
+    Ok(())
+}
+
+#[tokio::test]
+#[tracing_test::traced_test]
+async fn create_topic() -> anyhow::Result<()> {
+    let mut nodes = NodeManager::new();
+    nodes.new_node(4);
+    let addrs = nodes.get_addrs();
+    let shutdown = tokio::sync::broadcast::channel(1);
+    let rx = shutdown.0.subscribe();
+    tokio::spawn(async move { nodes.run(shutdown).await });
+    tokio::time::sleep(Duration::from_secs(1)).await;
+    let client = KafkaClient::new(addrs[0]).await?.connect(rx).await?;
+    let mut header = RequestHeader::default();
+    header.request_api_version = 7;
+    header.request_api_key = ApiKey::ApiVersionsKey as i16;
+    let mut req = CreateTopicsRequest::default();
+    req.topics.insert(TopicName(StrBytes::from_str("test")), {
+        let mut t = CreatableTopic::default();
+        t.replication_factor = 2;
+        t.num_partitions = 2;
+        t
+    });
+    match client
+        .send(header, RequestKind::CreateTopicsRequest(req))
+        .await
+    {
+        Ok(_) => {}
+        Err(err) => {
+            tracing::error!(?err, "could not create topic");
+            return Err(anyhow::anyhow!(""));
+        }
+    };
     Ok(())
 }
 

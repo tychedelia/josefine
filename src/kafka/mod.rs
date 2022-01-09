@@ -1,5 +1,4 @@
-use kafka_protocol::messages::{RequestHeader, RequestKind, ResponseHeader, ResponseKind};
-use std::collections::HashMap;
+use kafka_protocol::messages::{RequestHeader, RequestKind, ResponseKind};
 use std::net::SocketAddr;
 
 use tokio::net::TcpStream;
@@ -14,7 +13,6 @@ pub mod util;
 #[derive(Debug)]
 pub struct KafkaClient {
     stream: TcpStream,
-    cbs: HashMap<i16, tokio::sync::oneshot::Receiver<(ResponseHeader, ResponseKind)>>,
 }
 
 #[derive(Debug)]
@@ -41,10 +39,7 @@ impl ConnectedKafkaClient {
 impl KafkaClient {
     pub async fn new(addr: SocketAddr) -> anyhow::Result<Self> {
         let stream = TcpStream::connect(&addr).await?;
-        Ok(KafkaClient {
-            stream,
-            cbs: Default::default(),
-        })
+        Ok(KafkaClient { stream })
     }
 
     pub async fn connect(

@@ -17,7 +17,7 @@ impl Handler<LeaderAndIsrRequest> for Broker {
                 let partition = self
                     .store
                     .get_partition(&ps.topic_name, ps.partition_index)?
-                    .expect("TODO: couldn't find partition");
+                    .ok_or(anyhow::anyhow!("could not find partition"))?;
                 let pid = partition.id;
                 let replica = Replica::new(&self.config.data_dir, BrokerId(ps.leader.0), partition);
                 self.replicas.add(pid, replica);

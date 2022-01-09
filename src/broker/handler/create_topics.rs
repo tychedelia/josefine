@@ -35,7 +35,9 @@ impl Broker {
 
         for i in 0..topic.num_partitions {
             brokers.shuffle(&mut thread_rng());
-            let leader = brokers.first().unwrap();
+            let leader = brokers
+                .first()
+                .expect("no brokers provided in configuration");
 
             let replicas: Vec<i32> = brokers
                 .iter()
@@ -163,7 +165,8 @@ mod tests {
                 };
                 cb.send(Ok(crate::raft::rpc::Response::new(bincode::serialize(
                     &topic,
-                )?))).unwrap();
+                )?)))
+                .unwrap();
                 Ok::<_, anyhow::Error>(())
             }),
         );

@@ -66,6 +66,7 @@ impl AsRef<[u8]> for BlockId {
     }
 }
 
+#[derive(Debug)]
 pub struct UnappendedBlock {
     data: Vec<u8>,
 }
@@ -129,24 +130,6 @@ impl Chain {
         Ok(chain)
     }
 
-    pub fn has(&self, block_id: &BlockId) -> bool {
-        self.db.contains_key(block_id).unwrap()
-    }
-
-    pub fn append(&mut self, block: UnappendedBlock) -> Result<BlockId> {
-        let id = self.id_gen.next();
-        let block = Block {
-            id: BlockId::new(id),
-            next: self.head.clone(),
-            data: block.data,
-        };
-        self.db
-            .insert(&block.id, bincode::serialize(&block).unwrap().to_vec())
-            .unwrap();
-        self.head = block.id.clone();
-        Ok(block.id)
-    }
-
     fn init(&mut self) -> Result<()> {
         let id = self.id_gen.next();
         assert_eq!(id, 0);
@@ -163,8 +146,30 @@ impl Chain {
         Ok(())
     }
 
+    pub fn has(&self, block_id: &BlockId) -> Result<bool> {
+        Ok(self.db.contains_key(block_id)?)
+    }
+
+    #[tracing::instrument]
+    pub fn append(&mut self, block: UnappendedBlock) -> Result<BlockId> {
+        let id = self.id_gen.next();
+        let block = Block {
+            id: BlockId::new(id),
+            next: self.head.clone(),
+            data: block.data,
+        };
+        tracing::trace!(?block, "append block");
+        self.db
+            .insert(&block.id, bincode::serialize(&block).unwrap().to_vec())
+            .unwrap();
+        self.head = block.id.clone();
+        Ok(block.id)
+    }
+
+    #[tracing::instrument]
     pub fn extend(&mut self, block: Block) -> Result<()> {
-        if !self.has(&block.next) {
+        // tracing::trace!(?block, "extend block");
+        if !self.has(&block.next)? {
             return Err(anyhow::anyhow!(
                 "block {:?} not found in chain",
                 &block.next
@@ -191,9 +196,10 @@ impl Chain {
         Ok(block_id.clone())
     }
 
-    pub fn range<R: RangeBounds<BlockId>>(&self, range: R) -> impl Iterator<Item = Block> {
+    pub fn range<R: RangeBounds<BlockId>>(&self, range: R) -> impl DoubleEndedIterator<Item = Block> {
         self.db
             .range(range)
+            .rev()
             .map(|x| x.unwrap().1)
             .map(|x| bincode::deserialize(&x).unwrap())
     }
@@ -205,63 +211,111 @@ impl Chain {
     pub fn get_commit(&self) -> BlockId {
         self.commit.clone()
     }
+
+    #[tracing::instrument]
+    pub fn compact(&mut self) -> Result<()> {
+        tracing::trace!("compact");
+        let mut next_id = None;
+        for b in self.range(BlockId::new(0)..self.get_commit()) {
+            tracing::trace!(?b, "walk block");
+            if next_id.is_some() && b.id != next_id.unwrap() {
+                tracing::trace!(?b, "remove block");
+                self.db.remove(b.id)?;
+            }
+
+            next_id = Some(b.next);
+        }
+
+        Ok(())
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use tempfile::tempdir;
+    use crate::raft::chain::{Block, BlockId, Chain, UnappendedBlock};
 
     #[test]
-    fn range() {
-        let db = sled::open(tempdir().unwrap().path()).unwrap();
-        db.insert(0u64.to_be_bytes(), "").unwrap();
-        db.insert(1u64.to_be_bytes(), "").unwrap();
-        db.insert(2u64.to_be_bytes(), "").unwrap();
-        db.insert(3u64.to_be_bytes(), "").unwrap();
-
-        let mut count = 0;
-        for x in db.range(0u64.to_be_bytes()..4u64.to_be_bytes()) {
-            let _x = x.unwrap();
-            count += 1;
-        }
-
-        assert_eq!(count, 4);
+    fn new() -> anyhow::Result<()> {
+        let chain = Chain::new(tempdir().unwrap()).unwrap();
+        assert_eq!(chain.get_commit(), BlockId::new(0));
+        assert_eq!(chain.get_head(), BlockId::new(0));
+        Ok(())
     }
 
     #[test]
-    fn range_remove() {
-        let db = sled::open(tempdir().unwrap().path()).unwrap();
-        db.insert(0u64.to_be_bytes(), "").unwrap();
-        db.insert(1u64.to_be_bytes(), "").unwrap();
-        db.insert(2u64.to_be_bytes(), "").unwrap();
-        db.insert(3u64.to_be_bytes(), "").unwrap();
-
-        db.remove(1u64.to_be_bytes()).unwrap();
-        db.remove(2u64.to_be_bytes()).unwrap();
-
-        let mut count = 0;
-        for x in db.range(0u64.to_be_bytes()..4u64.to_be_bytes()) {
-            let _x = x.unwrap();
-            count += 1;
-        }
-
-        assert_eq!(count, 2);
+    fn append() -> anyhow::Result<()> {
+        let mut chain = Chain::new(tempdir()?)?;
+        chain.append(UnappendedBlock::new(vec![]))?;
+        assert_eq!(chain.get_commit(), BlockId::new(0));
+        assert_eq!(chain.get_head(), BlockId::new(1));
+        Ok(())
     }
 
     #[test]
-    fn range_all() {
-        let db = sled::open(tempdir().unwrap().path()).unwrap();
-        db.insert(0u64.to_be_bytes(), "").unwrap();
-        db.insert(1u64.to_be_bytes(), "").unwrap();
-        db.insert(2u64.to_be_bytes(), "").unwrap();
-        db.insert(3u64.to_be_bytes(), "").unwrap();
+    fn commit() -> anyhow::Result<()> {
+        let mut chain = Chain::new(tempdir()?)?;
+        chain.append(Block::new(vec![]))?;
+        chain.commit(&BlockId::new(1))?;
+        assert_eq!(chain.get_commit(), BlockId::new(1));
+        assert_eq!(chain.get_head(), BlockId::new(1));
+        Ok(())
+    }
 
-        let mut count = 0;
-        for x in db.range(0u64.to_be_bytes()..) {
-            let _x = x.unwrap();
-            count += 1;
+    #[test]
+    fn extend() -> anyhow::Result<()> {
+        let mut chain = Chain::new(tempdir()?)?;
+        chain.extend(Block {
+            id: BlockId::new(1),
+            next: BlockId::new(0),
+            data: vec![]
+        })?;
+        assert_eq!(chain.get_commit(), BlockId::new(0));
+        assert_eq!(chain.get_head(), BlockId::new(1));
+        Ok(())
+    }
+
+    #[test]
+    fn range() -> anyhow::Result<()> {
+        let mut chain = Chain::new(tempdir()?)?;
+        chain.extend(Block {
+            id: BlockId::new(1),
+            next: BlockId::new(0),
+            data: vec![]
+        })?;
+        let blocks: Vec<Block> = chain.range(..).collect();
+        assert_eq!(blocks.len(), 2);
+        Ok(())
+    }
+
+    #[test]
+    fn has() -> anyhow::Result<()> {
+        let mut chain = Chain::new(tempdir()?)?;
+        chain.extend(Block {
+            id: BlockId::new(1),
+            next: BlockId::new(0),
+            data: vec![]
+        })?;
+        assert!(chain.has(&BlockId::new(1))?);
+        Ok(())
+    }
+
+    #[test]
+    #[tracing_test::traced_test]
+    fn compact() -> anyhow::Result<()> {
+        let mut chain = Chain::new(tempdir()?)?;
+        let chain_tree = vec![(1, 0), (2, 1), (3, 2), (4, 3), (5, 3), (6, 5)];
+        for (id, next) in chain_tree {
+            chain.extend(Block {
+                id: BlockId::new(id),
+                next: BlockId::new(next),
+                data: vec![]
+            })?;
         }
-
-        assert_eq!(count, 4);
+        assert!(chain.has(&BlockId::new(4))?);
+        chain.commit(&BlockId::new(6))?;
+        chain.compact()?;
+        assert!(!chain.has(&BlockId::new(4))?);
+        Ok(())
     }
 }

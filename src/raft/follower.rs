@@ -4,10 +4,10 @@ use std::time::Instant;
 use rand::Rng;
 
 use crate::raft::candidate::Candidate;
-use crate::raft::chain::{BlockId, Chain};
+use crate::raft::chain::{Block, BlockId, Chain};
 use crate::raft::election::Election;
 use crate::raft::fsm::Instruction;
-use crate::raft::rpc::{Address, Message};
+use crate::raft::rpc::{Address, Message, Proposal, Response, ResponseError};
 use crate::raft::Command::VoteResponse;
 use crate::raft::{Apply, RaftHandle, RaftRole, Term};
 use crate::raft::{ClientRequestId, RaftConfig};
@@ -34,152 +34,29 @@ impl Role for Follower {
 
 impl Apply for Raft<Follower> {
     #[tracing::instrument]
-    fn apply(mut self, cmd: Command) -> Result<RaftHandle> {
+    fn apply(self, cmd: Command) -> Result<RaftHandle> {
         self.log_command(&cmd);
         match cmd {
-            Command::Tick => {
-                if self.needs_election() {
-                    tracing::info!("we need an election");
-                    return self.apply(Command::Timeout);
-                }
-
-                self.apply_self()
-            }
+            Command::Tick => self.apply_tick(),
             Command::AppendEntries {
                 blocks,
                 leader_id,
                 term,
-            } => {
-                // If we haven't voted and the rpc term is greater, set term to that term.
-                if self.state.voted_for.is_none() && term >= self.state.current_term {
-                    self.term(term);
-
-                    // Vote for leader and reset election timeout
-                    self.state.election_time = Some(Instant::now());
-                    self.role.leader_id = Some(leader_id);
-                    self.state.voted_for = Some(leader_id);
-                }
-
-                // If we voted for someone...
-                if let Some(voted_for) = self.state.voted_for {
-                    // And the entries rpc is from another "leader" with a lower term
-                    assert!(
-                        !(voted_for != leader_id && term < self.state.current_term),
-                        "{:?}",
-                        ..
-                    );
-                }
-
-                // If there are entries...
-                if !blocks.is_empty() {
-                    for block in blocks {
-                        self.chain.extend(block)?; // append the entry
-                    }
-
-                    // confirm append
-                    self.rpc_tx.send(Message::new(
-                        Address::Peer(self.id),
-                        Address::Peer(leader_id),
-                        Command::AppendResponse {
-                            node_id: self.id,
-                            term: self.state.current_term,
-                            head: self.chain.get_head(),
-                            success: true,
-                        },
-                    ))?;
-                }
-
-                self.apply_self()
-            }
+            } => self.apply_append_entries(blocks, leader_id, term),
             Command::Heartbeat {
                 leader_id,
                 term,
                 commit,
-            } => {
-                self.set_election_timeout();
-                self.term(term);
-                self.role.leader_id = Some(leader_id);
-                self.state.voted_for = Some(leader_id);
-
-                // apply entries to state machine if leader has advanced commit index
-                let has_committed = self.chain.has(&commit);
-                if has_committed {
-                    let prev = self.chain.get_commit();
-                    self.chain.commit(&commit)?;
-                    self.chain.range(prev..commit).for_each(|block| {
-                        self.fsm_tx.send(Instruction::Apply { block }).unwrap();
-                    });
-                }
-
-                self.send(
-                    Address::Peer(leader_id),
-                    Command::HeartbeatResponse {
-                        commit: self.chain.get_commit(),
-                        has_committed,
-                    },
-                )?;
-                self.apply_self()
-            }
+            } => self.apply_heartbeat(leader_id, term, commit),
             Command::VoteRequest {
                 candidate_id,
                 last_term,
                 head,
                 ..
-            } => {
-                if self.can_vote(last_term, head) {
-                    self.send(
-                        Address::Peer(candidate_id),
-                        VoteResponse {
-                            term: self.state.current_term,
-                            from: self.id,
-                            granted: true,
-                        },
-                    )?;
-                    self.state.voted_for = Some(candidate_id);
-                } else {
-                    self.send(
-                        Address::Peer(candidate_id),
-                        VoteResponse {
-                            term: self.state.current_term,
-                            from: self.id,
-                            granted: false,
-                        },
-                    )?;
-                }
-                self.apply_self()
-            }
-            Command::Timeout => {
-                if self.state.voted_for.is_none() {
-                    self.set_election_timeout(); // start a new election
-                    let raft: Raft<Candidate> = Raft::from(self);
-                    return raft.seek_election();
-                }
-
-                self.apply_self()
-            }
-            Command::ClientRequest { id, proposal, .. } => {
-                if let Some(leader_id) = self.role.leader_id {
-                    self.send(
-                        Address::Peer(leader_id),
-                        Command::ClientRequest {
-                            id,
-                            proposal,
-                            // rewrite address to our own so we can close out the request ourself
-                            client_address: Address::Peer(self.id),
-                        },
-                    )?;
-                    self.role.proxied_reqs.insert(id);
-                    self.apply_self()
-                } else {
-                    // todo: implement request queue
-                    panic!()
-                }
-            }
-            Command::ClientResponse { id, res } => {
-                self.send(Address::Client, Command::ClientResponse { id, res })?;
-                self.role.proxied_reqs.remove(&id);
-                self.apply_self()
-            }
+            } => self.apply_vote_request(candidate_id, last_term, head),
+            Command::Timeout => self.apply_timeout(),
+            Command::ClientRequest { id, proposal, .. } => self.apply_client_request(id, proposal),
+            Command::ClientResponse { id, res } => self.apply_client_response(id, res),
             _ => self.apply_self(),
         }
     }
@@ -236,6 +113,168 @@ impl Raft<Follower> {
     fn apply_self(self) -> Result<RaftHandle> {
         Ok(RaftHandle::Follower(self))
     }
+
+    // Commands
+
+    fn apply_tick(self) -> Result<RaftHandle> {
+        if self.needs_election() {
+            tracing::info!("we need an election");
+            return self.apply(Command::Timeout);
+        }
+
+        self.apply_self()
+    }
+
+    fn apply_append_entries(
+        mut self,
+        blocks: Vec<Block>,
+        leader_id: NodeId,
+        term: Term,
+    ) -> Result<RaftHandle> {
+        // If we haven't voted and the rpc term is greater, set term to that term.
+        if self.state.voted_for.is_none() && term >= self.state.current_term {
+            self.term(term);
+
+            // Vote for leader and reset election timeout
+            self.state.election_time = Some(Instant::now());
+            self.role.leader_id = Some(leader_id);
+            self.state.voted_for = Some(leader_id);
+        }
+
+        // If we voted for someone...
+        if let Some(voted_for) = self.state.voted_for {
+            // And the entries rpc is from another "leader" with a lower term
+            assert!(
+                !(voted_for != leader_id && term < self.state.current_term),
+                "{:?}",
+                ..
+            );
+        }
+
+        // If there are entries...
+        if !blocks.is_empty() {
+            for block in blocks {
+                self.chain.extend(block)?; // append the entry
+            }
+
+            // confirm append
+            self.rpc_tx.send(Message::new(
+                Address::Peer(self.id),
+                Address::Peer(leader_id),
+                Command::AppendResponse {
+                    node_id: self.id,
+                    term: self.state.current_term,
+                    head: self.chain.get_head(),
+                    success: true,
+                },
+            ))?;
+        }
+
+        self.apply_self()
+    }
+
+    fn apply_heartbeat(
+        mut self,
+        leader_id: NodeId,
+        term: Term,
+        commit: BlockId,
+    ) -> Result<RaftHandle> {
+        self.set_election_timeout();
+        self.term(term);
+        self.role.leader_id = Some(leader_id);
+        self.state.voted_for = Some(leader_id);
+
+        // apply entries to state machine if leader has advanced commit index
+        let has_committed = self.chain.has(&commit)?;
+        if has_committed {
+            let prev = self.chain.get_commit();
+            self.chain.commit(&commit)?;
+            self.chain.range(prev..commit).for_each(|block| {
+                self.fsm_tx.send(Instruction::Apply { block }).unwrap();
+            });
+        }
+
+        self.send(
+            Address::Peer(leader_id),
+            Command::HeartbeatResponse {
+                commit: self.chain.get_commit(),
+                has_committed,
+            },
+        )?;
+        self.apply_self()
+    }
+
+    fn apply_vote_request(
+        mut self,
+        candidate_id: NodeId,
+        last_term: Term,
+        head: BlockId,
+    ) -> Result<RaftHandle> {
+        if self.can_vote(last_term, head) {
+            self.send(
+                Address::Peer(candidate_id),
+                VoteResponse {
+                    term: self.state.current_term,
+                    from: self.id,
+                    granted: true,
+                },
+            )?;
+            self.state.voted_for = Some(candidate_id);
+        } else {
+            self.send(
+                Address::Peer(candidate_id),
+                VoteResponse {
+                    term: self.state.current_term,
+                    from: self.id,
+                    granted: false,
+                },
+            )?;
+        }
+        self.apply_self()
+    }
+
+    fn apply_timeout(mut self) -> Result<RaftHandle> {
+        if self.state.voted_for.is_none() {
+            self.set_election_timeout(); // start a new election
+            let raft: Raft<Candidate> = Raft::from(self);
+            return raft.seek_election();
+        }
+
+        self.apply_self()
+    }
+
+    fn apply_client_request(
+        mut self,
+        id: ClientRequestId,
+        proposal: Proposal,
+    ) -> Result<RaftHandle> {
+        if let Some(leader_id) = self.role.leader_id {
+            self.send(
+                Address::Peer(leader_id),
+                Command::ClientRequest {
+                    id,
+                    proposal,
+                    // rewrite address to our own so we can close out the request ourself
+                    client_address: Address::Peer(self.id),
+                },
+            )?;
+            self.role.proxied_reqs.insert(id);
+            self.apply_self()
+        } else {
+            // todo: implement request queue
+            panic!()
+        }
+    }
+
+    fn apply_client_response(
+        mut self,
+        id: ClientRequestId,
+        res: Result<Response, ResponseError>,
+    ) -> Result<RaftHandle> {
+        self.send(Address::Client, Command::ClientResponse { id, res })?;
+        self.role.proxied_reqs.remove(&id);
+        self.apply_self()
+    }
 }
 
 impl From<Raft<Follower>> for Raft<Candidate> {
@@ -258,13 +297,15 @@ impl From<Raft<Follower>> for Raft<Candidate> {
 
 #[cfg(test)]
 mod tests {
+    use std::time::Instant;
     use super::Command;
     use super::RaftHandle;
+    use crate::raft::chain::BlockId;
     use crate::raft::test::new_follower;
     use crate::raft::Apply;
 
     #[test]
-    fn follower_to_leader_single_node_cluster() {
+    fn follower_to_leader() {
         let ((_rpc_rx, _fsm_rx), follower) = new_follower();
         let id = follower.id;
         match follower.apply(Command::Timeout).unwrap() {
@@ -283,5 +324,110 @@ mod tests {
             RaftHandle::Candidate(_) => panic!(),
             RaftHandle::Leader(_) => panic!(),
         }
+    }
+
+    #[tokio::test]
+    async fn apply_heartbeat() -> anyhow::Result<()> {
+        let ((mut rpc_rx, _), follower) = new_follower();
+        let follower = follower
+            .apply_heartbeat(11, 12, BlockId::new(1))?
+            .get_follower()
+            .unwrap();
+        // we voted for the leader
+        assert!(follower.state.voted_for.is_some());
+        assert_eq!(follower.state.voted_for.unwrap(), 11);
+        assert_eq!(follower.state.current_term, 12);
+        let msg = rpc_rx.recv().await.unwrap();
+        // but we don't have block 1 in our chain
+        assert_eq!(
+            msg.command,
+            Command::HeartbeatResponse {
+                commit: BlockId::new(0),
+                has_committed: false
+            }
+        );
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn apply_vote_request() -> anyhow::Result<()> {
+        let ((mut rpc_rx, _), follower) = new_follower();
+        let mut follower = follower
+            .apply_vote_request(11, 12, BlockId::new(1))?
+            .get_follower()
+            .unwrap();
+        // we voted for the leader
+        assert!(follower.state.voted_for.is_some());
+        assert_eq!(follower.state.voted_for.unwrap(), 11);
+        let msg = rpc_rx.recv().await.unwrap();
+        // we granted the request
+        assert_eq!(
+            msg.command,
+            Command::VoteResponse {
+                term: 0,
+                from: 1,
+                granted: true
+            }
+        );
+        follower.state.voted_for = Some(2);
+        let _follower = follower
+            .apply_vote_request(11, 12, BlockId::new(1))
+            .unwrap();
+        let msg = rpc_rx.recv().await.unwrap();
+        // we already voted
+        assert_eq!(
+            msg.command,
+            Command::VoteResponse {
+                term: 0,
+                from: 1,
+                granted: false
+            }
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn apply_timeout() -> anyhow::Result<()> {
+        let ((_rpc_rx, _), follower) = new_follower();
+        let _leader = follower
+            .apply_timeout()?
+            .get_leader()
+            .unwrap();
+
+        Ok(())
+    }
+
+    #[test]
+    fn apply_tick() -> anyhow::Result<()> {
+        let ((_rpc_rx, _), mut follower) = new_follower();
+        follower.state.election_time = Some(Instant::now());
+        follower.state.election_timeout = Some(follower.config.election_timeout);
+        let follower = follower
+            .apply_tick()?
+            .get_follower()
+            .unwrap();
+        std::thread::sleep(follower.config.election_timeout);
+        let _leader = follower
+            .apply_tick()?
+            .get_leader()
+            .unwrap();
+        Ok(())
+    }
+
+    #[test]
+    fn apply_append_entries() -> anyhow::Result<()> {
+        let ((_rpc_rx, _), mut follower) = new_follower();
+        follower.state.election_time = Some(Instant::now());
+        follower.state.election_timeout = Some(follower.config.election_timeout);
+        let follower = follower
+            .apply_tick()?
+            .get_follower()
+            .unwrap();
+        std::thread::sleep(follower.config.election_timeout);
+        let _leader = follower
+            .apply_tick()?
+            .get_leader()
+            .unwrap();
+        Ok(())
     }
 }
