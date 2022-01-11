@@ -45,7 +45,7 @@ pub async fn run(
         tokio::sync::broadcast::Receiver<()>,
     ),
 ) -> Result<()> {
-    tracing::info!("starting");
+    tracing::info!("start");
     let db = sled::open(&config.broker.state_file).unwrap();
 
     let (client_tx, client_rx) = tokio::sync::mpsc::unbounded_channel();

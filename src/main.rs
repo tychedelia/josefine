@@ -6,8 +6,8 @@ use tracing_subscriber::layer::SubscriberExt;
 
 use tracing_subscriber::{fmt, EnvFilter};
 
-#[tokio::main(flavor = "multi_thread", worker_threads = 3)]
-async fn main() {
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
     let subscriber = tracing_subscriber::registry()
         .with(
             EnvFilter::from_default_env()
@@ -44,5 +44,4 @@ async fn main() {
 
     josefine::josefine(Path::new(&config_path), shutdown)
         .await
-        .unwrap();
 }

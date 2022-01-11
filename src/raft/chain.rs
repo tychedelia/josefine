@@ -185,7 +185,7 @@ impl Chain {
 
     #[tracing::instrument]
     pub fn commit(&mut self, block_id: &BlockId) -> Result<BlockId> {
-        tracing::trace!(?block_id, "commit");
+        tracing::trace!("commit");
         if self.db.contains_key(block_id).unwrap() {
             self.db.insert("commit", block_id.0.as_ref())?;
             self.commit = block_id.clone();
@@ -199,7 +199,6 @@ impl Chain {
     pub fn range<R: RangeBounds<BlockId>>(&self, range: R) -> impl DoubleEndedIterator<Item = Block> {
         self.db
             .range(range)
-            .rev()
             .map(|x| x.unwrap().1)
             .map(|x| bincode::deserialize(&x).unwrap())
     }
@@ -216,7 +215,7 @@ impl Chain {
     pub fn compact(&mut self) -> Result<()> {
         tracing::trace!("compact");
         let mut next_id = None;
-        for b in self.range(BlockId::new(0)..self.get_commit()) {
+        for b in self.range(BlockId::new(0)..self.get_commit()).rev() {
             tracing::trace!(?b, "walk block");
             if next_id.is_some() && b.id != next_id.unwrap() {
                 tracing::trace!(?b, "remove block");

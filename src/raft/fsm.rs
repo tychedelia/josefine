@@ -4,10 +4,7 @@ use tokio::sync::mpsc;
 
 use crate::raft::chain::{Block, BlockId};
 use crate::raft::rpc::ResponseError;
-use crate::raft::{
-    rpc::{self, Address, Message, Response},
-    ClientRequestId, Command,
-};
+use crate::raft::{rpc::{self, Address, Message, Response}, ClientRequestId, Command, ClientResponse};
 use anyhow::Result;
 use std::collections::HashMap;
 
@@ -66,10 +63,10 @@ impl<T: Fsm> Driver<T> {
                                 self.rpc_tx.send(Message {
                                     to,
                                     from: Address::Local,
-                                    command: Command::ClientResponse {
+                                    command: Command::ClientResponse(ClientResponse {
                                         id,
                                         res: res.map(Response::new).map_err(|_e| ResponseError {}),
-                                    }
+                                    })
                                 })?;
                             }
                         }

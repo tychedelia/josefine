@@ -1,8 +1,5 @@
 use crate::raft::rpc::{Address, Message, Proposal, Response, ResponseError};
-use crate::raft::{
-    config::RaftConfig,
-    fsm::{self},
-};
+use crate::raft::{ClientRequest, config::RaftConfig, fsm::{self}};
 use crate::raft::{tcp, ClientRequestId};
 use crate::raft::{Apply, Command, RaftHandle};
 use anyhow::Result;
@@ -18,12 +15,14 @@ use tokio::{
 use uuid::Uuid;
 
 /// step duration
-const TICK: Duration = Duration::from_millis(100);
+const TICK: Duration = Duration::from_millis(1000);
 
+#[derive(Debug)]
 pub struct Server {
     config: RaftConfig,
 }
 
+#[derive(Debug)]
 pub struct ServerRunOpts<T: 'static + fsm::Fsm> {
     pub fsm: T,
     pub client_rx: UnboundedReceiver<(
@@ -41,10 +40,12 @@ impl Server {
         Server { config }
     }
 
+    #[tracing::instrument]
     pub async fn run<T: 'static + fsm::Fsm>(
         self,
         run_opts: ServerRunOpts<T>,
     ) -> Result<RaftHandle> {
+        tracing::info!("start raft");
         let ServerRunOpts {
             fsm,
             client_rx,
@@ -96,6 +97,8 @@ impl Server {
     }
 }
 
+
+#[tracing::instrument]
 async fn event_loop(
     mut shutdown: tokio::sync::broadcast::Receiver<()>,
     mut raft: RaftHandle,
@@ -120,16 +123,26 @@ async fn event_loop(
             // tick state machine
             _ = step_interval.tick() => raft = raft.apply(Command::Tick)?,
             // intra-cluster communication
-            Some(msg) = tcp_rx.recv() => raft = raft.apply(msg.command)?,
+            Some(msg) = tcp_rx.recv() => {
+                match msg {
+                    Message { to: Address::Peer(_), command: Command::ClientRequest(ref req), .. } => {
+                        tracing::debug!("receive proxied client req");
+                        let (tx, rx) = oneshot::channel();
+                        requests.insert(req.id, tx);
+                        raft = raft.apply(msg.command)?;
+                    },
+                    _ => raft = raft.apply(msg.command)?
+                }
+            },
             // outgoing messages from raft
             Some(msg) = rpc_rx.recv() => {
                 match msg {
                     Message { to: Address::Peer(_), .. } => tcp_tx.send(msg)?,
                     Message { to: Address::Peers, ..  } => tcp_tx.send(msg)?,
                     Message { to: Address::Local, .. } => raft = raft.apply(msg.command)?,
-                    Message { to: Address::Client, command: Command::ClientResponse { id, res }, .. } => {
-                        match requests.remove(&id) {
-                            Some(tx) => tx.send(res).expect("the channel was dropped"),
+                    Message { to: Address::Client, command: Command::ClientResponse(res), .. } => {
+                        match requests.remove(&res.id) {
+                            Some(tx) => tx.send(res.res).expect("the channel was dropped"),
                             None => {
                                 panic!("could not find response tx");
                             }
@@ -142,7 +155,7 @@ async fn event_loop(
             Some((proposal, res)) = client_rx.recv() => {
                 let id = Uuid::new_v4();
                 requests.insert(id, res);
-                raft = raft.apply(Command::ClientRequest { id, proposal, client_address: Address::Client })?;
+                raft = raft.apply(Command::ClientRequest(ClientRequest { id, proposal, address: Address::Client }))?;
             },
         }
     }

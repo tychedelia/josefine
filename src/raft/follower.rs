@@ -9,7 +9,7 @@ use crate::raft::election::Election;
 use crate::raft::fsm::Instruction;
 use crate::raft::rpc::{Address, Message, Proposal, Response, ResponseError};
 use crate::raft::Command::VoteResponse;
-use crate::raft::{Apply, RaftHandle, RaftRole, Term};
+use crate::raft::{Apply, ClientRequest, ClientResponse, RaftHandle, RaftRole, Term};
 use crate::raft::{ClientRequestId, RaftConfig};
 use crate::raft::{Command, NodeId, Raft, Role, State};
 use anyhow::Result;
@@ -20,6 +20,7 @@ use tokio::sync::mpsc::UnboundedSender;
 pub struct Follower {
     pub leader_id: Option<NodeId>,
     pub proxied_reqs: HashSet<ClientRequestId>,
+    pub queued_reqs: Vec<ClientRequest>,
 }
 
 impl Role for Follower {
@@ -55,8 +56,8 @@ impl Apply for Raft<Follower> {
                 ..
             } => self.apply_vote_request(candidate_id, last_term, head),
             Command::Timeout => self.apply_timeout(),
-            Command::ClientRequest { id, proposal, .. } => self.apply_client_request(id, proposal),
-            Command::ClientResponse { id, res } => self.apply_client_response(id, res),
+            Command::ClientRequest(req) => self.apply_client_request(req),
+            Command::ClientResponse(res) => self.apply_client_response(res.id, res.res),
             _ => self.apply_self(),
         }
     }
@@ -78,6 +79,7 @@ impl Raft<Follower> {
             role: Follower {
                 leader_id: None,
                 proxied_reqs: HashSet::new(),
+                queued_reqs: Vec::new(),
             },
             chain,
             rpc_tx,
@@ -118,7 +120,7 @@ impl Raft<Follower> {
 
     fn apply_tick(self) -> Result<RaftHandle> {
         if self.needs_election() {
-            tracing::info!("we need an election");
+            tracing::info!("timeout");
             return self.apply(Command::Timeout);
         }
 
@@ -184,9 +186,19 @@ impl Raft<Follower> {
         self.role.leader_id = Some(leader_id);
         self.state.voted_for = Some(leader_id);
 
+        // send any queued requests
+        for req in std::mem::replace(&mut self.role.queued_reqs, vec![]).into_iter() {
+            let id = req.id;
+            self.send(
+                Address::Peer(leader_id),
+                Command::ClientRequest(req.clone()),
+            )?;
+            self.role.proxied_reqs.insert(id);
+        }
+
         // apply entries to state machine if leader has advanced commit index
         let has_committed = self.chain.has(&commit)?;
-        if has_committed {
+        if has_committed && &commit > &self.chain.get_commit()  {
             let prev = self.chain.get_commit();
             self.chain.commit(&commit)?;
             self.chain.range(prev..commit).for_each(|block| {
@@ -245,25 +257,21 @@ impl Raft<Follower> {
 
     fn apply_client_request(
         mut self,
-        id: ClientRequestId,
-        proposal: Proposal,
+        mut req: ClientRequest,
     ) -> Result<RaftHandle> {
+        // rewrite address to our own so we can close out the request ourself
+        req.address = Address::Peer(self.id);
         if let Some(leader_id) = self.role.leader_id {
+            let id = req.id;
             self.send(
                 Address::Peer(leader_id),
-                Command::ClientRequest {
-                    id,
-                    proposal,
-                    // rewrite address to our own so we can close out the request ourself
-                    client_address: Address::Peer(self.id),
-                },
+                Command::ClientRequest(req),
             )?;
             self.role.proxied_reqs.insert(id);
-            self.apply_self()
         } else {
-            // todo: implement request queue
-            panic!()
+            self.role.queued_reqs.push(req);
         }
+        self.apply_self()
     }
 
     fn apply_client_response(
@@ -271,7 +279,7 @@ impl Raft<Follower> {
         id: ClientRequestId,
         res: Result<Response, ResponseError>,
     ) -> Result<RaftHandle> {
-        self.send(Address::Client, Command::ClientResponse { id, res })?;
+        self.send(Address::Client, Command::ClientResponse(ClientResponse { id, res }))?;
         self.role.proxied_reqs.remove(&id);
         self.apply_self()
     }
@@ -286,7 +294,7 @@ impl From<Raft<Follower>> for Raft<Candidate> {
         Raft {
             id: val.id,
             state: val.state,
-            role: Candidate { election },
+            role: Candidate { election, queued_reqs: Vec::new() },
             config: val.config,
             chain: val.chain,
             rpc_tx: val.rpc_tx,

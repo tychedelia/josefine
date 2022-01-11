@@ -37,7 +37,7 @@ impl Server {
             tokio::sync::broadcast::Receiver<()>,
         ),
     ) -> Result<()> {
-        tracing::info!("starting handler");
+        tracing::info!("start broker");
         let listener = TcpListener::bind(self.address).await?;
         let (in_tx, out_tx) = tokio::sync::mpsc::unbounded_channel();
         let (task, tcp_receiver) =

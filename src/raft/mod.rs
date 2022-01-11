@@ -137,6 +137,19 @@ pub type LogIndex = u64;
 
 pub type ClientRequestId = Uuid;
 
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ClientRequest {
+    id: ClientRequestId,
+    address: Address,
+    proposal: Proposal
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ClientResponse {
+    id: ClientRequestId,
+    res: std::result::Result<Response, ResponseError>,
+}
+
 /// Commands that can be applied to the state machine.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum Command {
@@ -202,17 +215,10 @@ pub enum Command {
     /// Don't do anything.
     Noop,
     // Service a client request
-    ClientRequest {
-        id: ClientRequestId,
-        client_address: Address,
-        proposal: Proposal,
-    },
+    ClientRequest(ClientRequest),
     // Respond to a client.
     // this is a bit weird, since this isn't ever applied to a raft node, but received and proxied by the server event loop
-    ClientResponse {
-        id: ClientRequestId,
-        res: std::result::Result<Response, ResponseError>,
-    },
+    ClientResponse(ClientResponse),
 }
 
 impl fmt::Display for Command {
@@ -355,11 +361,13 @@ impl<T: Role> Raft<T> {
 
     pub fn log_command(&self, cmd: &Command) {
         match cmd {
-            Command::Tick => {}
-            Command::Heartbeat { .. } => {}
-            Command::HeartbeatResponse { .. } => {}
+            cmd @ Command::Tick => { tracing::trace!(%cmd, "command") }
+            cmd @Command::Heartbeat { .. } => { tracing::trace!(%cmd, "command") }
+            cmd @ Command::HeartbeatResponse { .. } => { tracing::trace!(%cmd, "command") }
+            cmd @ Command::AppendEntries { .. } => { tracing::trace!(%cmd, "command") }
+            cmd @ Command::AppendResponse { .. } => { tracing::trace!(%cmd, "command") }
             _ => {
-                tracing::info!("start command {}", cmd);
+                tracing::info!(%cmd, "command");
             }
         };
     }

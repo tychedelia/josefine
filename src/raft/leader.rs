@@ -85,10 +85,8 @@ impl Raft<Leader> {
     #[tracing::instrument]
     fn commit(&mut self) -> Result<BlockId> {
         let quorum_idx = self.role.progress.committed_index();
-        tracing::trace!(?quorum_idx, "commit");
-        if quorum_idx > self.chain.get_commit()
-        // && self.chain.check_term(quorum_idx, self.state.current_term)
-        {
+        if quorum_idx > self.chain.get_commit() {
+            tracing::trace!(?quorum_idx, "commit");
             let prev = self.chain.get_commit();
             let new = self.chain.commit(&quorum_idx)?;
             self.chain.range(prev..=new).skip(1).for_each(|block| {
@@ -213,21 +211,17 @@ impl Apply for Raft<Leader> {
 
                 Ok(RaftHandle::Leader(self))
             }
-            Command::ClientRequest {
-                id,
-                proposal,
-                client_address,
-            } => {
+            Command::ClientRequest(req) => {
                 let term = self.state.current_term;
-                let block = UnappendedBlock::new(proposal.get());
+                let block = UnappendedBlock::new(req.proposal.get());
                 let block_id = self.chain.append(block)?;
 
                 let node_id = self.id;
 
                 self.fsm_tx.send(Instruction::Notify {
-                    id,
+                    id: req.id,
                     block_id,
-                    client_address,
+                    client_address: req.address,
                 })?;
 
                 let head = self.chain.get_head();
@@ -251,6 +245,7 @@ impl From<Raft<Leader>> for Raft<Follower> {
             role: Follower {
                 leader_id: None,
                 proxied_reqs: HashSet::new(),
+                queued_reqs: Vec::new(),
             },
             config: val.config,
             chain: val.chain,
@@ -269,6 +264,7 @@ mod tests {
         raft::{Apply, Command, RaftHandle},
     };
     use uuid::Uuid;
+    use crate::raft::ClientRequest;
 
     #[test]
     #[tracing_test::traced_test]
@@ -280,11 +276,11 @@ mod tests {
         let magic_number = 123;
 
         let node = node
-            .apply(Command::ClientRequest {
+            .apply(Command::ClientRequest(ClientRequest {
                 id: Uuid::new_v4(),
-                client_address: Address::Client,
+                address: Address::Client,
                 proposal: Proposal::new(vec![magic_number]),
-            })
+            }))
             .unwrap();
         let node = node.apply(Command::Tick).unwrap();
         if let RaftHandle::Leader(leader) = node {
