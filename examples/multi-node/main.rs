@@ -1,20 +1,39 @@
 //! A multi-node cluster that shares a single tokio runtime.
 
+use std::future::Future;
+use std::pin::Pin;
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::{fmt, EnvFilter};
+
 #[tokio::main]
 pub async fn main() {
-    let path = std::env::current_dir().unwrap();
-    let mut p1 = path.clone();
-    p1.push("examples/multi-node/node-1.toml");
-    let shutdown = tokio::sync::broadcast::channel(1);
-    let f1 = josefine::josefine(p1.as_path(), shutdown);
-    let mut p2 = path.clone();
-    p2.push("examples/multi-node/node-2.toml");
-    let shutdown = tokio::sync::broadcast::channel(1);
-    let f2 = josefine::josefine(p2.as_path(), shutdown);
-    let mut p3 = path.clone();
-    p3.push("examples/multi-node/node-3.toml");
-    let shutdown = tokio::sync::broadcast::channel(1);
-    let f3 = josefine::josefine(p3.as_path(), shutdown);
+    let subscriber = tracing_subscriber::registry()
+        .with(
+            EnvFilter::from_default_env()
+                .add_directive(tracing::Level::INFO.into())
+                .add_directive("tokio::task::waker=off".parse().unwrap()),
+        )
+        .with(fmt::Layer::new().compact().with_writer(std::io::stdout));
+    tracing::subscriber::set_global_default(subscriber).expect("Unable to set a global collector");
+    tracing::log::Level::Info;
 
-    let (_, _, _) = tokio::try_join!(f1, f2, f3).unwrap();
+    let path = std::env::current_dir().unwrap();
+    let shutdown = tokio::sync::broadcast::channel(1);
+    let tasks: Vec<_> = (1..4)
+        .map(|i| {
+            let mut p = path.clone();
+            p.push(format!("examples/multi-node/node-{i}.toml"));
+            Box::pin(josefine::josefine(
+                p.as_path().to_owned(),
+                (shutdown.0.clone(), shutdown.0.subscribe()),
+            ))
+        })
+        .collect();
+
+    ctrlc::set_handler(move || {
+        shutdown.0.send(()).unwrap();
+    })
+    .unwrap();
+
+    let tasks = futures::future::join_all(tasks).await;
 }

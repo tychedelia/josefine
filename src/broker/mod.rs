@@ -12,6 +12,7 @@ use uuid::Uuid;
 use crate::broker::replica::Replica;
 
 use state::Store;
+use crate::Shutdown;
 
 pub mod config;
 pub mod fsm;
@@ -35,10 +36,7 @@ impl JosefineBroker {
         self,
         client: RaftClient,
         store: Store,
-        shutdown: (
-            tokio::sync::broadcast::Sender<()>,
-            tokio::sync::broadcast::Receiver<()>,
-        ),
+        shutdown: Shutdown,
     ) -> Result<()> {
         let server = Server::new(self.config);
         server.run(client, store, shutdown).await

@@ -259,12 +259,12 @@ impl From<Raft<Leader>> for Raft<Follower> {
 mod tests {
     use crate::raft::rpc::Address;
     use crate::raft::test::new_follower;
+    use crate::raft::ClientRequest;
     use crate::{
         raft::{fsm::Instruction, rpc::Proposal},
         raft::{Apply, Command, RaftHandle},
     };
     use uuid::Uuid;
-    use crate::raft::ClientRequest;
 
     #[test]
     #[tracing_test::traced_test]

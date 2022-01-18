@@ -198,7 +198,7 @@ impl Raft<Follower> {
 
         // apply entries to state machine if leader has advanced commit index
         let has_committed = self.chain.has(&commit)?;
-        if has_committed && &commit > &self.chain.get_commit()  {
+        if has_committed && &commit > &self.chain.get_commit() {
             let prev = self.chain.get_commit();
             self.chain.commit(&commit)?;
             self.chain.range(prev..commit).for_each(|block| {
@@ -255,18 +255,12 @@ impl Raft<Follower> {
         self.apply_self()
     }
 
-    fn apply_client_request(
-        mut self,
-        mut req: ClientRequest,
-    ) -> Result<RaftHandle> {
+    fn apply_client_request(mut self, mut req: ClientRequest) -> Result<RaftHandle> {
         // rewrite address to our own so we can close out the request ourself
         req.address = Address::Peer(self.id);
         if let Some(leader_id) = self.role.leader_id {
             let id = req.id;
-            self.send(
-                Address::Peer(leader_id),
-                Command::ClientRequest(req),
-            )?;
+            self.send(Address::Peer(leader_id), Command::ClientRequest(req))?;
             self.role.proxied_reqs.insert(id);
         } else {
             self.role.queued_reqs.push(req);
@@ -279,7 +273,10 @@ impl Raft<Follower> {
         id: ClientRequestId,
         res: Result<Response, ResponseError>,
     ) -> Result<RaftHandle> {
-        self.send(Address::Client, Command::ClientResponse(ClientResponse { id, res }))?;
+        self.send(
+            Address::Client,
+            Command::ClientResponse(ClientResponse { id, res }),
+        )?;
         self.role.proxied_reqs.remove(&id);
         self.apply_self()
     }
@@ -294,7 +291,10 @@ impl From<Raft<Follower>> for Raft<Candidate> {
         Raft {
             id: val.id,
             state: val.state,
-            role: Candidate { election, queued_reqs: Vec::new() },
+            role: Candidate {
+                election,
+                queued_reqs: Vec::new(),
+            },
             config: val.config,
             chain: val.chain,
             rpc_tx: val.rpc_tx,
@@ -305,12 +305,12 @@ impl From<Raft<Follower>> for Raft<Candidate> {
 
 #[cfg(test)]
 mod tests {
-    use std::time::Instant;
     use super::Command;
     use super::RaftHandle;
     use crate::raft::chain::BlockId;
     use crate::raft::test::new_follower;
     use crate::raft::Apply;
+    use std::time::Instant;
 
     #[test]
     fn follower_to_leader() {
@@ -397,10 +397,7 @@ mod tests {
     #[test]
     fn apply_timeout() -> anyhow::Result<()> {
         let ((_rpc_rx, _), follower) = new_follower();
-        let _leader = follower
-            .apply_timeout()?
-            .get_leader()
-            .unwrap();
+        let _leader = follower.apply_timeout()?.get_leader().unwrap();
 
         Ok(())
     }
@@ -410,15 +407,9 @@ mod tests {
         let ((_rpc_rx, _), mut follower) = new_follower();
         follower.state.election_time = Some(Instant::now());
         follower.state.election_timeout = Some(follower.config.election_timeout);
-        let follower = follower
-            .apply_tick()?
-            .get_follower()
-            .unwrap();
+        let follower = follower.apply_tick()?.get_follower().unwrap();
         std::thread::sleep(follower.config.election_timeout);
-        let _leader = follower
-            .apply_tick()?
-            .get_leader()
-            .unwrap();
+        let _leader = follower.apply_tick()?.get_leader().unwrap();
         Ok(())
     }
 
@@ -427,15 +418,9 @@ mod tests {
         let ((_rpc_rx, _), mut follower) = new_follower();
         follower.state.election_time = Some(Instant::now());
         follower.state.election_timeout = Some(follower.config.election_timeout);
-        let follower = follower
-            .apply_tick()?
-            .get_follower()
-            .unwrap();
+        let follower = follower.apply_tick()?.get_follower().unwrap();
         std::thread::sleep(follower.config.election_timeout);
-        let _leader = follower
-            .apply_tick()?
-            .get_leader()
-            .unwrap();
+        let _leader = follower.apply_tick()?.get_leader().unwrap();
         Ok(())
     }
 }

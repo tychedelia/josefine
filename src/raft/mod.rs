@@ -56,7 +56,9 @@ use crate::raft::rpc::{Address, Message, ResponseError};
 use crate::raft::server::{Server, ServerRunOpts};
 use crate::raft::{candidate::Candidate, rpc::Proposal};
 use anyhow::Result;
+use tokio::sync::oneshot::Sender;
 use uuid::Uuid;
+use crate::Shutdown;
 
 mod candidate;
 mod chain;
@@ -90,10 +92,7 @@ impl JosefineRaft {
             Proposal,
             oneshot::Sender<std::result::Result<Response, ResponseError>>,
         )>,
-        shutdown: (
-            tokio::sync::broadcast::Sender<()>,
-            tokio::sync::broadcast::Receiver<()>,
-        ),
+        shutdown: Shutdown,
     ) -> Result<RaftHandle> {
         self.server
             .run(ServerRunOpts {
@@ -112,10 +111,7 @@ impl JosefineRaft {
             Proposal,
             oneshot::Sender<std::result::Result<Response, ResponseError>>,
         )>,
-        shutdown: (
-            tokio::sync::broadcast::Sender<()>,
-            tokio::sync::broadcast::Receiver<()>,
-        ),
+        shutdown: Shutdown,
     ) -> Result<RaftHandle> {
         self.server
             .run(ServerRunOpts {
@@ -141,7 +137,7 @@ pub type ClientRequestId = Uuid;
 pub struct ClientRequest {
     id: ClientRequestId,
     address: Address,
-    proposal: Proposal
+    proposal: Proposal,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -310,8 +306,8 @@ impl Default for State {
             voted_for: None,
             election_time: None,
             election_timeout: None,
-            min_election_timeout: 500,
-            max_election_timeout: 1000,
+            min_election_timeout: 3000,
+            max_election_timeout: 5000,
         }
     }
 }
@@ -361,11 +357,21 @@ impl<T: Role> Raft<T> {
 
     pub fn log_command(&self, cmd: &Command) {
         match cmd {
-            cmd @ Command::Tick => { tracing::trace!(%cmd, "command") }
-            cmd @Command::Heartbeat { .. } => { tracing::trace!(%cmd, "command") }
-            cmd @ Command::HeartbeatResponse { .. } => { tracing::trace!(%cmd, "command") }
-            cmd @ Command::AppendEntries { .. } => { tracing::trace!(%cmd, "command") }
-            cmd @ Command::AppendResponse { .. } => { tracing::trace!(%cmd, "command") }
+            cmd @ Command::Tick => {
+                tracing::trace!(%cmd, "command")
+            }
+            cmd @ Command::Heartbeat { .. } => {
+                tracing::trace!(%cmd, "command")
+            }
+            cmd @ Command::HeartbeatResponse { .. } => {
+                tracing::trace!(%cmd, "command")
+            }
+            cmd @ Command::AppendEntries { .. } => {
+                tracing::trace!(%cmd, "command")
+            }
+            cmd @ Command::AppendResponse { .. } => {
+                tracing::trace!(%cmd, "command")
+            }
             _ => {
                 tracing::info!(%cmd, "command");
             }
@@ -478,7 +484,7 @@ mod tests {
     use crate::raft::chain::Chain;
     use crate::raft::rpc::Address;
     use crate::raft::{Command, Raft, RaftRole, Role, Term};
-    use std::time::{Instant};
+    use std::time::Instant;
     use tempfile::tempdir;
 
     #[derive(Debug)]

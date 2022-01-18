@@ -11,15 +11,16 @@ use tokio::sync::mpsc::{Receiver, UnboundedReceiver, UnboundedSender};
 use tokio::time::Duration;
 use tokio_stream::StreamExt;
 use tokio_util::codec::{FramedRead, FramedWrite, LengthDelimitedCodec};
+use crate::Shutdown;
 
 pub async fn receive_task(
-    mut shutdown: tokio::sync::broadcast::Receiver<()>,
+    mut shutdown: Shutdown,
     listener: TcpListener,
     in_tx: UnboundedSender<Message>,
 ) -> Result<()> {
     loop {
         tokio::select! {
-            _ = shutdown.recv() => break,
+            _ = shutdown.wait() => break,
 
             Ok((s, _addr)) = listener.accept() => {
                 let peer_in_tx = in_tx.clone();
@@ -50,7 +51,7 @@ async fn stream_messages(stream: TcpStream, in_tx: UnboundedSender<Message>) -> 
 }
 
 pub async fn send_task(
-    shutdown: Sender<()>,
+    mut shutdown: Shutdown,
     id: NodeId,
     nodes: Vec<Node>,
     out_rx: UnboundedReceiver<Message>,
@@ -60,14 +61,13 @@ pub async fn send_task(
     for node in nodes.iter() {
         let (tx, rx) = mpsc::channel::<Message>(1000);
         node_txs.insert(node.id, tx);
-        tokio::spawn(connect_and_send(*node, rx, shutdown.subscribe()));
+        tokio::spawn(connect_and_send(*node, rx, shutdown.clone()));
     }
 
     let mut s = stream::UnboundedReceiverStream(out_rx);
-    let mut shutdown = shutdown.subscribe();
     loop {
         tokio::select! {
-            _ = shutdown.recv() => {
+            _ = shutdown.wait() => {
                 tokio::time::sleep(Duration::from_millis(100)).await;
                 break
             },
@@ -105,15 +105,16 @@ pub async fn send_task(
 ///
 /// * `node` - The node which messages will be sent to.
 /// * `out_rx` - The channel messages to send are written to.
+#[tracing::instrument]
 async fn connect_and_send(
     node: Node,
     mut out_rx: Receiver<Message>,
-    mut shutdown: tokio::sync::broadcast::Receiver<()>,
+    mut shutdown: Shutdown,
 ) -> Result<()> {
     let mut backoff = 1;
     loop {
         tokio::select! {
-            _ = shutdown.recv() => break,
+            _ = shutdown.wait() => break,
 
             connect = TcpStream::connect(node.addr) => {
                 match connect {
@@ -172,8 +173,8 @@ mod tests {
         let addr = format!("127.0.0.1:{}", port);
         let listener = TcpListener::bind(&addr).await?;
         let (tx, mut rx) = mpsc::unbounded_channel();
-        let (shutdown_tx, _shutdown_rx) = tokio::sync::broadcast::channel(1);
-        tokio::spawn(receive_task(shutdown_tx.subscribe(), listener, tx));
+        let shutdown = Shutdown::new();
+        tokio::spawn(receive_task(shutdown, listener, tx));
         let stream = TcpStream::connect(&addr).await?;
         let out_msg = Message::new(Address::Peer(1), Address::Peer(2), Command::Tick);
 
@@ -197,9 +198,9 @@ mod tests {
     async fn send_message() -> Result<()> {
         let listener = TcpListener::bind("127.0.0.1:8080").await?;
         let (tx, rx) = mpsc::unbounded_channel();
-        let (shutdown_tx, _shutdown_rx) = tokio::sync::broadcast::channel(1);
+        let shutdown = Shutdown::new();
         tokio::spawn(send_task(
-            shutdown_tx,
+            shutdown,
             1,
             vec![Node {
                 id: 2,

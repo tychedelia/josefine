@@ -9,17 +9,19 @@ use tokio::{
     net::{TcpListener, TcpStream},
     sync::mpsc::UnboundedSender,
 };
+use tokio::sync::oneshot::Sender;
 use tokio_stream::StreamExt;
 use tokio_util::codec::{FramedRead, FramedWrite};
+use crate::Shutdown;
 
 pub async fn receive_task(
     listener: TcpListener,
     in_tx: UnboundedSender<(RequestKind, oneshot::Sender<ResponseKind>)>,
-    mut shutdown: tokio::sync::broadcast::Receiver<()>,
+    mut shutdown: Shutdown,
 ) -> Result<()> {
     loop {
         tokio::select! {
-            _ = shutdown.recv() => break,
+            _ = shutdown.wait() => break,
 
             Ok((s, _addr)) = listener.accept() => {
                 let peer_in_tx = in_tx.clone();

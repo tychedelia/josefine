@@ -196,7 +196,10 @@ impl Chain {
         Ok(block_id.clone())
     }
 
-    pub fn range<R: RangeBounds<BlockId>>(&self, range: R) -> impl DoubleEndedIterator<Item = Block> {
+    pub fn range<R: RangeBounds<BlockId>>(
+        &self,
+        range: R,
+    ) -> impl DoubleEndedIterator<Item = Block> {
         self.db
             .range(range)
             .map(|x| x.unwrap().1)
@@ -231,8 +234,8 @@ impl Chain {
 
 #[cfg(test)]
 mod tests {
-    use tempfile::tempdir;
     use crate::raft::chain::{Block, BlockId, Chain, UnappendedBlock};
+    use tempfile::tempdir;
 
     #[test]
     fn new() -> anyhow::Result<()> {
@@ -267,7 +270,7 @@ mod tests {
         chain.extend(Block {
             id: BlockId::new(1),
             next: BlockId::new(0),
-            data: vec![]
+            data: vec![],
         })?;
         assert_eq!(chain.get_commit(), BlockId::new(0));
         assert_eq!(chain.get_head(), BlockId::new(1));
@@ -280,7 +283,7 @@ mod tests {
         chain.extend(Block {
             id: BlockId::new(1),
             next: BlockId::new(0),
-            data: vec![]
+            data: vec![],
         })?;
         let blocks: Vec<Block> = chain.range(..).collect();
         assert_eq!(blocks.len(), 2);
@@ -293,7 +296,7 @@ mod tests {
         chain.extend(Block {
             id: BlockId::new(1),
             next: BlockId::new(0),
-            data: vec![]
+            data: vec![],
         })?;
         assert!(chain.has(&BlockId::new(1))?);
         Ok(())
@@ -308,7 +311,7 @@ mod tests {
             chain.extend(Block {
                 id: BlockId::new(id),
                 next: BlockId::new(next),
-                data: vec![]
+                data: vec![],
             })?;
         }
         assert!(chain.has(&BlockId::new(4))?);

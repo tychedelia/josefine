@@ -5,6 +5,7 @@ use std::path::Path;
 use tracing_subscriber::layer::SubscriberExt;
 
 use tracing_subscriber::{fmt, EnvFilter};
+use josefine::util::Shutdown;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -33,15 +34,12 @@ async fn main() -> anyhow::Result<()> {
 
     let config_path = matches.value_of("config").unwrap();
 
-    let shutdown = tokio::sync::broadcast::channel(1);
-    let shutdown_tx = shutdown.0.clone();
+    let shutdown = Shutdown::new();
+    let s = shutdown.clone();
     ctrlc::set_handler(move || {
-        shutdown_tx
-            .send(())
-            .expect("could not send shutdown signal");
-    })
-    .unwrap();
+        tracing::info!("shut down");
+        s.shutdown()
+    }).unwrap();
 
-    josefine::josefine(Path::new(&config_path), shutdown)
-        .await
+    josefine::josefine(Path::new(&config_path), shutdown).await
 }

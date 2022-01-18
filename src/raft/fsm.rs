@@ -4,9 +4,13 @@ use tokio::sync::mpsc;
 
 use crate::raft::chain::{Block, BlockId};
 use crate::raft::rpc::ResponseError;
-use crate::raft::{rpc::{self, Address, Message, Response}, ClientRequestId, Command, ClientResponse};
+use crate::raft::{
+    rpc::{self, Address, Message, Response},
+    ClientRequestId, ClientResponse, Command,
+};
 use anyhow::Result;
 use std::collections::HashMap;
+use crate::Shutdown;
 
 pub trait Fsm: Send + Sync + fmt::Debug {
     fn transition(&mut self, data: Vec<u8>) -> Result<Vec<u8>>;
@@ -45,14 +49,15 @@ impl<T: Fsm> Driver<T> {
         }
     }
 
-    pub async fn run(mut self, mut shutdown: tokio::sync::broadcast::Receiver<()>) -> Result<T> {
+    pub async fn run(mut self, mut shutdown: Shutdown) -> Result<T> {
         loop {
             tokio::select! {
-                _ = shutdown.recv() => break,
+                _ = shutdown.wait() => break,
 
                 Some(instruction) = self.fsm_rx.recv() => {
                     match instruction {
                         Instruction::Apply { block } => {
+                            tracing::info!("apply");
                             if block.id == BlockId::new(0) {
                                 continue
                             }
@@ -71,6 +76,7 @@ impl<T: Fsm> Driver<T> {
                             }
                         }
                         Instruction::Notify { block_id, id, client_address } => {
+                            tracing::info!("notify");
                             self.notifications.insert(block_id, (client_address, id));
                         }
                     };
@@ -132,7 +138,7 @@ mod test {
         let (rpc_tx, _rpc_rx) = unbounded_channel();
         let driver = Driver::new(rx, rpc_tx, fsm);
 
-        let (shutdown_tx, shutdown_rx) = tokio::sync::broadcast::channel(1);
+        let shutdown = Shutdown::new();
         tx.send(Instruction::Apply {
             block: Block {
                 id: BlockId::new(2),
@@ -142,8 +148,8 @@ mod test {
         })?;
 
         let (join, _) = tokio::join!(
-            tokio::spawn(driver.run(shutdown_rx)),
-            tokio::spawn(async move { shutdown_tx.send(()).unwrap() }),
+            tokio::spawn(driver.run(shutdown.clone())),
+            tokio::spawn(async move { shutdown.shutdown() }),
         );
         let fsm = join??;
 

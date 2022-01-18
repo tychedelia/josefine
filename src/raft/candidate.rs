@@ -7,12 +7,12 @@ use crate::raft::follower::Follower;
 use crate::raft::leader::Leader;
 use crate::raft::progress::ReplicationProgress;
 
+use crate::raft::chain::BlockId;
 use crate::raft::rpc::Address;
 use crate::raft::{Apply, ClientRequest, RaftHandle, RaftRole, Term};
 use crate::raft::{Command, NodeId};
 use crate::raft::{Raft, Role};
 use std::collections::HashSet;
-use crate::raft::chain::BlockId;
 
 #[derive(Debug)]
 pub struct Candidate {
@@ -128,22 +128,27 @@ impl Raft<Candidate> {
     }
 
     #[tracing::instrument]
-    fn apply_heartbeat(mut self, term: Term, leader_id: NodeId, commit: BlockId) -> Result<RaftHandle, Error> {
-            tracing::trace!("receive higher term");
-            let has_committed = self.chain.has(&commit)?;
-            let commit = self.chain.get_commit();
-            self.term(term);
-            self.state.voted_for = Some(leader_id);
-            let raft: Raft<Follower> = Raft::from(self);
-            raft.send(
-                Address::Peer(leader_id),
-                Command::HeartbeatResponse {
-                    commit,
-                    has_committed,
-                },
-            )?;
-            return Ok(RaftHandle::Follower(raft));
-        }
+    fn apply_heartbeat(
+        mut self,
+        term: Term,
+        leader_id: NodeId,
+        commit: BlockId,
+    ) -> Result<RaftHandle, Error> {
+        tracing::trace!("receive higher term");
+        let has_committed = self.chain.has(&commit)?;
+        let commit = self.chain.get_commit();
+        self.term(term);
+        self.state.voted_for = Some(leader_id);
+        let raft: Raft<Follower> = Raft::from(self);
+        raft.send(
+            Address::Peer(leader_id),
+            Command::HeartbeatResponse {
+                commit,
+                has_committed,
+            },
+        )?;
+        return Ok(RaftHandle::Follower(raft));
+    }
 }
 
 impl Role for Candidate {
@@ -162,27 +167,19 @@ impl Apply for Raft<Candidate> {
         self.log_command(&cmd);
 
         match cmd {
-            Command::Tick => {
-                self.apply_tick()
-            }
+            Command::Tick => self.apply_tick(),
             Command::VoteRequest {
                 candidate_id, term, ..
-            } => {
-                self.apply_vote_request(candidate_id, term)
-            }
-            Command::VoteResponse { granted, from, .. } => {
-                self.apply_vote_response(granted, from)
-            }
+            } => self.apply_vote_request(candidate_id, term),
+            Command::VoteResponse { granted, from, .. } => self.apply_vote_response(granted, from),
             Command::AppendEntries {
                 blocks: _, term, ..
-            } => {
-                self.apply_append_entries(term)
-            }
+            } => self.apply_append_entries(term),
             Command::Heartbeat {
-                term, leader_id, commit
-            } => {
-                self.apply_heartbeat(term, leader_id, commit)
-            }
+                term,
+                leader_id,
+                commit,
+            } => self.apply_heartbeat(term, leader_id, commit),
             Command::ClientRequest(req) => {
                 self.role.queued_reqs.push(req);
                 Ok(RaftHandle::Candidate(self))
@@ -237,8 +234,8 @@ impl From<Raft<Candidate>> for Raft<Leader> {
 #[cfg(test)]
 mod tests {
     use crate::raft::chain::BlockId;
-    use crate::raft::Command;
     use crate::raft::test::new_candidate;
+    use crate::raft::Command;
 
     #[tokio::test]
     async fn apply_heartbeat() -> anyhow::Result<()> {
