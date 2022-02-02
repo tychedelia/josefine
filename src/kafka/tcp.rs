@@ -7,13 +7,15 @@ use kafka_protocol::messages::{RequestHeader, RequestKind, ResponseKind};
 use tokio::net::TcpStream;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::oneshot;
+use tokio::sync::oneshot::Sender;
 use tokio_stream::StreamExt;
 use tokio_util::codec::{FramedRead, FramedWrite};
+use crate::Shutdown;
 
 pub async fn send_messages(
     stream: TcpStream,
     mut rx: UnboundedReceiver<(RequestHeader, RequestKind, oneshot::Sender<ResponseKind>)>,
-    mut shutdown: tokio::sync::broadcast::Receiver<()>,
+    mut shutdown: Shutdown,
 ) -> anyhow::Result<()> {
     let requests: Arc<Mutex<HashMap<i32, RequestHeader>>> = Default::default();
     let (r, w) = stream.into_split();
@@ -45,7 +47,7 @@ pub async fn send_messages(
     });
 
     let shutdown = tokio::spawn(async move {
-        shutdown.recv().await?;
+        shutdown.wait().await?;
         anyhow::Result::<_, anyhow::Error>::Ok(())
     });
 

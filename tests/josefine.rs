@@ -13,6 +13,7 @@ use josefine::kafka::KafkaClient;
 use tokio::time::Duration;
 
 use josefine::raft::Node;
+use josefine::util::Shutdown;
 
 struct NodeManager {
     nodes: HashMap<u16, JosefineConfig>,
@@ -43,10 +44,7 @@ impl NodeManager {
 
     pub async fn run(
         mut self,
-        shutdown: (
-            tokio::sync::broadcast::Sender<()>,
-            tokio::sync::broadcast::Receiver<()>,
-        ),
+        shutdown: Shutdown,
     ) -> anyhow::Result<()> {
         let brokers: Vec<Broker> = self
             .nodes
@@ -82,14 +80,13 @@ impl NodeManager {
         });
 
         let mut tasks = Vec::new();
+        let shutdown = Shutdown::new();
         for (_, config) in self.nodes.into_iter() {
-            let tx = shutdown.0.clone();
-            let rx = tx.subscribe();
-            let (tx, rx) = (tx, rx);
+            let shutdown = shutdown.clone();
             let task = tokio::spawn(async move {
                 tokio::time::timeout(
                     Duration::from_secs(60),
-                    josefine_with_config(config, (tx, rx)),
+                    josefine_with_config(config, shutdown),
                 )
                 .await?;
                 Result::<_, anyhow::Error>::Ok(())
@@ -114,11 +111,11 @@ async fn single_node() -> anyhow::Result<()> {
     let mut nodes = NodeManager::new();
     nodes.new_node(0);
     let addrs = nodes.get_addrs();
-    let shutdown = tokio::sync::broadcast::channel(1);
-    let rx = shutdown.0.subscribe();
-    tokio::spawn(async move { nodes.run(shutdown).await });
+    let shutdown = Shutdown::new();
+    let s = shutdown.clone();
+    tokio::spawn(async move { nodes.run(s).await });
     tokio::time::sleep(Duration::from_secs(1)).await;
-    let client = KafkaClient::new(addrs[0]).await?.connect(rx).await?;
+    let client = KafkaClient::new(addrs[0]).await?.connect(shutdown).await?;
     let mut header = RequestHeader::default();
     header.request_api_version = 6;
     header.request_api_key = ApiKey::ApiVersionsKey as i16;
@@ -137,11 +134,11 @@ async fn create_topic() -> anyhow::Result<()> {
     let mut nodes = NodeManager::new();
     nodes.new_node(4);
     let addrs = nodes.get_addrs();
-    let shutdown = tokio::sync::broadcast::channel(1);
-    let rx = shutdown.0.subscribe();
-    tokio::spawn(async move { nodes.run(shutdown).await });
+    let shutdown = Shutdown::new();
+    let s = shutdown.clone();
+    tokio::spawn(async move { nodes.run(s).await });
     tokio::time::sleep(Duration::from_secs(1)).await;
-    let client = KafkaClient::new(addrs[0]).await?.connect(rx).await?;
+    let client = KafkaClient::new(addrs[0]).await?.connect(shutdown).await?;
     let mut header = RequestHeader::default();
     header.request_api_version = 7;
     header.request_api_key = ApiKey::ApiVersionsKey as i16;
@@ -173,11 +170,11 @@ async fn multi_node() -> anyhow::Result<()> {
     nodes.new_node(2);
     nodes.new_node(3);
     let addrs = nodes.get_addrs();
-    let shutdown = tokio::sync::broadcast::channel(1);
-    let rx = shutdown.0.subscribe();
-    tokio::spawn(async move { nodes.run(shutdown).await });
+    let shutdown = Shutdown::new();
+    let s = shutdown.clone();
+    tokio::spawn(async move { nodes.run(s).await });
     tokio::time::sleep(Duration::from_secs(5)).await;
-    let client = KafkaClient::new(addrs[0]).await?.connect(rx).await?;
+    let client = KafkaClient::new(addrs[0]).await?.connect(shutdown).await?;
     let mut header = RequestHeader::default();
     header.request_api_version = 6;
     header.request_api_key = ApiKey::ApiVersionsKey as i16;

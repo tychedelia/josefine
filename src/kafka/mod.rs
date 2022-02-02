@@ -4,6 +4,7 @@ use std::net::SocketAddr;
 use tokio::net::TcpStream;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::sync::oneshot;
+use crate::Shutdown;
 
 pub mod codec;
 pub mod error;
@@ -44,7 +45,7 @@ impl KafkaClient {
 
     pub async fn connect(
         self,
-        shutdown: tokio::sync::broadcast::Receiver<()>,
+        shutdown: Shutdown,
     ) -> anyhow::Result<ConnectedKafkaClient> {
         let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
         tokio::spawn(crate::kafka::tcp::send_messages(self.stream, rx, shutdown));

@@ -29,7 +29,7 @@ use uuid::Uuid;
 use crate::Shutdown;
 
 /// step duration
-const TICK: Duration = Duration::from_millis(1000);
+const TICK: Duration = Duration::from_millis(100);
 
 #[derive(Debug)]
 pub struct Server {

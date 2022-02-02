@@ -12,7 +12,7 @@ async fn main() -> anyhow::Result<()> {
     let subscriber = tracing_subscriber::registry()
         .with(
             EnvFilter::from_default_env()
-                .add_directive(tracing::Level::TRACE.into())
+                .add_directive(tracing::Level::INFO.into())
                 .add_directive("tokio::task::waker=off".parse().unwrap()),
         )
         .with(fmt::Layer::new().pretty().with_writer(std::io::stdout));

@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::thread::JoinHandle;
 use std::time::Duration;
+use josefine::util::Shutdown;
 
 fn new_cluster(ids: Vec<u32>) -> Vec<JosefineRaft> {
     ids.iter()
@@ -55,7 +56,7 @@ fn it_elects() {
             std::thread::spawn(|| {
                 let rt = tokio::runtime::Runtime::new().unwrap();
                 let (_, client_rx) = tokio::sync::mpsc::unbounded_channel();
-                let shutdown = tokio::sync::broadcast::channel(1);
+                let shutdown = Shutdown::new();
                 rt.block_on(node.run_for(
                     Duration::from_secs(2),
                     IntegrationFsm::new(),

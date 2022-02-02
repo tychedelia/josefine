@@ -27,7 +27,7 @@ impl IdGenerator {
 }
 
 #[derive(Clone, PartialEq, Deserialize, Serialize, PartialOrd, Ord, Hash, Eq)]
-pub struct BlockId(#[serde(deserialize_with = "bytes_from_vec", serialize_with = "foo")] pub Bytes);
+pub struct BlockId(#[serde(deserialize_with = "deserialize_block_id", serialize_with = "serialize_block_id")] pub Bytes);
 
 impl Debug for BlockId {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -39,19 +39,19 @@ impl Debug for BlockId {
     }
 }
 
-fn foo<S>(block_id: &Bytes, serializer: S) -> std::result::Result<S::Ok, S::Error>
+fn serialize_block_id<S>(block_id: &Bytes, serializer: S) -> std::result::Result<S::Ok, S::Error>
 where
     S: Serializer,
 {
     serializer.serialize_bytes(block_id.as_ref())
 }
 
-fn bytes_from_vec<'de, D>(deserializer: D) -> std::result::Result<Bytes, D::Error>
+fn deserialize_block_id<'de, D>(deserializer: D) -> std::result::Result<Bytes, D::Error>
 where
     D: Deserializer<'de>,
 {
-    let bs: Vec<u8> = Deserialize::deserialize(deserializer)?;
-    Ok(Bytes::from(bs))
+    let bs: &'de [u8] = Deserialize::deserialize(deserializer)?;
+    Ok(Bytes::from(bs.to_vec()))
 }
 
 impl BlockId {
@@ -140,7 +140,7 @@ impl Chain {
             data: vec![],
         };
         self.db
-            .insert(&block.id, bincode::serialize(&block).unwrap().to_vec())
+            .insert(&block.id, bincode::serialize(&block).unwrap())
             .unwrap();
 
         Ok(())
@@ -153,14 +153,16 @@ impl Chain {
     #[tracing::instrument]
     pub fn append(&mut self, block: UnappendedBlock) -> Result<BlockId> {
         let id = self.id_gen.next();
+        let id = BlockId::new(id);
+        assert!(id > self.head);
         let block = Block {
-            id: BlockId::new(id),
+            id,
             next: self.head.clone(),
             data: block.data,
         };
-        tracing::trace!(?block, "append block");
+        tracing::info!(?block, "append");
         self.db
-            .insert(&block.id, bincode::serialize(&block).unwrap().to_vec())
+            .insert(&block.id, bincode::serialize(&block).unwrap())
             .unwrap();
         self.head = block.id.clone();
         Ok(block.id)
@@ -168,7 +170,7 @@ impl Chain {
 
     #[tracing::instrument]
     pub fn extend(&mut self, block: Block) -> Result<()> {
-        // tracing::trace!(?block, "extend block");
+        tracing::trace!(?block, "extend");
         if !self.has(&block.next)? {
             return Err(anyhow::anyhow!(
                 "block {:?} not found in chain",
@@ -177,7 +179,7 @@ impl Chain {
         }
 
         self.db
-            .insert(&block.id, bincode::serialize(&block).unwrap().to_vec())
+            .insert(&block.id, bincode::serialize(&block).unwrap())
             .unwrap();
         self.head = block.id;
         Ok(())
@@ -196,14 +198,23 @@ impl Chain {
         Ok(block_id.clone())
     }
 
-    pub fn range<R: RangeBounds<BlockId>>(
+    #[tracing::instrument]
+    pub fn range<R: RangeBounds<BlockId> + Debug>(
         &self,
         range: R,
     ) -> impl DoubleEndedIterator<Item = Block> {
+        tracing::info!("range");
         self.db
             .range(range)
-            .map(|x| x.unwrap().1)
-            .map(|x| bincode::deserialize(&x).unwrap())
+            .map(|x| x.unwrap_or_else(|e| {
+                tracing::error!(?e, "couldn't read from db");
+                panic!()
+            }))
+            .map(|(k, v)| bincode::deserialize(&v).unwrap_or_else(|e| {
+                let block_id = BlockId(Bytes::from(k.to_vec()));
+                tracing::error!(?e, ?block_id, "couldn't deserialize");
+                panic!()
+            }))
     }
 
     pub fn get_head(&self) -> BlockId {
@@ -319,5 +330,12 @@ mod tests {
         chain.compact()?;
         assert!(!chain.has(&BlockId::new(4))?);
         Ok(())
+    }
+
+    #[test]
+    fn block_id_serde() {
+        let bytes = bincode::serialize(&BlockId::new(0)).unwrap();
+        let block_id: BlockId = bincode::deserialize(&bytes).unwrap();
+        assert_eq!(block_id, BlockId::new(0));
     }
 }

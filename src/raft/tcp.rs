@@ -50,6 +50,7 @@ async fn stream_messages(stream: TcpStream, in_tx: UnboundedSender<Message>) -> 
     Ok(())
 }
 
+#[tracing::instrument]
 pub async fn send_task(
     mut shutdown: Shutdown,
     id: NodeId,
@@ -119,7 +120,7 @@ async fn connect_and_send(
             connect = TcpStream::connect(node.addr) => {
                 match connect {
                     Ok(socket) => {
-                        tracing::info!(?node, "connected to node");
+                        tracing::debug!(?node, "connected to node");
                         send_messages(socket, &mut out_rx).await?;
                     },
                     Err(e) => {

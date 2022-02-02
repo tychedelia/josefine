@@ -22,6 +22,7 @@ use uuid::Uuid;
 
 use crate::broker::state::partition::{Partition, PartitionIdx};
 use crate::kafka::KafkaClient;
+use crate::Shutdown;
 
 impl Broker {
     async fn make_partitions(&self, name: &str, topic: &CreatableTopic) -> Result<Vec<Partition>> {
@@ -99,8 +100,8 @@ impl Broker {
             } else {
                 let req = RequestKind::LeaderAndIsrRequest(req);
                 let client = KafkaClient::new(SocketAddr::new(b.ip, b.port)).await?;
-                let (_, shutdown_rx) = tokio::sync::broadcast::channel(1);
-                let client = client.connect(shutdown_rx).await?;
+                let shutdown = Shutdown::new();
+                let client = client.connect(shutdown).await?;
                 //
                 if let kafka_protocol::messages::ResponseKind::LeaderAndIsrResponse(_res) =
                     client.send(header, req).await?

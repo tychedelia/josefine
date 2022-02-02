@@ -2,13 +2,13 @@ use std::io::Write;
 use std::time::Duration;
 use std::time::Instant;
 
-use anyhow::Result;
+use anyhow::{Error, Result};
 
 use crate::raft::follower::Follower;
-use crate::raft::progress::ReplicationProgress;
+use crate::raft::progress::{Probe, Progress, Replicate, ReplicationProgress};
 use crate::raft::progress::{NodeProgress, MAX_INFLIGHT};
 
-use crate::raft::{Command, Raft};
+use crate::raft::{ClientRequest, Command, Node, Raft};
 
 use crate::raft::chain::{BlockId, UnappendedBlock};
 use crate::raft::fsm::Instruction;
@@ -40,6 +40,7 @@ impl Role for Leader {
 }
 
 impl Raft<Leader> {
+    #[tracing::instrument]
     pub(crate) fn heartbeat(&self) -> Result<()> {
         self.send_all(Command::Heartbeat {
             term: self.state.current_term,
@@ -119,6 +120,7 @@ impl Raft<Leader> {
             .expect("could not write state");
     }
 
+    #[tracing::instrument]
     fn replicate(&mut self) -> Result<()> {
         for node in &self.config.nodes {
             if let Some(mut progress) = self.role.progress.get_mut(node.id) {
@@ -128,6 +130,7 @@ impl Raft<Leader> {
 
                 match &mut progress {
                     NodeProgress::Probe(progress) => {
+                        tracing::info!(?progress, chain=?self.chain, "replicate probe");
                         let blocks =
                             if let Some(block) = self.chain.range(progress.head.clone()..).nth(1) {
                                 vec![block]
@@ -169,6 +172,69 @@ impl Raft<Leader> {
 
         Ok(())
     }
+
+    #[tracing::instrument]
+    fn apply_client_request(mut self, req: ClientRequest) -> Result<RaftHandle> {
+        let term = self.state.current_term;
+        let block = UnappendedBlock::new(req.proposal.get());
+        let block_id = self.chain.append(block)?;
+
+        let node_id = self.id;
+
+        self.fsm_tx.send(Instruction::Notify {
+            id: req.id,
+            block_id,
+            client_address: req.address,
+        })?;
+
+        let head = self.chain.get_head();
+        self.apply(Command::AppendResponse {
+            node_id,
+            term,
+            success: true,
+            head,
+        })
+    }
+
+    #[tracing::instrument]
+    fn apply_append_entries(mut self, term: Term) -> Result<RaftHandle, Error> {
+        if term > self.state.current_term {
+            // TODO(jcm): move term logic into dedicated handler
+            self.term(term);
+            return Ok(RaftHandle::Follower(Raft::from(self)));
+        }
+
+        Ok(RaftHandle::Leader(self))
+    }
+
+    #[tracing::instrument]
+    fn apply_append_response(mut self, node_id: NodeId, head: BlockId) -> Result<RaftHandle, Error> {
+        self.role.progress.advance(node_id, head);
+        self.commit()?;
+        Ok(RaftHandle::Leader(self))
+    }
+
+    #[tracing::instrument]
+    fn apply_heartbeat_response(mut self, commit: BlockId, has_committed: bool) -> Result<RaftHandle, Error> {
+        if !has_committed && commit > BlockId::new(0) {
+            self.replicate()?;
+        }
+        Ok(RaftHandle::Leader(self))
+    }
+
+    #[tracing::instrument]
+    fn apply_tick(mut self) -> Result<RaftHandle, Error> {
+        self.write_state();
+
+        if self.needs_heartbeat() {
+            self.heartbeat()?;
+            self.reset_heartbeat_timer();
+        }
+
+        self.replicate()?;
+
+        Ok(RaftHandle::Leader(self))
+    }
 }
 
 impl Apply for Raft<Leader> {
@@ -177,60 +243,22 @@ impl Apply for Raft<Leader> {
         self.log_command(&cmd);
         match cmd {
             Command::Tick => {
-                self.write_state();
-
-                if self.needs_heartbeat() {
-                    self.heartbeat()?;
-                    self.reset_heartbeat_timer();
-                }
-
-                self.replicate()?;
-
-                Ok(RaftHandle::Leader(self))
+                self.apply_tick()
             }
             Command::HeartbeatResponse {
                 commit,
                 has_committed,
             } => {
-                if !has_committed && commit > BlockId::new(0) {
-                    self.replicate()?;
-                }
-                Ok(RaftHandle::Leader(self))
+                self.apply_heartbeat_response(commit, has_committed)
             }
             Command::AppendResponse { node_id, head, .. } => {
-                self.role.progress.advance(node_id, head);
-                self.commit()?;
-                Ok(RaftHandle::Leader(self))
+                self.apply_append_response(node_id, head)
             }
             Command::AppendEntries { term, .. } => {
-                if term > self.state.current_term {
-                    // TODO(jcm): move term logic into dedicated handler
-                    self.term(term);
-                    return Ok(RaftHandle::Follower(Raft::from(self)));
-                }
-
-                Ok(RaftHandle::Leader(self))
+                self.apply_append_entries(term)
             }
             Command::ClientRequest(req) => {
-                let term = self.state.current_term;
-                let block = UnappendedBlock::new(req.proposal.get());
-                let block_id = self.chain.append(block)?;
-
-                let node_id = self.id;
-
-                self.fsm_tx.send(Instruction::Notify {
-                    id: req.id,
-                    block_id,
-                    client_address: req.address,
-                })?;
-
-                let head = self.chain.get_head();
-                self.apply(Command::AppendResponse {
-                    node_id,
-                    term,
-                    success: true,
-                    head,
-                })
+                self.apply_client_request(req)
             }
             _ => Ok(RaftHandle::Leader(self)),
         }
