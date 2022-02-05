@@ -306,8 +306,8 @@ impl Default for State {
             voted_for: None,
             election_time: None,
             election_timeout: None,
-            min_election_timeout: 3000,
-            max_election_timeout: 5000,
+            min_election_timeout: 500,
+            max_election_timeout: 1000,
         }
     }
 }

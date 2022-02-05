@@ -107,7 +107,7 @@ impl Server {
     }
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip(tcp_tx, rpc_rx, tcp_rx, client_rx))]
 async fn event_loop(
     mut shutdown: Shutdown,
     mut raft: RaftHandle,
