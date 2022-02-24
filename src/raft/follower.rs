@@ -7,7 +7,7 @@ use crate::raft::candidate::Candidate;
 use crate::raft::chain::{Block, BlockId, Chain};
 use crate::raft::election::Election;
 use crate::raft::fsm::Instruction;
-use crate::raft::rpc::{Address, Message, Proposal, Response, ResponseError};
+use crate::raft::rpc::{Address, Message, Response, ResponseError};
 use crate::raft::Command::VoteResponse;
 use crate::raft::{Apply, ClientRequest, ClientResponse, RaftHandle, RaftRole, Term};
 use crate::raft::{ClientRequestId, RaftConfig};
@@ -187,7 +187,7 @@ impl Raft<Follower> {
         self.state.voted_for = Some(leader_id);
 
         // send any queued requests
-        for req in std::mem::replace(&mut self.role.queued_reqs, vec![]).into_iter() {
+        for req in std::mem::take(&mut self.role.queued_reqs).into_iter() {
             let id = req.id;
             self.send(
                 Address::Peer(leader_id),

@@ -57,7 +57,7 @@ use crate::raft::server::{Server, ServerRunOpts};
 use crate::raft::{candidate::Candidate, rpc::Proposal};
 use crate::Shutdown;
 use anyhow::Result;
-use tokio::sync::oneshot::Sender;
+
 use uuid::Uuid;
 
 mod candidate;

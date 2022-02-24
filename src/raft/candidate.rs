@@ -107,7 +107,7 @@ impl Raft<Candidate> {
     }
 
     #[tracing::instrument]
-    fn apply_append_entries(mut self, term: Term) -> Result<RaftHandle, Error> {
+    fn apply_append_entries(self, term: Term) -> Result<RaftHandle, Error> {
         // While waiting for votes, a candidate may receive an
         // AppendEntries RPC from another server claiming to be
         // leader. If the leader’s term (included in its RPC) is at least
@@ -147,7 +147,7 @@ impl Raft<Candidate> {
                 has_committed,
             },
         )?;
-        return Ok(RaftHandle::Follower(raft));
+        Ok(RaftHandle::Follower(raft))
     }
 }
 

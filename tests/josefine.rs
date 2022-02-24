@@ -44,7 +44,7 @@ impl NodeManager {
             .collect()
     }
 
-    pub async fn run(mut self, shutdown: Shutdown) -> anyhow::Result<()> {
+    pub async fn run(mut self, _shutdown: Shutdown) -> anyhow::Result<()> {
         let brokers: Vec<Broker> = self
             .nodes
             .iter()
@@ -157,7 +157,7 @@ async fn create_topic() -> anyhow::Result<()> {
     .expect("did not timeout");
     match res {
         Ok(res) => {
-            if let ResponseKind::CreateTopicsResponse(res) = res {
+            if let ResponseKind::CreateTopicsResponse(_res) = res {
                 // TODO assert response type
             } else {
                 panic!("wrong response type")

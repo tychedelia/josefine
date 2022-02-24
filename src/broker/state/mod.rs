@@ -44,7 +44,7 @@ impl Store {
     }
 
     pub fn get_topics(&self) -> Result<HashMap<String, Topic>> {
-        Ok(self.get("topics")?.unwrap_or_else(HashMap::new))
+        Ok(self.get("topics")?.unwrap_or_default())
     }
 
     pub fn get_topic(&self, name: &str) -> Result<Option<Topic>> {
@@ -52,7 +52,7 @@ impl Store {
     }
 
     pub fn get_groups(&self) -> Result<HashMap<String, Group>> {
-        Ok(self.get("groups")?.unwrap_or_else(HashMap::new))
+        Ok(self.get("groups")?.unwrap_or_default())
     }
 
     pub fn create_partition(&self, partition: Partition) -> Result<Partition> {

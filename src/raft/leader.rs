@@ -6,9 +6,9 @@ use anyhow::{Error, Result};
 
 use crate::raft::follower::Follower;
 use crate::raft::progress::{NodeProgress, MAX_INFLIGHT};
-use crate::raft::progress::{Probe, Progress, Replicate, ReplicationProgress};
+use crate::raft::progress::{ReplicationProgress};
 
-use crate::raft::{ClientRequest, Command, Node, Raft};
+use crate::raft::{ClientRequest, Command, Raft};
 
 use crate::raft::chain::{BlockId, UnappendedBlock};
 use crate::raft::fsm::Instruction;
@@ -247,7 +247,7 @@ impl Raft<Leader> {
 
 impl Apply for Raft<Leader> {
     #[tracing::instrument]
-    fn apply(mut self, cmd: Command) -> Result<RaftHandle> {
+    fn apply(self, cmd: Command) -> Result<RaftHandle> {
         self.log_command(&cmd);
         match cmd {
             Command::Tick => self.apply_tick(),

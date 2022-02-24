@@ -9,7 +9,7 @@ use crate::config::JosefineConfig;
 use crate::raft::client::RaftClient;
 use anyhow::Result;
 use futures::FutureExt;
-use tokio::sync::broadcast::{Receiver, Sender};
+
 
 use crate::raft::JosefineRaft;
 use crate::util::Shutdown;

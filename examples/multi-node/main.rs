@@ -1,8 +1,8 @@
 //! A multi-node cluster that shares a single tokio runtime.
 
 use josefine::util::Shutdown;
-use std::future::Future;
-use std::pin::Pin;
+
+
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::{fmt, EnvFilter};
 
@@ -29,5 +29,5 @@ pub async fn main() {
 
     ctrlc::set_handler(move || shutdown.shutdown()).unwrap();
 
-    let tasks = futures::future::join_all(tasks).await;
+    let _tasks = futures::future::join_all(tasks).await;
 }

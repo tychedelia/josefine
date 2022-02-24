@@ -2,30 +2,30 @@ use crate::raft::rpc::{Address, Message, Proposal, Response, ResponseError};
 use crate::raft::{
     config::RaftConfig,
     fsm::{self},
-    ClientRequest, Raft,
+    ClientRequest,
 };
 use crate::raft::{tcp, ClientRequestId};
 use crate::raft::{Apply, Command, RaftHandle};
 use crate::Shutdown;
 use anyhow::Result;
-use bytes::Bytes;
-use futures::{FutureExt, Sink, Stream};
-use futures_util::{AsyncRead, TryStreamExt};
+
+use futures::{FutureExt};
+
 use std::future::Future;
-use std::pin::Pin;
-use std::task::{Context, Poll};
+
+
 use std::{collections::HashMap, net::SocketAddr};
-use tokio::net::TcpStream;
+
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
-use tokio::sync::oneshot::Sender;
+
 use tokio::time::Duration;
 use tokio::{
     net::TcpListener,
     sync::{mpsc::unbounded_channel, oneshot},
 };
-use tokio_serde::Framed;
-use tokio_util::codec::{FramedRead, FramedWrite, LengthDelimitedCodec};
+
+
 use uuid::Uuid;
 
 /// step duration
@@ -136,7 +136,7 @@ async fn event_loop(
                 match msg {
                     Message { to: Address::Peer(_), command: Command::ClientRequest(ref req), .. } => {
                         tracing::debug!("receive proxied client req");
-                        let (tx, rx) = oneshot::channel();
+                        let (tx, _rx) = oneshot::channel();
                         requests.insert(req.id, tx);
                         raft = raft.apply(msg.command)?;
                     },

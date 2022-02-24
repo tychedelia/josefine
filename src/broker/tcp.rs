@@ -6,7 +6,7 @@ use kafka_protocol::messages::{RequestKind, ResponseHeader, ResponseKind};
 use tokio::sync::oneshot;
 
 use crate::Shutdown;
-use tokio::sync::oneshot::Sender;
+
 use tokio::{
     net::{TcpListener, TcpStream},
     sync::mpsc::UnboundedSender,

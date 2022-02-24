@@ -8,7 +8,7 @@ use kafka_protocol::messages::{RequestHeader, RequestKind, ResponseKind};
 use tokio::net::TcpStream;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::oneshot;
-use tokio::sync::oneshot::Sender;
+
 use tokio_stream::StreamExt;
 use tokio_util::codec::{FramedRead, FramedWrite};
 
