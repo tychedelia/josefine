@@ -5,14 +5,14 @@ use kafka_protocol::messages::{RequestKind, ResponseHeader, ResponseKind};
 
 use tokio::sync::oneshot;
 
+use crate::Shutdown;
+use tokio::sync::oneshot::Sender;
 use tokio::{
     net::{TcpListener, TcpStream},
     sync::mpsc::UnboundedSender,
 };
-use tokio::sync::oneshot::Sender;
 use tokio_stream::StreamExt;
 use tokio_util::codec::{FramedRead, FramedWrite};
-use crate::Shutdown;
 
 pub async fn receive_task(
     listener: TcpListener,

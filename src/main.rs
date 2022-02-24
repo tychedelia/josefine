@@ -4,8 +4,8 @@ use clap::Arg;
 use std::path::Path;
 use tracing_subscriber::layer::SubscriberExt;
 
-use tracing_subscriber::{fmt, EnvFilter};
 use josefine::util::Shutdown;
+use tracing_subscriber::{fmt, EnvFilter};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -39,7 +39,8 @@ async fn main() -> anyhow::Result<()> {
     ctrlc::set_handler(move || {
         tracing::info!("shut down");
         s.shutdown()
-    }).unwrap();
+    })
+    .unwrap();
 
     josefine::josefine(Path::new(&config_path), shutdown).await
 }

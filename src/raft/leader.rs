@@ -5,8 +5,8 @@ use std::time::Instant;
 use anyhow::{Error, Result};
 
 use crate::raft::follower::Follower;
-use crate::raft::progress::{Probe, Progress, Replicate, ReplicationProgress};
 use crate::raft::progress::{NodeProgress, MAX_INFLIGHT};
+use crate::raft::progress::{Probe, Progress, Replicate, ReplicationProgress};
 
 use crate::raft::{ClientRequest, Command, Node, Raft};
 
@@ -208,14 +208,22 @@ impl Raft<Leader> {
     }
 
     #[tracing::instrument]
-    fn apply_append_response(mut self, node_id: NodeId, head: BlockId) -> Result<RaftHandle, Error> {
+    fn apply_append_response(
+        mut self,
+        node_id: NodeId,
+        head: BlockId,
+    ) -> Result<RaftHandle, Error> {
         self.role.progress.advance(node_id, head);
         self.commit()?;
         Ok(RaftHandle::Leader(self))
     }
 
     #[tracing::instrument]
-    fn apply_heartbeat_response(mut self, commit: BlockId, has_committed: bool) -> Result<RaftHandle, Error> {
+    fn apply_heartbeat_response(
+        mut self,
+        commit: BlockId,
+        has_committed: bool,
+    ) -> Result<RaftHandle, Error> {
         if !has_committed && commit > BlockId::new(0) {
             self.replicate()?;
         }
@@ -242,24 +250,16 @@ impl Apply for Raft<Leader> {
     fn apply(mut self, cmd: Command) -> Result<RaftHandle> {
         self.log_command(&cmd);
         match cmd {
-            Command::Tick => {
-                self.apply_tick()
-            }
+            Command::Tick => self.apply_tick(),
             Command::HeartbeatResponse {
                 commit,
                 has_committed,
-            } => {
-                self.apply_heartbeat_response(commit, has_committed)
-            }
+            } => self.apply_heartbeat_response(commit, has_committed),
             Command::AppendResponse { node_id, head, .. } => {
                 self.apply_append_response(node_id, head)
             }
-            Command::AppendEntries { term, .. } => {
-                self.apply_append_entries(term)
-            }
-            Command::ClientRequest(req) => {
-                self.apply_client_request(req)
-            }
+            Command::AppendEntries { term, .. } => self.apply_append_entries(term),
+            Command::ClientRequest(req) => self.apply_client_request(req),
             _ => Ok(RaftHandle::Leader(self)),
         }
     }

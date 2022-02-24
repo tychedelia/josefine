@@ -11,8 +11,8 @@ use uuid::Uuid;
 
 use crate::broker::replica::Replica;
 
-use state::Store;
 use crate::Shutdown;
+use state::Store;
 
 pub mod config;
 pub mod fsm;
@@ -32,12 +32,7 @@ impl JosefineBroker {
         JosefineBroker { config }
     }
 
-    pub async fn run(
-        self,
-        client: RaftClient,
-        store: Store,
-        shutdown: Shutdown,
-    ) -> Result<()> {
+    pub async fn run(self, client: RaftClient, store: Store, shutdown: Shutdown) -> Result<()> {
         let server = Server::new(self.config);
         server.run(client, store, shutdown).await
     }
@@ -105,6 +100,7 @@ impl Broker {
     }
 
     #[tracing::instrument]
+
     pub async fn handle_request(&self, req: RequestKind) -> Result<ResponseKind> {
         tracing::info!("handle request");
         let res = match req {

@@ -30,12 +30,7 @@ impl Server {
         Server { address, config }
     }
 
-    pub async fn run(
-        self,
-        client: RaftClient,
-        store: Store,
-        shutdown: Shutdown,
-    ) -> Result<()> {
+    pub async fn run(self, client: RaftClient, store: Store, shutdown: Shutdown) -> Result<()> {
         tracing::info!("start broker");
         let listener = TcpListener::bind(self.address).await?;
         let (in_tx, out_tx) = tokio::sync::mpsc::unbounded_channel();
@@ -44,8 +39,7 @@ impl Server {
         tokio::spawn(task);
 
         let ctrl = Broker::new(store, client, self.config);
-        let (task, handle_messages) =
-            handle_messages(ctrl, out_tx, shutdown).remote_handle();
+        let (task, handle_messages) = handle_messages(ctrl, out_tx, shutdown).remote_handle();
         tokio::spawn(task);
 
         let (_, _) = tokio::try_join!(tcp_receiver, handle_messages)?;

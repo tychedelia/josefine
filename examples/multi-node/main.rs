@@ -1,10 +1,10 @@
 //! A multi-node cluster that shares a single tokio runtime.
 
+use josefine::util::Shutdown;
 use std::future::Future;
 use std::pin::Pin;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::{fmt, EnvFilter};
-use josefine::util::Shutdown;
 
 #[tokio::main]
 pub async fn main() {
@@ -23,17 +23,11 @@ pub async fn main() {
         .map(|i| {
             let mut p = path.clone();
             p.push(format!("examples/multi-node/node-{i}.toml"));
-            Box::pin(josefine::josefine(
-                p.as_path().to_owned(),
-                shutdown.clone(),
-            ))
+            Box::pin(josefine::josefine(p.as_path().to_owned(), shutdown.clone()))
         })
         .collect();
 
-    ctrlc::set_handler(move || {
-        shutdown.shutdown()
-    })
-    .unwrap();
+    ctrlc::set_handler(move || shutdown.shutdown()).unwrap();
 
     let tasks = futures::future::join_all(tasks).await;
 }

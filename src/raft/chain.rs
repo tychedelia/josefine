@@ -27,7 +27,13 @@ impl IdGenerator {
 }
 
 #[derive(Clone, PartialEq, Deserialize, Serialize, PartialOrd, Ord, Hash, Eq)]
-pub struct BlockId(#[serde(deserialize_with = "deserialize_block_id", serialize_with = "serialize_block_id")] pub Bytes);
+pub struct BlockId(
+    #[serde(
+        deserialize_with = "deserialize_block_id",
+        serialize_with = "serialize_block_id"
+    )]
+    pub Bytes,
+);
 
 impl Debug for BlockId {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -206,15 +212,19 @@ impl Chain {
         tracing::info!("range");
         self.db
             .range(range)
-            .map(|x| x.unwrap_or_else(|e| {
-                tracing::error!(?e, "couldn't read from db");
-                panic!()
-            }))
-            .map(|(k, v)| bincode::deserialize(&v).unwrap_or_else(|e| {
-                let block_id = BlockId(Bytes::from(k.to_vec()));
-                tracing::error!(?e, ?block_id, "couldn't deserialize");
-                panic!()
-            }))
+            .map(|x| {
+                x.unwrap_or_else(|e| {
+                    tracing::error!(?e, "couldn't read from db");
+                    panic!()
+                })
+            })
+            .map(|(k, v)| {
+                bincode::deserialize(&v).unwrap_or_else(|e| {
+                    let block_id = BlockId(Bytes::from(k.to_vec()));
+                    tracing::error!(?e, ?block_id, "couldn't deserialize");
+                    panic!()
+                })
+            })
     }
 
     pub fn get_head(&self) -> BlockId {

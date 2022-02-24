@@ -8,9 +8,9 @@ use crate::raft::{
     rpc::{self, Address, Message, Response},
     ClientRequestId, ClientResponse, Command,
 };
+use crate::Shutdown;
 use anyhow::Result;
 use std::collections::HashMap;
-use crate::Shutdown;
 
 pub trait Fsm: Send + Sync + fmt::Debug {
     fn transition(&mut self, data: Vec<u8>) -> Result<Vec<u8>>;

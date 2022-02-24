@@ -1,6 +1,7 @@
 use kafka_protocol::messages::create_topics_request::CreatableTopic;
 use kafka_protocol::messages::{
-    ApiKey, ApiVersionsRequest, CreateTopicsRequest, RequestHeader, RequestKind, TopicName,
+    ApiKey, ApiVersionsRequest, CreateTopicsRequest, RequestHeader, RequestKind, ResponseKind,
+    TopicName,
 };
 use kafka_protocol::protocol::StrBytes;
 use std::collections::HashMap;
@@ -15,6 +16,7 @@ use tokio::time::Duration;
 use josefine::raft::Node;
 use josefine::util::Shutdown;
 
+#[derive(Debug)]
 struct NodeManager {
     nodes: HashMap<u16, JosefineConfig>,
 }
@@ -42,10 +44,7 @@ impl NodeManager {
             .collect()
     }
 
-    pub async fn run(
-        mut self,
-        shutdown: Shutdown,
-    ) -> anyhow::Result<()> {
+    pub async fn run(mut self, shutdown: Shutdown) -> anyhow::Result<()> {
         let brokers: Vec<Broker> = self
             .nodes
             .iter()
@@ -137,11 +136,11 @@ async fn create_topic() -> anyhow::Result<()> {
     let shutdown = Shutdown::new();
     let s = shutdown.clone();
     tokio::spawn(async move { nodes.run(s).await });
-    tokio::time::sleep(Duration::from_secs(1)).await;
+    tokio::time::sleep(Duration::from_secs(2)).await;
     let client = KafkaClient::new(addrs[0]).await?.connect(shutdown).await?;
     let mut header = RequestHeader::default();
     header.request_api_version = 7;
-    header.request_api_key = ApiKey::ApiVersionsKey as i16;
+    header.request_api_key = ApiKey::CreateTopicsKey as i16;
     let mut req = CreateTopicsRequest::default();
     req.topics.insert(TopicName(StrBytes::from_str("test")), {
         let mut t = CreatableTopic::default();
@@ -149,11 +148,21 @@ async fn create_topic() -> anyhow::Result<()> {
         t.num_partitions = 2;
         t
     });
-    match client
-        .send(header, RequestKind::CreateTopicsRequest(req))
-        .await
-    {
-        Ok(_) => {}
+
+    let res = tokio::time::timeout(
+        Duration::from_secs(5),
+        client.send(header, RequestKind::CreateTopicsRequest(req)),
+    )
+    .await
+    .expect("did not timeout");
+    match res {
+        Ok(res) => {
+            if let ResponseKind::CreateTopicsResponse(res) = res {
+                // TODO assert response type
+            } else {
+                panic!("wrong response type")
+            }
+        }
         Err(err) => {
             tracing::error!(?err, "could not create topic");
             return Err(anyhow::anyhow!(""));
@@ -173,7 +182,7 @@ async fn multi_node() -> anyhow::Result<()> {
     let shutdown = Shutdown::new();
     let s = shutdown.clone();
     tokio::spawn(async move { nodes.run(s).await });
-    tokio::time::sleep(Duration::from_secs(5)).await;
+    tokio::time::sleep(Duration::from_secs(1)).await;
     let client = KafkaClient::new(addrs[0]).await?.connect(shutdown).await?;
     let mut header = RequestHeader::default();
     header.request_api_version = 6;

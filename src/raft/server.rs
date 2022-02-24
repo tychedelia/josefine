@@ -6,27 +6,27 @@ use crate::raft::{
 };
 use crate::raft::{tcp, ClientRequestId};
 use crate::raft::{Apply, Command, RaftHandle};
+use crate::Shutdown;
 use anyhow::Result;
+use bytes::Bytes;
 use futures::{FutureExt, Sink, Stream};
 use futures_util::{AsyncRead, TryStreamExt};
+use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use std::{collections::HashMap, net::SocketAddr};
-use std::future::Future;
-use bytes::Bytes;
 use tokio::net::TcpStream;
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
+use tokio::sync::oneshot::Sender;
 use tokio::time::Duration;
 use tokio::{
     net::TcpListener,
     sync::{mpsc::unbounded_channel, oneshot},
 };
-use tokio::sync::oneshot::Sender;
 use tokio_serde::Framed;
 use tokio_util::codec::{FramedRead, FramedWrite, LengthDelimitedCodec};
 use uuid::Uuid;
-use crate::Shutdown;
 
 /// step duration
 const TICK: Duration = Duration::from_millis(100);
@@ -178,9 +178,9 @@ mod tests {
     use crate::raft::RaftHandle;
     use anyhow::Result;
 
+    use crate::Shutdown;
     use std::time::Duration;
     use tokio::sync::mpsc::{self, unbounded_channel};
-    use crate::Shutdown;
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     async fn event_loop() -> Result<()> {
@@ -193,7 +193,7 @@ mod tests {
         let (_client_tx, client_rx) = tokio::sync::mpsc::unbounded_channel();
         let shutdown = Shutdown::new();
         let event_loop = super::event_loop(
-           shutdown.clone(),
+            shutdown.clone(),
             raft,
             tcp_out_tx,
             rpc_rx,

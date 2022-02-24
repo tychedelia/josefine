@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use crate::kafka::codec::KafkaClientCodec;
+use crate::Shutdown;
 use kafka_protocol::messages::{RequestHeader, RequestKind, ResponseKind};
 use tokio::net::TcpStream;
 use tokio::sync::mpsc::UnboundedReceiver;
@@ -10,8 +11,8 @@ use tokio::sync::oneshot;
 use tokio::sync::oneshot::Sender;
 use tokio_stream::StreamExt;
 use tokio_util::codec::{FramedRead, FramedWrite};
-use crate::Shutdown;
 
+#[tracing::instrument]
 pub async fn send_messages(
     stream: TcpStream,
     mut rx: UnboundedReceiver<(RequestHeader, RequestKind, oneshot::Sender<ResponseKind>)>,

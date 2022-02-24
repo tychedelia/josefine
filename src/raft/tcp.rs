@@ -4,6 +4,7 @@ use anyhow::Result;
 use futures::SinkExt;
 use std::collections::HashMap;
 
+use crate::Shutdown;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::broadcast::Sender;
 use tokio::sync::mpsc;
@@ -11,7 +12,6 @@ use tokio::sync::mpsc::{Receiver, UnboundedReceiver, UnboundedSender};
 use tokio::time::Duration;
 use tokio_stream::StreamExt;
 use tokio_util::codec::{FramedRead, FramedWrite, LengthDelimitedCodec};
-use crate::Shutdown;
 
 pub async fn receive_task(
     mut shutdown: Shutdown,

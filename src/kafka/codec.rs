@@ -12,7 +12,7 @@ use kafka_protocol::protocol::{Decodable, Encodable, HeaderVersion};
 use tokio_util::codec;
 
 use crate::kafka::error::ErrorKind;
-use crate::kafka::error::ErrorKind::DecodeError;
+use crate::kafka::error::ErrorKind::{DecodeError, EncodeError};
 
 pub struct KafkaServerCodec {
     length_codec: codec::LengthDelimitedCodec,
@@ -151,6 +151,7 @@ impl codec::Decoder for KafkaClientCodec {
     type Item = (ResponseHeader, ResponseKind);
     type Error = ErrorKind;
 
+    #[tracing::instrument]
     fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
         if let Some(mut bytes) = self.length_codec.decode(src)? {
             let header = ResponseHeader::decode(&mut bytes, 1)?;
@@ -184,6 +185,11 @@ fn decode_response(
                 LeaderAndIsrResponse::decode(bytes, LeaderAndIsrResponse::header_version(version))?;
             Ok(ResponseKind::LeaderAndIsrResponse(res))
         }
+        ApiKey::CreateTopicsKey => {
+            let res =
+                CreateTopicsResponse::decode(bytes, CreateTopicsResponse::header_version(version))?;
+            Ok(ResponseKind::CreateTopicsResponse(res))
+        }
         _ => Err(ErrorKind::UnsupportedOperation),
     }
 }
@@ -191,6 +197,7 @@ fn decode_response(
 impl codec::Encoder<(RequestHeader, RequestKind)> for KafkaClientCodec {
     type Error = ErrorKind;
 
+    #[tracing::instrument]
     fn encode(
         &mut self,
         item: (RequestHeader, RequestKind),
@@ -224,7 +231,11 @@ fn encode_request(
             header.encode(bytes, LeaderAndIsrRequest::header_version(version))?;
             req.encode(bytes, version)?;
         }
-        _ => return Err(DecodeError),
+        RequestKind::CreateTopicsRequest(req) => {
+            header.encode(bytes, CreateTopicsRequest::header_version(version))?;
+            req.encode(bytes, version)?;
+        }
+        _ => return Err(EncodeError),
     };
 
     Ok(())

@@ -55,10 +55,10 @@ use crate::raft::leader::Leader;
 use crate::raft::rpc::{Address, Message, ResponseError};
 use crate::raft::server::{Server, ServerRunOpts};
 use crate::raft::{candidate::Candidate, rpc::Proposal};
+use crate::Shutdown;
 use anyhow::Result;
 use tokio::sync::oneshot::Sender;
 use uuid::Uuid;
-use crate::Shutdown;
 
 mod candidate;
 mod chain;
@@ -74,6 +74,7 @@ mod server;
 mod tcp;
 mod test;
 
+#[derive(Debug)]
 pub struct JosefineRaft {
     server: Server,
 }
@@ -85,6 +86,7 @@ impl JosefineRaft {
         }
     }
 
+    #[tracing::instrument]
     pub async fn run<T: 'static + fsm::Fsm>(
         self,
         fsm: T,
@@ -103,9 +105,10 @@ impl JosefineRaft {
             .await
     }
 
+    #[tracing::instrument]
     pub async fn run_for<T: 'static + fsm::Fsm>(
         self,
-        _duration: Duration,
+        duration: Duration,
         fsm: T,
         client_rx: UnboundedReceiver<(
             Proposal,
@@ -113,6 +116,12 @@ impl JosefineRaft {
         )>,
         shutdown: Shutdown,
     ) -> Result<RaftHandle> {
+        let s = shutdown.clone();
+        tokio::spawn(async move {
+            tokio::time::sleep(duration);
+            s.shutdown();
+        });
+
         self.server
             .run(ServerRunOpts {
                 fsm,

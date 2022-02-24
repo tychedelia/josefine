@@ -1,10 +1,10 @@
 use kafka_protocol::messages::{RequestHeader, RequestKind, ResponseKind};
 use std::net::SocketAddr;
 
+use crate::Shutdown;
 use tokio::net::TcpStream;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::sync::oneshot;
-use crate::Shutdown;
 
 pub mod codec;
 pub mod error;
@@ -43,10 +43,7 @@ impl KafkaClient {
         Ok(KafkaClient { stream })
     }
 
-    pub async fn connect(
-        self,
-        shutdown: Shutdown,
-    ) -> anyhow::Result<ConnectedKafkaClient> {
+    pub async fn connect(self, shutdown: Shutdown) -> anyhow::Result<ConnectedKafkaClient> {
         let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
         tokio::spawn(crate::kafka::tcp::send_messages(self.stream, rx, shutdown));
         Ok(ConnectedKafkaClient { tx })
