@@ -27,7 +27,7 @@ impl Handler<ProduceRequest> for Broker {
                         .get(p.id)
                         .expect("TODO: replica doesn't exist");
                     let mut replica = replica.lock().expect("mutex poisoned");
-                    replica.log.write(&bytes[..])?;
+                    replica.log.write_all(&bytes[..])?;
                 }
             }
         }
