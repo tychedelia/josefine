@@ -54,7 +54,7 @@ impl Handler<MetadataRequest> for Broker {
                     .collect::<anyhow::Result<Vec<MetadataResponsePartition>>>()?,
                 ..Default::default()
             };
-            let s = StrBytes::try_from(Bytes::from(name)).unwrap();
+            let s = name.to_str_bytes();
             res.topics.insert(TopicName(s), t);
         }
 
