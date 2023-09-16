@@ -1,32 +1,25 @@
-use crate::raft::rpc::{Address, Message, Proposal, Response, ResponseError};
-use crate::raft::{
-    config::RaftConfig,
-    fsm::{self},
-    ClientRequest,
-};
-use crate::raft::{tcp, ClientRequestId};
-use crate::raft::{Apply, Command, RaftHandle};
-use crate::Shutdown;
-use anyhow::Result;
-
-use futures::{FutureExt};
-
-use std::future::Future;
-
-
 use std::{collections::HashMap, net::SocketAddr};
 
-use tokio::sync::mpsc;
-use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
-
-use tokio::time::Duration;
+use anyhow::Result;
+use futures::FutureExt;
 use tokio::{
     net::TcpListener,
     sync::{mpsc::unbounded_channel, oneshot},
 };
-
-
+use tokio::sync::mpsc;
+use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
+use tokio::time::Duration;
 use uuid::Uuid;
+
+use crate::raft::{
+    ClientRequest,
+    config::RaftConfig,
+    fsm::{self},
+};
+use crate::raft::{ClientRequestId, tcp};
+use crate::raft::{Apply, Command, RaftHandle};
+use crate::raft::rpc::{Address, Message, Proposal, Response, ResponseError};
+use crate::Shutdown;
 
 /// step duration
 const TICK: Duration = Duration::from_millis(100);
@@ -174,13 +167,14 @@ async fn event_loop(
 
 #[cfg(test)]
 mod tests {
+    use std::time::Duration;
+
+    use anyhow::Result;
+    use tokio::sync::mpsc::{self, unbounded_channel};
+
     use crate::raft::RaftConfig;
     use crate::raft::RaftHandle;
-    use anyhow::Result;
-
     use crate::Shutdown;
-    use std::time::Duration;
-    use tokio::sync::mpsc::{self, unbounded_channel};
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     async fn event_loop() -> Result<()> {

@@ -44,14 +44,13 @@ const MAX_PROTOCOL_VERSION: u32 = 0;
 
 impl RaftConfig {
     pub fn config(config_path: &std::path::Path) -> RaftConfig {
-        let mut settings = config::Config::default();
-        settings
-            .merge(config::File::from(config_path))
-            .expect("Could not read configuration file")
-            .merge(config::Environment::with_prefix("crate::raft"))
-            .expect("Could not read environment variables");
+        let settings = config::Config::builder();
+        let config = settings
+            .add_source(config::File::from(config_path))
+            .add_source(config::Environment::with_prefix("crate::raft"))
+            .build().expect("Could not build configuration");
 
-        settings.try_into().expect("Could not create configuration")
+        config.try_deserialize().expect("Could not create configuration")
     }
 
     /// Validates the configuration, ensuring all values make sense.

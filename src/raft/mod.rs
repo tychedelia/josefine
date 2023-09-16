@@ -118,7 +118,7 @@ impl JosefineRaft {
     ) -> Result<RaftHandle> {
         let s = shutdown.clone();
         tokio::spawn(async move {
-            tokio::time::sleep(duration);
+            let _ = tokio::time::sleep(duration);
             s.shutdown();
         });
 

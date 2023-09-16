@@ -1,11 +1,15 @@
-use clap::App;
-use clap::Arg;
-
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use tracing_subscriber::layer::SubscriberExt;
+use clap::Parser;
 
 use josefine::util::Shutdown;
 use tracing_subscriber::{fmt, EnvFilter};
+
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+struct Args {
+    config: PathBuf,
+}
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -18,22 +22,6 @@ async fn main() -> anyhow::Result<()> {
         .with(fmt::Layer::new().pretty().with_writer(std::io::stdout));
     tracing::subscriber::set_global_default(subscriber).expect("Unable to set a global collector");
 
-    let matches = App::new("Josefine")
-        .version("0.0.1")
-        .author("jcm")
-        .about("Distributed log in rust.")
-        .arg(
-            Arg::with_name("config")
-                .long("config")
-                .value_name("PATH")
-                .required(true)
-                .default_value("Config.toml")
-                .help("Location of the config file."),
-        )
-        .get_matches();
-
-    let config_path = matches.value_of("config").unwrap();
-
     let shutdown = Shutdown::new();
     let s = shutdown.clone();
     ctrlc::set_handler(move || {
@@ -42,5 +30,7 @@ async fn main() -> anyhow::Result<()> {
     })
     .unwrap();
 
-    josefine::josefine(Path::new(&config_path), shutdown).await
+    let args = Args::parse();
+
+    josefine::josefine(&args.config, shutdown).await
 }

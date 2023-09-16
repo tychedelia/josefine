@@ -5,6 +5,13 @@ use kafka_protocol::messages::api_versions_response::ApiVersion;
 use kafka_protocol::messages::*;
 use kafka_protocol::protocol::Message;
 
+fn api_version<T: Message>() -> ApiVersion {
+    let mut v = ApiVersion::default();
+    v.max_version = T::VERSIONS.max;
+    v.min_version = T::VERSIONS.min;
+    v
+}
+
 #[async_trait]
 impl Handler<ApiVersionsRequest> for Broker {
     async fn handle(
@@ -14,131 +21,67 @@ impl Handler<ApiVersionsRequest> for Broker {
     ) -> anyhow::Result<ApiVersionsResponse> {
         res.api_keys.insert(
             ApiKey::ProduceKey as i16,
-            ApiVersion {
-                max_version: ProduceRequest::VERSIONS.max,
-                min_version: ProduceRequest::VERSIONS.min,
-                ..Default::default()
-            },
+            api_version::<ProduceRequest>(),
         );
         res.api_keys.insert(
             ApiKey::FetchKey as i16,
-            ApiVersion {
-                max_version: FetchRequest::VERSIONS.max,
-                min_version: FetchRequest::VERSIONS.min,
-                ..Default::default()
-            },
+            api_version::<FetchRequest>(),
         );
         res.api_keys.insert(
             ApiKey::ListOffsetsKey as i16,
-            ApiVersion {
-                max_version: ListOffsetsRequest::VERSIONS.max,
-                min_version: ListOffsetsRequest::VERSIONS.min,
-                ..Default::default()
-            },
+            api_version::<ListOffsetsRequest>(),
         );
         res.api_keys.insert(
             ApiKey::MetadataKey as i16,
-            ApiVersion {
-                max_version: MetadataRequest::VERSIONS.max,
-                min_version: MetadataRequest::VERSIONS.min,
-                ..Default::default()
-            },
+            api_version::<MetadataRequest>(),
         );
         res.api_keys.insert(
             ApiKey::LeaderAndIsrKey as i16,
-            ApiVersion {
-                max_version: LeaderAndIsrRequest::VERSIONS.max,
-                min_version: LeaderAndIsrRequest::VERSIONS.min,
-                ..Default::default()
-            },
+            api_version::<LeaderAndIsrRequest>(),
         );
         res.api_keys.insert(
             ApiKey::StopReplicaKey as i16,
-            ApiVersion {
-                max_version: StopReplicaRequest::VERSIONS.max,
-                min_version: StopReplicaRequest::VERSIONS.min,
-                ..Default::default()
-            },
+            api_version::<StopReplicaRequest>(),
         );
         res.api_keys.insert(
             ApiKey::FindCoordinatorKey as i16,
-            ApiVersion {
-                max_version: FindCoordinatorRequest::VERSIONS.max,
-                min_version: FindCoordinatorRequest::VERSIONS.min,
-                ..Default::default()
-            },
+            api_version::<FindCoordinatorRequest>(),
         );
         res.api_keys.insert(
             ApiKey::JoinGroupKey as i16,
-            ApiVersion {
-                max_version: JoinGroupRequest::VERSIONS.max,
-                min_version: JoinGroupRequest::VERSIONS.min,
-                ..Default::default()
-            },
+            api_version::<JoinGroupRequest>(),
         );
         res.api_keys.insert(
             ApiKey::HeartbeatKey as i16,
-            ApiVersion {
-                max_version: HeartbeatRequest::VERSIONS.max,
-                min_version: HeartbeatRequest::VERSIONS.min,
-                ..Default::default()
-            },
+            api_version::<HeartbeatRequest>(),
         );
         res.api_keys.insert(
             ApiKey::ListGroupsKey as i16,
-            ApiVersion {
-                max_version: LeaveGroupRequest::VERSIONS.max,
-                min_version: LeaveGroupRequest::VERSIONS.min,
-                ..Default::default()
-            },
+            api_version::<ListGroupsRequest>(),
         );
         res.api_keys.insert(
             ApiKey::SyncGroupKey as i16,
-            ApiVersion {
-                max_version: SyncGroupRequest::VERSIONS.max,
-                min_version: SyncGroupRequest::VERSIONS.min,
-                ..Default::default()
-            },
+            api_version::<SyncGroupRequest>(),
         );
         res.api_keys.insert(
             ApiKey::CreateTopicsKey as i16,
-            ApiVersion {
-                max_version: CreateTopicsRequest::VERSIONS.max,
-                min_version: CreateTopicsRequest::VERSIONS.min,
-                ..Default::default()
-            },
+            api_version::<CreateTopicsRequest>(),
         );
         res.api_keys.insert(
             ApiKey::DeleteGroupsKey as i16,
-            ApiVersion {
-                max_version: DescribeGroupsRequest::VERSIONS.max,
-                min_version: DescribeGroupsRequest::VERSIONS.min,
-                ..Default::default()
-            },
+            api_version::<DeleteGroupsRequest>(),
         );
         res.api_keys.insert(
             ApiKey::ListGroupsKey as i16,
-            ApiVersion {
-                max_version: ListGroupsRequest::VERSIONS.max,
-                min_version: ListGroupsRequest::VERSIONS.min,
-                ..Default::default()
-            },
+            api_version::<ListGroupsRequest>(),
         );
         res.api_keys.insert(
             ApiKey::ApiVersionsKey as i16,
-            ApiVersion {
-                max_version: ApiVersionsRequest::VERSIONS.max,
-                min_version: ApiVersionsRequest::VERSIONS.min,
-                ..Default::default()
-            },
+            api_version::<ApiVersionsRequest>(),
         );
         res.api_keys.insert(
             ApiKey::DeleteTopicsKey as i16,
-            ApiVersion {
-                max_version: DeleteTopicsRequest::VERSIONS.max,
-                min_version: DeleteTopicsRequest::VERSIONS.min,
-                ..Default::default()
-            },
+            api_version::<DeleteTopicsRequest>(),
         );
 
         Ok(res)

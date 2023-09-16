@@ -83,7 +83,7 @@ impl NodeManager {
         for (_, config) in self.nodes.into_iter() {
             let shutdown = shutdown.clone();
             let task = tokio::spawn(async move {
-                tokio::time::timeout(
+                let _ = tokio::time::timeout(
                     Duration::from_secs(60),
                     josefine_with_config(config, shutdown),
                 )
