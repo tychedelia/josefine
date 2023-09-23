@@ -1,17 +1,11 @@
-use kafka_protocol::messages::create_topics_request::CreatableTopic;
-use kafka_protocol::messages::{
-    ApiKey, ApiVersionsRequest, CreateTopicsRequest, RequestHeader, RequestKind, ResponseKind,
-    TopicName,
-};
-use kafka_protocol::protocol::StrBytes;
 use std::collections::HashMap;
 use std::net::SocketAddr;
 
-use josefine::broker::config::{Broker, BrokerId};
+use josefine::broker::config::Peer;
 use josefine::config::JosefineConfig;
 use josefine::josefine_with_config;
-use josefine::kafka::KafkaClient;
 use tokio::time::Duration;
+use josefine::broker::BrokerId;
 
 use josefine::raft::Node;
 use josefine::util::Shutdown;
@@ -45,10 +39,10 @@ impl NodeManager {
     }
 
     pub async fn run(mut self, _shutdown: Shutdown) -> anyhow::Result<()> {
-        let brokers: Vec<Broker> = self
+        let brokers: Vec<Peer> = self
             .nodes
             .iter()
-            .map(|x| Broker {
+            .map(|x| Peer {
                 id: x.1.broker.id,
                 ip: x.1.broker.ip,
                 port: x.1.broker.port,

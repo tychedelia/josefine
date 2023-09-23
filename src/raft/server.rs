@@ -49,7 +49,7 @@ impl Server {
         self,
         run_opts: ServerRunOpts<T>,
     ) -> Result<RaftHandle> {
-        tracing::info!("start raft");
+        tracing::debug!("start raft");
         let ServerRunOpts {
             fsm,
             client_rx,
@@ -100,7 +100,6 @@ impl Server {
     }
 }
 
-#[tracing::instrument(skip(tcp_tx, rpc_rx, tcp_rx, client_rx))]
 async fn event_loop(
     mut shutdown: Shutdown,
     mut raft: RaftHandle,

@@ -1,4 +1,4 @@
-use crate::broker::config::BrokerId;
+use crate::broker::BrokerId;
 use crate::broker::log::Log;
 use crate::broker::state::partition::Partition;
 use std::path::Path;

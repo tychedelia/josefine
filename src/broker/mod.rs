@@ -1,4 +1,4 @@
-use crate::broker::config::{BrokerConfig, BrokerId};
+use crate::broker::config::BrokerConfig;
 use crate::broker::handler::Handler;
 use crate::raft::client::RaftClient;
 use anyhow::Result;
@@ -8,6 +8,7 @@ use std::collections::HashMap;
 use std::fmt::{Debug, Formatter};
 use std::sync::{Arc, Mutex, RwLock};
 use uuid::Uuid;
+use derive_more::Display;
 
 use crate::broker::replica::Replica;
 
@@ -89,9 +90,9 @@ impl Broker {
         ids
     }
 
-    fn get_brokers(&self) -> Vec<crate::broker::config::Broker> {
+    fn get_brokers(&self) -> Vec<crate::broker::config::Peer> {
         let mut brokers = self.config.peers.clone();
-        brokers.push(crate::broker::config::Broker {
+        brokers.push(crate::broker::config::Peer {
             id: self.config.id,
             ip: self.config.ip,
             port: self.config.port,
@@ -102,7 +103,7 @@ impl Broker {
     #[tracing::instrument]
 
     pub async fn handle_request(&self, req: RequestKind) -> Result<ResponseKind> {
-        tracing::info!("handle request");
+        tracing::debug!("handle request");
         let res = match req {
             RequestKind::ApiVersionsRequest(req) => {
                 let res = self.do_handle(req).await?;
@@ -130,3 +131,8 @@ impl Broker {
         Ok(res)
     }
 }
+
+#[derive(
+    Copy, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, Debug, Display, Ord, PartialOrd,
+)]
+pub struct BrokerId(pub i32);

@@ -1,4 +1,4 @@
-use crate::broker::config::BrokerId;
+use crate::broker::BrokerId;
 use derive_more::Display;
 use uuid::Uuid;
 

@@ -30,7 +30,7 @@ pub async fn josefine<P: AsRef<std::path::Path>>(config_path: P, shutdown: Shutd
 
 #[tracing::instrument]
 pub async fn run(config: JosefineConfig, shutdown: Shutdown) -> Result<()> {
-    tracing::info!("start");
+    tracing::debug!("start");
     let db = sled::open(&config.broker.state_file).unwrap();
 
     let (client_tx, client_rx) = tokio::sync::mpsc::unbounded_channel();

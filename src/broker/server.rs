@@ -31,7 +31,7 @@ impl Server {
     }
 
     pub async fn run(self, client: RaftClient, store: Store, shutdown: Shutdown) -> Result<()> {
-        tracing::info!("start broker");
+        tracing::info!("broker listening on {}:{}", self.config.ip, self.config.port);
         let listener = TcpListener::bind(self.address).await?;
         let (in_tx, out_tx) = tokio::sync::mpsc::unbounded_channel();
         let (task, tcp_receiver) =

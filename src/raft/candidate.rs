@@ -87,23 +87,33 @@ impl Raft<Candidate> {
         Ok(RaftHandle::Candidate(self))
     }
 
-    #[tracing::instrument]
+    #[tracing::instrument(skip(self))]
     fn apply_vote_response(mut self, granted: bool, from: NodeId) -> Result<RaftHandle, Error> {
         self.role.election.vote(from, granted);
         match self.role.election.election_status() {
             ElectionStatus::Elected => {
-                tracing::info!("elect");
-                let raft = Raft::from(self);
-                raft.heartbeat()?;
-                Ok(RaftHandle::Leader(raft))
+                self.elect()
             }
             ElectionStatus::Voting => Ok(RaftHandle::Candidate(self)),
             ElectionStatus::Defeated => {
-                tracing::info!("defeat");
-                self.state.voted_for = None;
-                Ok(RaftHandle::Follower(Raft::from(self)))
+                self.defeat()
             }
         }
+    }
+
+    #[tracing::instrument(skip(self))]
+    fn defeat(mut self) -> Result<RaftHandle, Error> {
+        tracing::info!("defeated in election");
+        self.state.voted_for = None;
+        Ok(RaftHandle::Follower(Raft::from(self)))
+    }
+
+    #[tracing::instrument(skip(self))]
+    fn elect(mut self) -> Result<RaftHandle, Error> {
+        tracing::info!("elected leader");
+        let raft = Raft::from(self);
+        raft.heartbeat()?;
+        Ok(RaftHandle::Leader(raft))
     }
 
     #[tracing::instrument]
@@ -162,7 +172,7 @@ impl Role for Candidate {
 }
 
 impl Apply for Raft<Candidate> {
-    #[tracing::instrument]
+    #[tracing::instrument(skip(self), fields(self.id))]
     fn apply(mut self, cmd: Command) -> Result<RaftHandle> {
         self.log_command(&cmd);
 

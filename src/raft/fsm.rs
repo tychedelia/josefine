@@ -57,7 +57,7 @@ impl<T: Fsm> Driver<T> {
                 Some(instruction) = self.fsm_rx.recv() => {
                     match instruction {
                         Instruction::Apply { block } => {
-                            tracing::info!("apply");
+                            tracing::debug!("apply");
                             if block.id == BlockId::new(0) {
                                 continue
                             }
@@ -76,7 +76,7 @@ impl<T: Fsm> Driver<T> {
                             }
                         }
                         Instruction::Notify { block_id, id, client_address } => {
-                            tracing::info!("notify");
+                            tracing::debug!("notify");
                             self.notifications.insert(block_id, (client_address, id));
                         }
                     };

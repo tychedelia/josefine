@@ -1,6 +1,7 @@
 pub mod group;
 pub mod partition;
 pub mod topic;
+mod broker;
 
 use crate::broker::state::group::Group;
 use crate::broker::state::partition::Partition;
@@ -11,6 +12,7 @@ use serde::Serialize;
 use sled::Db;
 use std::collections::HashMap;
 use std::fmt::{Debug, Formatter};
+use crate::broker::config::Peer;
 
 #[derive(Clone)]
 pub struct Store {
@@ -28,7 +30,9 @@ impl Store {
         Self { db }
     }
 
+    #[tracing::instrument]
     pub fn create_topic(&self, topic: Topic) -> Result<Topic> {
+        tracing::debug!(?topic, "create topic");
         let mut topics = self.get_topics()?;
 
         if !topics.contains_key(&topic.name) {
@@ -55,10 +59,18 @@ impl Store {
         Ok(self.get("groups")?.unwrap_or_default())
     }
 
+    #[tracing::instrument]
     pub fn create_partition(&self, partition: Partition) -> Result<Partition> {
-        let key = format!("{}:partition:{}", partition.topic, partition.idx);
+        tracing::debug!(?partition, "create partition");
+        let key = format!("{}:partition:{}", partition.topic, partition.id);
         self.insert(&key, &partition)?;
         Ok(partition)
+    }
+
+    pub fn create_broker(&self, broker: Peer) -> Result<Peer> {
+        let key = format!("broker:{}", broker.id);
+        self.insert(&key, &broker)?;
+        Ok(broker)
     }
 
     pub fn get_partition(&self, topic: &str, id: i32) -> Result<Option<Partition>> {

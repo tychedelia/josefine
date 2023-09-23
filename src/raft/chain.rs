@@ -166,7 +166,7 @@ impl Chain {
             next: self.head.clone(),
             data: block.data,
         };
-        tracing::info!(?block, "append");
+        tracing::debug!(?block, "append");
         self.db
             .insert(&block.id, bincode::serialize(&block).unwrap())
             .unwrap();
@@ -209,7 +209,7 @@ impl Chain {
         &self,
         range: R,
     ) -> impl DoubleEndedIterator<Item = Block> {
-        tracing::info!("range");
+        tracing::debug!("range");
         self.db
             .range(range)
             .map(|x| {

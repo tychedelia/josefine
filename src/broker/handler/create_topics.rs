@@ -12,7 +12,7 @@ use kafka_protocol::messages::{
     RequestKind,
 };
 
-use crate::broker::config::BrokerId;
+use crate::broker::BrokerId;
 use crate::broker::handler::Handler;
 use crate::broker::Broker;
 use rand::seq::SliceRandom;
@@ -62,7 +62,7 @@ impl Broker {
     }
 
     async fn create_topic(&self, name: &str, t: CreatableTopic) -> Result<CreatableTopicResult> {
-        let topic = Topic {
+        let mut topic = Topic {
             id: Uuid::new_v4(),
             name: (*name).to_string(),
             internal: false,
@@ -82,11 +82,13 @@ impl Broker {
 
         // TODO we should really do topic + partitions within single tx
         for p in ps {
+            topic.partitions.insert( p.idx.0, p.leader.0);
             let _ = &self
                 .client
                 .propose(Transition::EnsurePartition(p).serialize()?)
                 .await?;
         }
+
 
         // Start isr
         for b in self.get_brokers() {

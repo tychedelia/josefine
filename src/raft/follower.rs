@@ -34,7 +34,7 @@ impl Role for Follower {
 }
 
 impl Apply for Raft<Follower> {
-    #[tracing::instrument]
+    #[tracing::instrument(skip(self))]
     fn apply(self, cmd: Command) -> Result<RaftHandle> {
         self.log_command(&cmd);
         match cmd {
@@ -120,7 +120,7 @@ impl Raft<Follower> {
 
     fn apply_tick(self) -> Result<RaftHandle> {
         if self.needs_election() {
-            tracing::info!("timeout");
+            tracing::debug!("timeout");
             return self.apply(Command::Timeout);
         }
 

@@ -382,7 +382,7 @@ impl<T: Role> Raft<T> {
                 tracing::trace!(%cmd, "command")
             }
             _ => {
-                tracing::info!(%cmd, "command");
+                tracing::debug!(%cmd, "command");
             }
         };
     }

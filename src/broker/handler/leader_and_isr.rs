@@ -1,4 +1,4 @@
-use crate::broker::config::BrokerId;
+use crate::broker::BrokerId;
 use crate::broker::handler::Handler;
 use crate::broker::replica::Replica;
 use crate::broker::Broker;

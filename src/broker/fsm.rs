@@ -1,9 +1,10 @@
-use crate::broker::state::partition::Partition;
-use crate::raft::fsm::Fsm;
 use anyhow::Result;
+use crate::broker::config::Peer;
 
-use crate::broker::state::topic::Topic;
+use crate::broker::state::partition::Partition;
 use crate::broker::state::Store;
+use crate::broker::state::topic::Topic;
+use crate::raft::fsm::Fsm;
 
 // FSM impl
 
@@ -28,6 +29,12 @@ impl JosefineFsm {
         let partition = self.store.create_partition(partition)?;
         Ok(bincode::serialize(&partition)?)
     }
+
+    fn ensure_broker(&mut self, broker: Peer) -> Result<Vec<u8>> {
+        tracing::trace!(%broker.id, "create broker");
+        let broker = self.store.create_broker(broker)?;
+        Ok(bincode::serialize(&broker)?)
+    }
 }
 
 impl Fsm for JosefineFsm {
@@ -38,6 +45,7 @@ impl Fsm for JosefineFsm {
         match t {
             Transition::EnsureTopic(topic) => self.ensure_topic(topic),
             Transition::EnsurePartition(partition) => self.ensure_partition(partition),
+            Transition::EnsureBroker(broker) => self.ensure_broker(broker),
         }
     }
 }
@@ -48,6 +56,7 @@ impl Fsm for JosefineFsm {
 pub enum Transition {
     EnsureTopic(Topic),
     EnsurePartition(Partition),
+    EnsureBroker(Peer),
 }
 
 impl Transition {

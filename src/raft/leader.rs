@@ -246,7 +246,7 @@ impl Raft<Leader> {
 }
 
 impl Apply for Raft<Leader> {
-    #[tracing::instrument]
+    #[tracing::instrument(skip(self))]
     fn apply(self, cmd: Command) -> Result<RaftHandle> {
         self.log_command(&cmd);
         match cmd {
