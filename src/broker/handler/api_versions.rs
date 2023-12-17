@@ -1,6 +1,5 @@
 use crate::broker::handler::Handler;
 use crate::broker::Broker;
-use async_trait::async_trait;
 use kafka_protocol::messages::api_versions_response::ApiVersion;
 use kafka_protocol::messages::*;
 use kafka_protocol::protocol::Message;
@@ -12,7 +11,6 @@ fn api_version<T: Message>() -> ApiVersion {
     v
 }
 
-#[async_trait]
 impl Handler<ApiVersionsRequest> for Broker {
     async fn handle(
         &self,
@@ -83,7 +81,6 @@ impl Handler<ApiVersionsRequest> for Broker {
             ApiKey::DeleteTopicsKey as i16,
             api_version::<DeleteTopicsRequest>(),
         );
-
         Ok(res)
     }
 }

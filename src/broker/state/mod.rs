@@ -4,7 +4,7 @@ pub mod topic;
 mod broker;
 
 use crate::broker::state::group::Group;
-use crate::broker::state::partition::Partition;
+use crate::broker::state::partition::{Partition, PartitionIdx};
 use crate::broker::state::topic::Topic;
 use anyhow::Result;
 use serde::de::DeserializeOwned;
@@ -62,7 +62,7 @@ impl Store {
     #[tracing::instrument]
     pub fn create_partition(&self, partition: Partition) -> Result<Partition> {
         tracing::debug!(?partition, "create partition");
-        let key = format!("{}:partition:{}", partition.topic, partition.id);
+        let key = format!("{}:partition:{}", partition.topic, partition.idx);
         self.insert(&key, &partition)?;
         Ok(partition)
     }
@@ -73,8 +73,8 @@ impl Store {
         Ok(broker)
     }
 
-    pub fn get_partition(&self, topic: &str, id: i32) -> Result<Option<Partition>> {
-        self.get(format!("{}:partition:{}", topic, id))
+    pub fn get_partition(&self, topic: &str, idx: PartitionIdx) -> Result<Option<Partition>> {
+        self.get(format!("{}:partition:{}", topic, idx))
     }
 
     fn get<T: DeserializeOwned, K: AsRef<[u8]>>(&self, key: K) -> Result<Option<T>> {

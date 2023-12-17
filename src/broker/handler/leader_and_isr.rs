@@ -2,10 +2,9 @@ use crate::broker::BrokerId;
 use crate::broker::handler::Handler;
 use crate::broker::replica::Replica;
 use crate::broker::Broker;
-use async_trait::async_trait;
 use kafka_protocol::messages::{LeaderAndIsrRequest, LeaderAndIsrResponse};
+use crate::broker::state::partition::PartitionIdx;
 
-#[async_trait]
 impl Handler<LeaderAndIsrRequest> for Broker {
     async fn handle(
         &self,
@@ -16,7 +15,7 @@ impl Handler<LeaderAndIsrRequest> for Broker {
             for ps in ts.partition_states {
                 let partition = self
                     .store
-                    .get_partition(&ps.topic_name, ps.partition_index)?
+                    .get_partition(&ps.topic_name, PartitionIdx(ps.partition_index))?
                     .ok_or(anyhow::anyhow!("could not find partition"))?;
                 let pid = partition.id;
                 let replica = Replica::new(&self.config.data_dir, BrokerId(ps.leader.0), partition);

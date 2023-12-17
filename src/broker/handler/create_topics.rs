@@ -1,7 +1,7 @@
 use crate::broker::fsm::Transition;
 use crate::broker::state::topic::Topic;
 use anyhow::Result;
-use async_trait::async_trait;
+use std::collections::HashMap;
 use std::net::SocketAddr;
 
 use kafka_protocol::messages::create_topics_request::CreatableTopic;
@@ -11,10 +11,11 @@ use kafka_protocol::messages::{
     ApiKey, CreateTopicsRequest, CreateTopicsResponse, LeaderAndIsrRequest, RequestHeader,
     RequestKind,
 };
+use kafka_protocol::ResponseError::InvalidReplicationFactor;
 
-use crate::broker::BrokerId;
 use crate::broker::handler::Handler;
 use crate::broker::Broker;
+use crate::broker::BrokerId;
 use rand::seq::SliceRandom;
 use rand::thread_rng;
 
@@ -29,7 +30,7 @@ impl Broker {
         let mut brokers = self.get_broker_ids();
 
         if topic.replication_factor > brokers.len() as i16 {
-            // TODO
+            todo!("figure out protocol level errors")
         }
 
         let mut partitions = Vec::new();
@@ -62,11 +63,23 @@ impl Broker {
     }
 
     async fn create_topic(&self, name: &str, t: CreatableTopic) -> Result<CreatableTopicResult> {
-        let mut topic = Topic {
-            id: Uuid::new_v4(),
-            name: (*name).to_string(),
-            internal: false,
-            ..Default::default()
+        let ps = self.make_partitions(name, &t).await?;
+
+        let topic = {
+            let mut partitions = HashMap::new();
+            for p in &ps {
+                partitions.insert(
+                    p.idx.clone(),
+                    p.assigned_replicas.iter().map(|x| BrokerId(*x)).collect(),
+                );
+            }
+
+            Topic {
+                id: Uuid::new_v4(),
+                name: (*name).to_string(),
+                partitions,
+                internal: false,
+            }
         };
 
         let mut res = CreatableTopicResult::default();
@@ -78,17 +91,13 @@ impl Broker {
             .propose(Transition::EnsureTopic(topic).serialize()?)
             .await?;
 
-        let ps = self.make_partitions(name, &t).await?;
-
         // TODO we should really do topic + partitions within single tx
         for p in ps {
-            topic.partitions.insert( p.idx.0, p.leader.0);
             let _ = &self
                 .client
                 .propose(Transition::EnsurePartition(p).serialize()?)
                 .await?;
         }
-
 
         // Start isr
         for b in self.get_brokers() {
@@ -118,7 +127,6 @@ impl Broker {
     }
 }
 
-#[async_trait]
 impl Handler<CreateTopicsRequest> for Broker {
     async fn handle(
         &self,

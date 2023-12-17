@@ -1,6 +1,5 @@
 use std::fmt::Debug;
 
-use async_trait::async_trait;
 use kafka_protocol::protocol::Request;
 
 use anyhow::Result;
@@ -14,7 +13,6 @@ mod metadata;
 mod produce;
 mod test;
 
-#[async_trait]
 pub(crate) trait Handler<Req, Res = <Req as Request>::Response>: Debug
 where
     Req: Request + Default + Debug + Send + 'static,

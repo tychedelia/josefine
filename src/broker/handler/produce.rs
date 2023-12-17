@@ -1,4 +1,3 @@
-use async_trait::async_trait;
 use std::io::Write;
 
 use crate::broker::handler::Handler;
@@ -6,8 +5,8 @@ use crate::broker::Broker;
 
 use kafka_protocol::messages::ProduceRequest;
 use kafka_protocol::protocol::Request;
+use crate::broker::state::partition::PartitionIdx;
 
-#[async_trait]
 impl Handler<ProduceRequest> for Broker {
     async fn handle(
         &self,
@@ -20,7 +19,7 @@ impl Handler<ProduceRequest> for Broker {
                 if let Some(bytes) = &pd.records {
                     let p = self
                         .store
-                        .get_partition(t, pd.index)?
+                        .get_partition(t, PartitionIdx(pd.index))?
                         .expect("TODO: partition doesn't exist");
                     let replica = self
                         .replicas
