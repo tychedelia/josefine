@@ -2,23 +2,23 @@ use std::{collections::HashMap, net::SocketAddr};
 
 use anyhow::Result;
 use futures::FutureExt;
+use tokio::sync::mpsc;
+use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
+use tokio::time::Duration;
 use tokio::{
     net::TcpListener,
     sync::{mpsc::unbounded_channel, oneshot},
 };
-use tokio::sync::mpsc;
-use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
-use tokio::time::Duration;
 use uuid::Uuid;
 
+use crate::raft::rpc::{Address, Message, Proposal, Response, ResponseError};
 use crate::raft::{
-    ClientRequest,
     config::RaftConfig,
     fsm::{self},
+    ClientRequest,
 };
-use crate::raft::{ClientRequestId, tcp};
+use crate::raft::{tcp, ClientRequestId};
 use crate::raft::{Apply, Command, RaftHandle};
-use crate::raft::rpc::{Address, Message, Proposal, Response, ResponseError};
 use crate::Shutdown;
 
 /// step duration

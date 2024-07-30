@@ -2,8 +2,8 @@ use std::path::PathBuf;
 
 use anyhow::Context;
 use clap::Parser;
-use tracing_subscriber::{EnvFilter, fmt};
 use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::{fmt, EnvFilter};
 
 use josefine::util::Shutdown;
 

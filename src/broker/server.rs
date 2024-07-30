@@ -11,7 +11,6 @@ use kafka_protocol::messages::*;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::oneshot;
 
-
 use crate::broker::state::Store;
 use crate::raft::client::RaftClient;
 
@@ -31,7 +30,11 @@ impl Server {
     }
 
     pub async fn run(self, client: RaftClient, store: Store, shutdown: Shutdown) -> Result<()> {
-        tracing::info!("broker listening on {}:{}", self.config.ip, self.config.port);
+        tracing::info!(
+            "broker listening on {}:{}",
+            self.config.ip,
+            self.config.port
+        );
         let listener = TcpListener::bind(self.address).await?;
         let (in_tx, out_tx) = tokio::sync::mpsc::unbounded_channel();
         let (task, tcp_receiver) =

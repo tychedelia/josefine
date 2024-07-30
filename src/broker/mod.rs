@@ -2,13 +2,16 @@ use crate::broker::config::BrokerConfig;
 use crate::broker::handler::Handler;
 use crate::raft::client::RaftClient;
 use anyhow::Result;
-use kafka_protocol::messages::{RequestKind, ResponseKind};
+use derive_more::Display;
+use kafka_protocol::messages::{
+    ApiVersionsRequest, CreateTopicsRequest, FindCoordinatorRequest, ListGroupsRequest,
+    MetadataRequest, RequestKind, ResponseKind,
+};
 use server::Server;
 use std::collections::HashMap;
 use std::fmt::{Debug, Formatter};
 use std::sync::{Arc, Mutex, RwLock};
 use uuid::Uuid;
-use derive_more::Display;
 
 use crate::broker::replica::Replica;
 
@@ -101,29 +104,38 @@ impl Broker {
     }
 
     #[tracing::instrument]
-
     pub async fn handle_request(&self, req: RequestKind) -> Result<ResponseKind> {
         tracing::debug!("handle request");
         let res = match req {
-            RequestKind::ApiVersionsRequest(req) => {
-                let res = self.do_handle(req).await?;
-                ResponseKind::ApiVersionsResponse(res)
+            RequestKind::ApiVersions(req) => {
+                let res = self
+                    .handle(req, <Broker as Handler<ApiVersionsRequest>>::response())
+                    .await?;
+                ResponseKind::ApiVersions(res)
             }
-            RequestKind::MetadataRequest(req) => {
-                let res = self.do_handle(req).await?;
-                ResponseKind::MetadataResponse(res)
+            RequestKind::Metadata(req) => {
+                let res = self
+                    .handle(req, <Broker as Handler<MetadataRequest>>::response())
+                    .await?;
+                ResponseKind::Metadata(res)
             }
-            RequestKind::CreateTopicsRequest(req) => {
-                let res = self.do_handle(req).await?;
-                ResponseKind::CreateTopicsResponse(res)
+            RequestKind::CreateTopics(req) => {
+                let res = self
+                    .handle(req, <Broker as Handler<CreateTopicsRequest>>::response())
+                    .await?;
+                ResponseKind::CreateTopics(res)
             }
-            RequestKind::ListGroupsRequest(req) => {
-                let res = self.do_handle(req).await?;
-                ResponseKind::ListGroupsResponse(res)
+            RequestKind::ListGroups(req) => {
+                let res = self
+                    .handle(req, <Broker as Handler<ListGroupsRequest>>::response())
+                    .await?;
+                ResponseKind::ListGroups(res)
             }
-            RequestKind::FindCoordinatorRequest(req) => {
-                let res = self.do_handle(req).await?;
-                ResponseKind::FindCoordinatorResponse(res)
+            RequestKind::FindCoordinator(req) => {
+                let res = self
+                    .handle(req, <Broker as Handler<FindCoordinatorRequest>>::response())
+                    .await?;
+                ResponseKind::FindCoordinator(res)
             }
             _ => panic!(),
         };

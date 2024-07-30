@@ -41,7 +41,8 @@ impl codec::Decoder for KafkaServerCodec {
     fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
         if let Some(mut bytes) = self.length_codec.decode(src)? {
             let version = Self::read_version(&mut bytes)?;
-            let header = RequestHeader::decode(&mut bytes, version)?;
+            let header =
+                RequestHeader::decode(&mut bytes, version).map_err(|_| ErrorKind::DecodeError)?;
             let api_key = ApiKey::try_from(header.request_api_key)?;
             let request = decode(&mut bytes, api_key, version)?;
             Ok(Some((header, request)))
@@ -75,25 +76,40 @@ fn encode(
     version: i16,
 ) -> Result<(), ErrorKind> {
     match response_kind {
-        ResponseKind::ApiVersionsResponse(res) => {
-            header.encode(bytes, ApiVersionsResponse::header_version(version))?;
-            res.encode(bytes, version)?;
+        ResponseKind::ApiVersions(res) => {
+            header
+                .encode(bytes, ApiVersionsResponse::header_version(version))
+                .map_err(|_| ErrorKind::EncodeError)?;
+            res.encode(bytes, version)
+                .map_err(|_| ErrorKind::EncodeError)?;
         }
-        ResponseKind::MetadataResponse(res) => {
-            header.encode(bytes, MetadataResponse::header_version(version))?;
-            res.encode(bytes, version)?;
+        ResponseKind::Metadata(res) => {
+            header
+                .encode(bytes, MetadataResponse::header_version(version))
+                .map_err(|_| ErrorKind::EncodeError)?;
+            res.encode(bytes, version)
+                .map_err(|_| ErrorKind::EncodeError)?;
         }
-        ResponseKind::CreateTopicsResponse(res) => {
-            header.encode(bytes, CreateTopicsResponse::header_version(version))?;
-            res.encode(bytes, version)?;
+        ResponseKind::CreateTopics(res) => {
+            header
+                .encode(bytes, CreateTopicsResponse::header_version(version))
+                .map_err(|_| ErrorKind::EncodeError)?;
+            res.encode(bytes, version)
+                .map_err(|_| ErrorKind::EncodeError)?;
         }
-        ResponseKind::ListGroupsResponse(res) => {
-            header.encode(bytes, ListGroupsResponse::header_version(version))?;
-            res.encode(bytes, version)?;
+        ResponseKind::ListGroups(res) => {
+            header
+                .encode(bytes, ListGroupsResponse::header_version(version))
+                .map_err(|_| ErrorKind::EncodeError)?;
+            res.encode(bytes, version)
+                .map_err(|_| ErrorKind::EncodeError)?;
         }
-        ResponseKind::FindCoordinatorResponse(res) => {
-            header.encode(bytes, FindCoordinatorResponse::header_version(version))?;
-            res.encode(bytes, version)?;
+        ResponseKind::FindCoordinator(res) => {
+            header
+                .encode(bytes, FindCoordinatorResponse::header_version(version))
+                .map_err(|_| ErrorKind::EncodeError)?;
+            res.encode(bytes, version)
+                .map_err(|_| ErrorKind::EncodeError)?;
         }
         _ => return Err(ErrorKind::UnsupportedOperation),
     };
@@ -104,24 +120,29 @@ fn encode(
 fn decode(bytes: &mut BytesMut, api_key: ApiKey, version: i16) -> Result<RequestKind, ErrorKind> {
     match api_key {
         ApiKey::ApiVersionsKey => {
-            let req = ApiVersionsRequest::decode(bytes, version)?;
-            Ok(RequestKind::ApiVersionsRequest(req))
+            let req =
+                ApiVersionsRequest::decode(bytes, version).map_err(|_| ErrorKind::DecodeError)?;
+            Ok(RequestKind::ApiVersions(req))
         }
         ApiKey::MetadataKey => {
-            let req = MetadataRequest::decode(bytes, version)?;
-            Ok(RequestKind::MetadataRequest(req))
+            let req =
+                MetadataRequest::decode(bytes, version).map_err(|_| ErrorKind::DecodeError)?;
+            Ok(RequestKind::Metadata(req))
         }
         ApiKey::CreateTopicsKey => {
-            let req = CreateTopicsRequest::decode(bytes, version)?;
-            Ok(RequestKind::CreateTopicsRequest(req))
+            let req =
+                CreateTopicsRequest::decode(bytes, version).map_err(|_| ErrorKind::DecodeError)?;
+            Ok(RequestKind::CreateTopics(req))
         }
         ApiKey::ListGroupsKey => {
-            let req = ListGroupsRequest::decode(bytes, version)?;
-            Ok(RequestKind::ListGroupsRequest(req))
+            let req =
+                ListGroupsRequest::decode(bytes, version).map_err(|_| ErrorKind::DecodeError)?;
+            Ok(RequestKind::ListGroups(req))
         }
         ApiKey::FindCoordinatorKey => {
-            let req = FindCoordinatorRequest::decode(bytes, version)?;
-            Ok(RequestKind::FindCoordinatorRequest(req))
+            let req = FindCoordinatorRequest::decode(bytes, version)
+                .map_err(|_| ErrorKind::DecodeError)?;
+            Ok(RequestKind::FindCoordinator(req))
         }
         _ => Err(ErrorKind::UnsupportedOperation),
     }
@@ -154,7 +175,8 @@ impl codec::Decoder for KafkaClientCodec {
     #[tracing::instrument]
     fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
         if let Some(mut bytes) = self.length_codec.decode(src)? {
-            let header = ResponseHeader::decode(&mut bytes, 1)?;
+            let header =
+                ResponseHeader::decode(&mut bytes, 1).map_err(|_| ErrorKind::DecodeError)?;
             let mut request_header = self.requests.lock().unwrap();
             let request_header = request_header
                 .remove(&header.correlation_id)
@@ -177,18 +199,21 @@ fn decode_response(
     match api_key {
         ApiKey::ApiVersionsKey => {
             let res =
-                ApiVersionsResponse::decode(bytes, CreateTopicsResponse::header_version(version))?;
-            Ok(ResponseKind::ApiVersionsResponse(res))
+                ApiVersionsResponse::decode(bytes, CreateTopicsResponse::header_version(version))
+                    .map_err(|_| ErrorKind::DecodeError)?;
+            Ok(ResponseKind::ApiVersions(res))
         }
         ApiKey::LeaderAndIsrKey => {
             let res =
-                LeaderAndIsrResponse::decode(bytes, LeaderAndIsrResponse::header_version(version))?;
-            Ok(ResponseKind::LeaderAndIsrResponse(res))
+                LeaderAndIsrResponse::decode(bytes, LeaderAndIsrResponse::header_version(version))
+                    .map_err(|_| ErrorKind::DecodeError)?;
+            Ok(ResponseKind::LeaderAndIsr(res))
         }
         ApiKey::CreateTopicsKey => {
             let res =
-                CreateTopicsResponse::decode(bytes, CreateTopicsResponse::header_version(version))?;
-            Ok(ResponseKind::CreateTopicsResponse(res))
+                CreateTopicsResponse::decode(bytes, CreateTopicsResponse::header_version(version))
+                    .map_err(|_| ErrorKind::DecodeError)?;
+            Ok(ResponseKind::CreateTopics(res))
         }
         _ => Err(ErrorKind::UnsupportedOperation),
     }
@@ -223,17 +248,26 @@ fn encode_request(
     version: i16,
 ) -> Result<(), ErrorKind> {
     match request {
-        RequestKind::ApiVersionsRequest(req) => {
-            header.encode(bytes, LeaderAndIsrRequest::header_version(version))?;
-            req.encode(bytes, version)?;
+        RequestKind::ApiVersions(req) => {
+            header
+                .encode(bytes, LeaderAndIsrRequest::header_version(version))
+                .map_err(|_| ErrorKind::EncodeError)?;
+            req.encode(bytes, version)
+                .map_err(|_| ErrorKind::EncodeError)?;
         }
-        RequestKind::LeaderAndIsrRequest(req) => {
-            header.encode(bytes, LeaderAndIsrRequest::header_version(version))?;
-            req.encode(bytes, version)?;
+        RequestKind::LeaderAndIsr(req) => {
+            header
+                .encode(bytes, LeaderAndIsrRequest::header_version(version))
+                .map_err(|_| ErrorKind::EncodeError)?;
+            req.encode(bytes, version)
+                .map_err(|_| ErrorKind::EncodeError)?;
         }
-        RequestKind::CreateTopicsRequest(req) => {
-            header.encode(bytes, CreateTopicsRequest::header_version(version))?;
-            req.encode(bytes, version)?;
+        RequestKind::CreateTopics(req) => {
+            header
+                .encode(bytes, CreateTopicsRequest::header_version(version))
+                .map_err(|_| ErrorKind::EncodeError)?;
+            req.encode(bytes, version)
+                .map_err(|_| ErrorKind::EncodeError)?;
         }
         _ => return Err(EncodeError),
     };

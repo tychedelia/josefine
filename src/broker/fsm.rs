@@ -1,9 +1,9 @@
-use anyhow::Result;
 use crate::broker::config::Peer;
+use anyhow::Result;
 
 use crate::broker::state::partition::Partition;
-use crate::broker::state::Store;
 use crate::broker::state::topic::Topic;
+use crate::broker::state::Store;
 use crate::raft::fsm::Fsm;
 
 // FSM impl

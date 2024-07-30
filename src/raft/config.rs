@@ -48,9 +48,12 @@ impl RaftConfig {
         let config = settings
             .add_source(config::File::from(config_path))
             .add_source(config::Environment::with_prefix("crate::raft"))
-            .build().expect("Could not build configuration");
+            .build()
+            .expect("Could not build configuration");
 
-        config.try_deserialize().expect("Could not create configuration")
+        config
+            .try_deserialize()
+            .expect("Could not create configuration")
     }
 
     /// Validates the configuration, ensuring all values make sense.

@@ -13,7 +13,10 @@ pub fn config<P: AsRef<std::path::Path>>(config_path: P) -> JosefineConfig {
     let config = settings
         .add_source(config::File::from(config_path.as_ref()))
         .add_source(config::Environment::with_prefix("JOSEFINE"))
-        .build().expect("Could not build configuration");
+        .build()
+        .expect("Could not build configuration");
 
-    config.try_deserialize().expect("Could not deserialize configuration")
+    config
+        .try_deserialize()
+        .expect("Could not deserialize configuration")
 }

@@ -1,6 +1,6 @@
+use crate::broker::BrokerId;
 use std::net::{IpAddr, ToSocketAddrs};
 use std::path::PathBuf;
-use crate::broker::BrokerId;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Peer {

@@ -1,9 +1,3 @@
-
-
-
-
-
-
 #[derive(Debug)]
 pub struct Shutdown(
     tokio::sync::broadcast::Sender<()>,

@@ -2,7 +2,6 @@
 
 use josefine::util::Shutdown;
 
-
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::{fmt, EnvFilter};
 

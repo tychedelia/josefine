@@ -1,8 +1,9 @@
+mod broker;
 pub mod group;
 pub mod partition;
 pub mod topic;
-mod broker;
 
+use crate::broker::config::Peer;
 use crate::broker::state::group::Group;
 use crate::broker::state::partition::{Partition, PartitionIdx};
 use crate::broker::state::topic::Topic;
@@ -12,7 +13,6 @@ use serde::Serialize;
 use sled::Db;
 use std::collections::HashMap;
 use std::fmt::{Debug, Formatter};
-use crate::broker::config::Peer;
 
 #[derive(Clone)]
 pub struct Store {

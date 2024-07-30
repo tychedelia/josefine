@@ -10,7 +10,6 @@ use crate::raft::client::RaftClient;
 use anyhow::Result;
 use futures::FutureExt;
 
-
 use crate::raft::JosefineRaft;
 use crate::util::Shutdown;
 

@@ -1,9 +1,9 @@
-use crate::broker::BrokerId;
 use crate::broker::handler::Handler;
 use crate::broker::replica::Replica;
-use crate::broker::Broker;
-use kafka_protocol::messages::{LeaderAndIsrRequest, LeaderAndIsrResponse};
 use crate::broker::state::partition::PartitionIdx;
+use crate::broker::Broker;
+use crate::broker::BrokerId;
+use kafka_protocol::messages::{LeaderAndIsrRequest, LeaderAndIsrResponse};
 
 impl Handler<LeaderAndIsrRequest> for Broker {
     async fn handle(

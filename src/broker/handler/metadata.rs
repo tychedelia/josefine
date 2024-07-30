@@ -3,14 +3,11 @@ use kafka_protocol::messages::metadata_response::{
     MetadataResponseBroker, MetadataResponsePartition, MetadataResponseTopic,
 };
 use kafka_protocol::messages::{BrokerId, MetadataRequest, MetadataResponse, TopicName};
-use kafka_protocol::protocol::Builder;
-use kafka_protocol::protocol::StrBytes;
 use kafka_protocol::ResponseError::{TopicAlreadyExists, UnknownTopicOrPartition};
 
 use crate::broker::handler::Handler;
 use crate::broker::state::topic::Topic;
 use crate::broker::Broker;
-use crate::kafka::util::ToStrBytes;
 
 impl Handler<MetadataRequest> for Broker {
     #[tracing::instrument]
@@ -22,16 +19,14 @@ impl Handler<MetadataRequest> for Broker {
         self.get_brokers().iter().for_each(|b| {
             res.brokers.insert(
                 BrokerId(b.id.0),
-                MetadataResponseBroker::builder()
-                    .host(b.ip.to_string().to_str_bytes())
-                    .port(b.port as i32)
-                    .build()
-                    .unwrap(),
+                MetadataResponseBroker::default()
+                    .with_host(b.ip.to_string().into())
+                    .with_port(b.port as i32),
             );
         });
 
         res.controller_id = BrokerId(1);
-        res.cluster_id = Some(StrBytes::from_str("josefine"));
+        res.cluster_id = Some("josefine".into());
         res.throttle_time_ms = 1000;
 
         if let Some(topics) = req.topics {
@@ -60,10 +55,8 @@ impl Broker {
             } else {
                 res.topics.insert(
                     name,
-                    MetadataResponseTopic::builder()
-                        .error_code(UnknownTopicOrPartition.code())
-                        .build()
-                        .unwrap(),
+                    MetadataResponseTopic::default()
+                        .with_error_code(UnknownTopicOrPartition.code()),
                 );
             }
         }
@@ -74,8 +67,7 @@ impl Broker {
         let topics = self.store.get_topics()?;
         for (name, topic) in topics.into_iter() {
             let t = self.build_topic_metadata(name, &topic)?;
-            let s = topic.name.to_str_bytes();
-            res.topics.insert(TopicName(s), t);
+            res.topics.insert(TopicName(topic.name.into()), t);
         }
         Ok(())
     }
@@ -85,9 +77,9 @@ impl Broker {
         name: String,
         topic: &Topic,
     ) -> anyhow::Result<MetadataResponseTopic> {
-        let t = MetadataResponseTopic::builder()
-            .topic_id(topic.id)
-            .partitions(
+        let t = MetadataResponseTopic::default()
+            .with_topic_id(topic.id)
+            .with_partitions(
                 topic
                     .partitions
                     .iter()
@@ -111,8 +103,7 @@ impl Broker {
                         Ok(mp)
                     })
                     .collect::<anyhow::Result<Vec<MetadataResponsePartition>>>()?,
-            )
-            .build()?;
+            );
         Ok(t)
     }
 }
@@ -121,7 +112,6 @@ impl Broker {
 mod tests {
     use anyhow::Result;
     use kafka_protocol::messages::{MetadataRequest, MetadataResponse};
-    use kafka_protocol::protocol::Builder;
 
     use crate::broker::handler::test::new_broker;
     use crate::broker::handler::Handler;

@@ -2,10 +2,10 @@ use std::collections::HashMap;
 use std::net::SocketAddr;
 
 use josefine::broker::config::Peer;
+use josefine::broker::BrokerId;
 use josefine::config::JosefineConfig;
 use josefine::josefine_with_config;
 use tokio::time::Duration;
-use josefine::broker::BrokerId;
 
 use josefine::raft::Node;
 use josefine::util::Shutdown;

@@ -17,22 +17,16 @@ impl Handler<ApiVersionsRequest> for Broker {
         _req: ApiVersionsRequest,
         mut res: ApiVersionsResponse,
     ) -> anyhow::Result<ApiVersionsResponse> {
-        res.api_keys.insert(
-            ApiKey::ProduceKey as i16,
-            api_version::<ProduceRequest>(),
-        );
-        res.api_keys.insert(
-            ApiKey::FetchKey as i16,
-            api_version::<FetchRequest>(),
-        );
+        res.api_keys
+            .insert(ApiKey::ProduceKey as i16, api_version::<ProduceRequest>());
+        res.api_keys
+            .insert(ApiKey::FetchKey as i16, api_version::<FetchRequest>());
         res.api_keys.insert(
             ApiKey::ListOffsetsKey as i16,
             api_version::<ListOffsetsRequest>(),
         );
-        res.api_keys.insert(
-            ApiKey::MetadataKey as i16,
-            api_version::<MetadataRequest>(),
-        );
+        res.api_keys
+            .insert(ApiKey::MetadataKey as i16, api_version::<MetadataRequest>());
         res.api_keys.insert(
             ApiKey::LeaderAndIsrKey as i16,
             api_version::<LeaderAndIsrRequest>(),

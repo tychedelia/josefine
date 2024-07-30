@@ -1,6 +1,6 @@
-use crate::broker::BrokerId;
 use crate::broker::log::Log;
 use crate::broker::state::partition::Partition;
+use crate::broker::BrokerId;
 use std::path::Path;
 
 pub struct Replica {

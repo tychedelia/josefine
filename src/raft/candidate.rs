@@ -91,13 +91,9 @@ impl Raft<Candidate> {
     fn apply_vote_response(mut self, granted: bool, from: NodeId) -> Result<RaftHandle, Error> {
         self.role.election.vote(from, granted);
         match self.role.election.election_status() {
-            ElectionStatus::Elected => {
-                self.elect()
-            }
+            ElectionStatus::Elected => self.elect(),
             ElectionStatus::Voting => Ok(RaftHandle::Candidate(self)),
-            ElectionStatus::Defeated => {
-                self.defeat()
-            }
+            ElectionStatus::Defeated => self.defeat(),
         }
     }
 

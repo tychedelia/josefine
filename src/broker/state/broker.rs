@@ -1,5 +1,5 @@
-use std::net::IpAddr;
 use crate::broker::BrokerId;
+use std::net::IpAddr;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Broker {

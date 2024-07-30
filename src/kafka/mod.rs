@@ -9,7 +9,6 @@ use tokio::sync::oneshot;
 pub mod codec;
 pub mod error;
 mod tcp;
-pub mod util;
 
 #[derive(Debug)]
 pub struct KafkaClient {

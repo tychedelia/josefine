@@ -3,9 +3,9 @@ use std::io::Write;
 use crate::broker::handler::Handler;
 use crate::broker::Broker;
 
+use crate::broker::state::partition::PartitionIdx;
 use kafka_protocol::messages::ProduceRequest;
 use kafka_protocol::protocol::Request;
-use crate::broker::state::partition::PartitionIdx;
 
 impl Handler<ProduceRequest> for Broker {
     async fn handle(

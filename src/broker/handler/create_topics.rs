@@ -7,15 +7,13 @@ use std::net::SocketAddr;
 use kafka_protocol::messages::create_topics_request::CreatableTopic;
 use kafka_protocol::messages::create_topics_response::CreatableTopicResult;
 
+use crate::broker::handler::Handler;
+use crate::broker::Broker;
+use crate::broker::BrokerId;
 use kafka_protocol::messages::{
     ApiKey, CreateTopicsRequest, CreateTopicsResponse, LeaderAndIsrRequest, RequestHeader,
     RequestKind,
 };
-use kafka_protocol::ResponseError::InvalidReplicationFactor;
-
-use crate::broker::handler::Handler;
-use crate::broker::Broker;
-use crate::broker::BrokerId;
 use rand::seq::SliceRandom;
 use rand::thread_rng;
 
@@ -107,14 +105,15 @@ impl Broker {
             let mut req = LeaderAndIsrRequest::default();
             req.controller_id = kafka_protocol::messages::BrokerId(b.id.0);
             if b.id == self.config.id {
-                self.do_handle(req).await?;
+                self.handle(req, <Broker as Handler<LeaderAndIsrRequest>>::response())
+                    .await?;
             } else {
-                let req = RequestKind::LeaderAndIsrRequest(req);
+                let req = RequestKind::LeaderAndIsr(req);
                 let client = KafkaClient::new(SocketAddr::new(b.ip, b.port)).await?;
                 let shutdown = Shutdown::new();
                 let client = client.connect(shutdown).await?;
                 //
-                if let kafka_protocol::messages::ResponseKind::LeaderAndIsrResponse(_res) =
+                if let kafka_protocol::messages::ResponseKind::LeaderAndIsr(_res) =
                     client.send(header, req).await?
                 {
                 } else {
@@ -155,13 +154,12 @@ mod tests {
     use anyhow::Result;
     use kafka_protocol::messages::create_topics_request::CreatableTopic;
     use kafka_protocol::messages::{CreateTopicsRequest, CreateTopicsResponse, TopicName};
-    use kafka_protocol::protocol::StrBytes;
 
     #[tokio::test]
     async fn execute() -> Result<()> {
         let (mut rx, broker) = new_broker();
         let mut req = CreateTopicsRequest::default();
-        let topic_name = TopicName(StrBytes::from_str("Test"));
+        let topic_name = TopicName("Test".into());
         req.topics
             .insert(topic_name.clone(), CreatableTopic::default());
         let (res, _) = tokio::join!(

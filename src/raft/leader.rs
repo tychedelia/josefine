@@ -5,8 +5,8 @@ use std::time::Instant;
 use anyhow::{Error, Result};
 
 use crate::raft::follower::Follower;
+use crate::raft::progress::ReplicationProgress;
 use crate::raft::progress::{NodeProgress, MAX_INFLIGHT};
-use crate::raft::progress::{ReplicationProgress};
 
 use crate::raft::{ClientRequest, Command, Raft};
 

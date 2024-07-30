@@ -18,14 +18,6 @@ where
     Req: Request + Default + Debug + Send + 'static,
     Res: Default + Debug + Send,
 {
-    #[tracing::instrument]
-    async fn do_handle(&self, req: Req) -> Result<Res> {
-        tracing::debug!("handle request");
-        let res = self.handle(req, Self::response()).await;
-        tracing::debug!(?res, "handle response");
-        res
-    }
-
     async fn handle(&self, req: Req, res: Res) -> Result<Res>;
 
     fn response() -> Res {
